@@ -35,6 +35,7 @@ interface NotebookAreaProps {
   onStartFocusSession: (task: TodoItem) => void;
   onToggleSubtask: (goalId: string, subtaskId: string) => void;
   onCopyYesterdayList?: () => void;
+  onClearAllGoals?: () => void;
   onInspectDay?: (dateKey: string) => void;
   onOpenInsights?: () => void;
   onOpenWeeklyReview?: () => void;
@@ -68,6 +69,7 @@ export const NotebookArea: React.FC<NotebookAreaProps> = ({
   onStartFocusSession,
   onToggleSubtask,
   onCopyYesterdayList,
+  onClearAllGoals,
   onInspectDay,
   onOpenInsights,
   onOpenWeeklyReview,
@@ -113,6 +115,7 @@ export const NotebookArea: React.FC<NotebookAreaProps> = ({
         onStartFocusSession={onStartFocusSession}
         onToggleSubtask={onToggleSubtask}
         onCopyYesterdayList={onCopyYesterdayList}
+        onClearAllGoals={onClearAllGoals}
       />
 
       {/* 3. BOTTOM SECTION: ENHANCED SCRATCHPAD & PASTEL NOTES WITH DRAG & DROP */}

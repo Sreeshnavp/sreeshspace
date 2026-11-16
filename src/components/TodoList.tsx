@@ -46,6 +46,7 @@ interface TodoListProps {
   onStartFocusSession: (task: TodoItem) => void;
   onToggleSubtask: (goalId: string, subtaskId: string) => void;
   onCopyYesterdayList?: () => void;
+  onClearAllGoals?: () => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -67,6 +68,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   onStartFocusSession,
   onToggleSubtask,
   onCopyYesterdayList,
+  onClearAllGoals,
 }) => {
   // Mobile tab state: 'daily' vs 'goals' vs 'timeline'
   const [mobileTab, setMobileTab] = useState<'daily' | 'goals'>('daily');
@@ -546,14 +548,31 @@ export const TodoList: React.FC<TodoListProps> = ({
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={onOpenCreateGoal}
-              className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Plus size={14} className="stroke-[2.5]" />
-              <span>New Goal</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {permanentGoals.length > 0 && onClearAllGoals && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete all master goals?')) {
+                      onClearAllGoals();
+                    }
+                  }}
+                  className="min-h-[38px] px-2.5 py-1.5 rounded-xl border border-danger/30 text-danger hover:bg-danger-soft text-xs font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1"
+                  title="Clear all master goals"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear Goals</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onOpenCreateGoal}
+                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={14} className="stroke-[2.5]" />
+                <span>New Goal</span>
+              </button>
+            </div>
           </div>
 
           {/* Goal Content: Timeline (Gantt) View vs Cards Grid */}

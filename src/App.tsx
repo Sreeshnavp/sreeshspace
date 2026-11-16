@@ -35,6 +35,7 @@ import {
   saveRoutines, 
   runDataMigration, 
   purgeAllSampleData, 
+  isSampleItem, 
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
@@ -244,8 +245,9 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        if (localStorage.getItem('orbit_clean_slate_v3') !== 'true') {
+        if (localStorage.getItem('orbit_clean_slate_v4') !== 'true') {
           await purgeAllSampleData();
+          localStorage.setItem('orbit_clean_slate_v4', 'true');
         }
         await runDataMigration();
         const [
@@ -269,11 +271,21 @@ export function App() {
           loadRoutines(),
           loadCustomBackground(),
         ]);
-        setLinks(loadedLinks);
+        const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
+        const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
+        const cleanNotes = loadedNotes.filter((n) => !isSampleItem(n));
+        const cleanEvents = loadedEvents.filter((e) => !isSampleItem(e));
+
+        if (cleanLinks.length !== loadedLinks.length) await saveLinks(cleanLinks);
+        if (cleanTodos.length !== loadedTodos.length) await saveTodos(cleanTodos);
+        if (cleanNotes.length !== loadedNotes.length) await saveNotes(cleanNotes);
+        if (cleanEvents.length !== loadedEvents.length) await saveActivityEvents(cleanEvents);
+
+        setLinks(cleanLinks);
         setCategories(loadedCats);
-        setTodos(loadedTodos);
-        setNotes(loadedNotes);
-        setEvents(loadedEvents);
+        setTodos(cleanTodos);
+        setNotes(cleanNotes);
+        setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
         if (loadedStreak) setStreakState(loadedStreak);
         setRoutines(loadedRoutines);
@@ -1181,6 +1193,15 @@ export function App() {
     showToast('All sample data removed. Clean canvas ready! 🌿');
   };
 
+  // Clear all master goals
+  const handleClearAllGoals = async () => {
+    const updated = todos.filter((t) => t.type !== 'permanent');
+    setTodos(updated);
+    await saveTodos(updated);
+    triggerAutoSync();
+    showToast('Cleared all master goals 🎯');
+  };
+
   // Wallpaper handlers
   const handleSaveCustomBgImage = async (dataUrl: string | null) => {
     setCustomBgImage(dataUrl);
@@ -1477,12 +1498,35 @@ export function App() {
                   onDeleteNote={handleDeleteNote}
                   onReorderNotes={handleReorderNotes}
                   onOpenAttachment={(att) => setActiveAttachment(att)}
+                  onClearAllGoals={handleClearAllGoals}
                 />
               </div>
             )}
 
           </div>
         )}
+
+        {/* Bottom Clear Data & System Info Bar */}
+        <footer className="mt-10 mb-6 w-full">
+          <div className="p-4 rounded-3xl bg-surface border border-subtle flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-soft">
+            <div className="flex items-center gap-2 text-muted">
+              <span className="font-bold text-main">🪐 Orbit</span>
+              <span>•</span>
+              <span>Local-First Personal Vault & Habit Hub</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleResetData}
+                className="px-3.5 py-2 rounded-xl bg-danger-soft text-danger border border-danger/20 hover:bg-danger hover:text-white transition font-bold text-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Clear all data and start with a fresh clean canvas"
+              >
+                <Trash2 size={14} />
+                <span>Clear All Data</span>
+              </button>
+            </div>
+          </div>
+        </footer>
 
       </main>
 

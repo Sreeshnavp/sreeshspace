@@ -39,14 +39,19 @@ export const INITIAL_LINKS: LinkItem[] = [];
 export function isSampleItem(item: any): boolean {
   if (!item) return false;
   const id = String(item.id || '');
-  const text = String(item.text || item.title || item.url || '');
+  const text = String(item.text || item.title || item.url || '').toLowerCase();
   
-  if (['link-1', 'link-2', 'link-3', 'link-4', 'todo-d1', 'todo-d2', 'todo-d3', 'todo-p1', 'todo-p2', 'todo-p3', 'todo-p4', 'note-1', 'note-2', 'note-3'].includes(id)) {
+  if ([
+    'link-1', 'link-2', 'link-3', 'link-4',
+    'todo-1', 'todo-2', 'todo-3', 'todo-4',
+    'todo-d1', 'todo-d2', 'todo-d3',
+    'todo-p1', 'todo-p2', 'todo-p3', 'todo-p4',
+    'note-1', 'note-2', 'note-3'
+  ].includes(id)) {
     return true;
   }
   if (
-    id.startsWith('ev-backfill-todo-d') ||
-    id.startsWith('ev-backfill-todo-p') ||
+    id.startsWith('ev-backfill-todo-') ||
     id.startsWith('ev-backfill-link-') ||
     id.startsWith('ev-backfill-note-')
   ) {
@@ -54,22 +59,30 @@ export function isSampleItem(item: any): boolean {
   }
 
   if (
-    text.includes('Explore Orbit notebook') ||
-    text.includes('Review daily study') ||
-    text.includes('Jot down an evening reflection') ||
-    text.includes('Design Orbit personal vault') ||
-    text.includes('File code and AI resources') ||
-    text.includes('Build daily coding and knowledge streak') ||
-    text.includes('Test PWA install on phone') ||
-    text.includes('Supabase Cloud Sync Verified') ||
-    text.includes('Daily Philosophy & Mindset') ||
-    text.includes('Creative Ideas for Orbit') ||
-    text.includes('Color Palette & Zen Tokens') ||
+    text.includes('sreeshspace') ||
+    text.includes('design orbit') ||
+    text.includes('design sreeshspace') ||
+    text.includes('pin favorite') ||
+    text.includes('web tools to the canvas') ||
+    text.includes('project roadmap notes') ||
+    text.includes('notebook workflow') ||
+    text.includes('explore orbit notebook') ||
+    text.includes('review daily study') ||
+    text.includes('evening reflection') ||
+    text.includes('file code and ai') ||
+    text.includes('cute folders') ||
+    text.includes('daily coding and knowledge') ||
+    text.includes('test pwa install') ||
+    text.includes('supabase cloud sync verified') ||
+    text.includes('daily philosophy') ||
+    text.includes('creative ideas for orbit') ||
+    text.includes('color palette & zen') ||
     text.includes('ai.google.dev') ||
-    text.includes('Google AI Studio') ||
-    text.includes('Tailwind CSS Reference') ||
-    text.includes('Excalidraw Sketchboard') ||
-    text.includes('MDN Web Knowledge Base')
+    text.includes('google ai studio') ||
+    text.includes('tailwindcss.com') ||
+    text.includes('tailwind css reference') ||
+    text.includes('excalidraw') ||
+    text.includes('mdn web')
   ) {
     return true;
   }
