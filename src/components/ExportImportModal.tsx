@@ -41,7 +41,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   const handleExport = () => {
     const jsonStr = exportBackup(links, categories, todos, notes);
     const dateStr = new Date().toISOString().split('T')[0];
-    downloadJsonFile(jsonStr, `sreeshspace-vault-${dateStr}.json`);
+    downloadJsonFile(jsonStr, `orbit-vault-${dateStr}.json`);
     setImportStatus('Backup downloaded successfully!');
     setTimeout(() => setImportStatus(null), 3000);
   };
@@ -86,26 +86,26 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-espresso-950/50 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-main/50 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md bg-white dark:bg-espresso-900 rounded-3xl shadow-2xl border border-cream-300 dark:border-espresso-800 flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-surface rounded-3xl shadow-raised border border-subtle flex flex-col overflow-hidden text-main"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200 dark:border-espresso-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-sage-100 dark:bg-sage-950 text-sage-700 dark:text-sage-300 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-accent-soft text-accent flex items-center justify-center">
               <DownloadCloud size={17} />
             </div>
-            <h2 className="text-base font-bold text-espresso-900 dark:text-cream-50">
+            <h2 className="text-base font-bold text-main">
               Backup & Sync
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-xl hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+            className="p-1.5 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -115,32 +115,32 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
         <div className="p-6 space-y-4 text-xs sm:text-sm">
           
           {importStatus && (
-            <div className="p-3 bg-sage-50 dark:bg-sage-950 border border-sage-200 dark:border-sage-800 rounded-2xl text-sage-700 dark:text-sage-300 flex items-center gap-2">
+            <div className="p-3 bg-success-soft border border-subtle rounded-2xl text-success-text flex items-center gap-2">
               <Check size={16} />
               <span>{importStatus}</span>
             </div>
           )}
 
           {importError && (
-            <div className="p-3 bg-peach-50 dark:bg-peach-950 border border-peach-200 dark:border-peach-800 rounded-2xl text-peach-600 dark:text-peach-300 flex items-center gap-2">
+            <div className="p-3 bg-danger-soft border border-subtle rounded-2xl text-danger-text flex items-center gap-2">
               <AlertTriangle size={16} />
               <span>{importError}</span>
             </div>
           )}
 
           {/* Export Box */}
-          <div className="p-4 rounded-2xl border border-cream-200 dark:border-espresso-800 bg-cream-50/70 dark:bg-espresso-850 flex items-center justify-between">
+          <div className="p-4 rounded-2xl border border-subtle bg-sunken flex items-center justify-between">
             <div>
-              <h4 className="font-bold text-espresso-900 dark:text-cream-50 text-xs sm:text-sm">
+              <h4 className="font-bold text-main text-xs sm:text-sm">
                 Save Backup File
               </h4>
-              <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50">
+              <p className="text-[11px] text-muted">
                 Download all {links.length} links, notes, and files
               </p>
             </div>
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sage-600 hover:bg-sage-500 text-white rounded-xl text-xs font-bold shadow-pill transition active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-on-accent rounded-xl text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer"
             >
               <DownloadCloud size={13} />
               <span>Export</span>
@@ -148,12 +148,12 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
           </div>
 
           {/* Import Box */}
-          <div className="p-4 rounded-2xl border border-cream-200 dark:border-espresso-800 bg-cream-50/70 dark:bg-espresso-850 flex items-center justify-between">
+          <div className="p-4 rounded-2xl border border-subtle bg-sunken flex items-center justify-between">
             <div>
-              <h4 className="font-bold text-espresso-900 dark:text-cream-50 text-xs sm:text-sm">
+              <h4 className="font-bold text-main text-xs sm:text-sm">
                 Restore from Backup
               </h4>
-              <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50">
+              <p className="text-[11px] text-muted">
                 Import JSON backup onto any device
               </p>
             </div>
@@ -167,7 +167,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-espresso-800 border border-cream-300 dark:border-espresso-700 text-espresso-800 dark:text-cream-100 hover:bg-cream-100 rounded-xl text-xs font-semibold transition active:scale-95"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface border border-input text-main hover:bg-sunken rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer"
               >
                 <UploadCloud size={13} />
                 <span>Upload</span>
@@ -175,12 +175,12 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-3 bg-sage-50/60 dark:bg-sage-950/40 rounded-2xl text-sage-800 dark:text-sage-300 text-xs">
-            <ShieldCheck size={16} className="text-sage-600 shrink-0" />
+          <div className="flex items-center gap-2 p-3 bg-sunken rounded-2xl text-muted text-xs border border-subtle">
+            <ShieldCheck size={16} className="text-accent shrink-0" />
             <span>100% Private: All data stays in your browser on this device.</span>
           </div>
 
-          <div className="pt-2 flex justify-between items-center text-xs text-espresso-800/40">
+          <div className="pt-2 flex justify-between items-center text-xs text-faint">
             <span>Reset sample items?</span>
             <button
               onClick={() => {
@@ -189,7 +189,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                   onClose();
                 }
               }}
-              className="text-xs text-espresso-800/50 hover:text-red-500 flex items-center gap-1 transition"
+              className="text-xs text-faint hover:text-danger flex items-center gap-1 transition cursor-pointer"
             >
               <RotateCcw size={12} /> Reset to defaults
             </button>
@@ -198,10 +198,10 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-cream-200 dark:border-espresso-800 bg-cream-50/50 dark:bg-espresso-950/50 flex justify-end">
+        <div className="px-6 py-3 border-t border-subtle bg-sunken flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-espresso-800/60 dark:text-cream-100/60 hover:text-espresso-800 rounded-xl"
+            className="px-4 py-1.5 text-xs font-semibold text-muted hover:text-main rounded-xl cursor-pointer"
           >
             Close
           </button>

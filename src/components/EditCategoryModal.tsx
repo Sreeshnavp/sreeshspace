@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Check } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import type { CategoryInfo } from '../types';
+import { CATEGORY_KEYS, CATEGORY_TOKENS, resolveCategoryKey } from '../utils/themeColors';
 
 interface EditCategoryModalProps {
   isOpen: boolean;
@@ -11,7 +12,6 @@ interface EditCategoryModalProps {
 }
 
 const EMOJI_OPTIONS = ['🌿', '🛠️', '🎨', '📚', '☕', '💡', '🚀', '💻', '🎮', '🍕', '🌟', '🎯', '✨', '🎬', '🎧', '📁'];
-const COLOR_OPTIONS = ['#4e876c', '#38bdf8', '#f7885e', '#aa73d7', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6'];
 
 export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   isOpen,
@@ -22,13 +22,13 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📁');
-  const [color, setColor] = useState('#4e876c');
+  const [color, setColor] = useState('sage');
 
   useEffect(() => {
     if (category) {
       setName(category.name);
       setIcon(category.icon || '📁');
-      setColor(category.color || '#4e876c');
+      setColor(resolveCategoryKey(category.color));
     }
   }, [category, isOpen]);
 
@@ -48,20 +48,20 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-espresso-950/50 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-main/50 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-sm bg-white dark:bg-espresso-900 rounded-3xl shadow-2xl border border-cream-300 dark:border-espresso-800 p-6 overflow-hidden"
+        className="w-full max-w-sm bg-surface rounded-3xl shadow-raised border border-subtle p-6 overflow-hidden text-main"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-3 border-b border-cream-200 dark:border-espresso-800 mb-4">
-          <h3 className="font-bold text-base text-espresso-900 dark:text-cream-50">
+        <div className="flex items-center justify-between pb-3 border-b border-subtle mb-4">
+          <h3 className="font-bold text-base text-main">
             Edit Category
           </h3>
           <button
             onClick={onClose}
-            className="p-1 text-espresso-800/40 hover:text-espresso-800 rounded-lg"
+            className="p-1 text-faint hover:text-main rounded-lg cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -70,7 +70,7 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4 text-xs sm:text-sm">
           {/* Name */}
           <div>
-            <label className="block text-xs font-bold text-espresso-800 dark:text-cream-100 mb-1">
+            <label className="block text-xs font-bold text-main mb-1">
               Category Name
             </label>
             <input
@@ -79,22 +79,22 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Work & Projects"
-              className="w-full px-3.5 py-2 rounded-2xl border border-cream-300 dark:border-espresso-750 bg-cream-50/50 dark:bg-espresso-850 text-espresso-900 dark:text-cream-50 focus:outline-none focus:ring-2 focus:ring-sage-400"
+              className="w-full px-3.5 py-2 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           {/* Emoji selection */}
           <div>
-            <label className="block text-xs font-bold text-espresso-800 dark:text-cream-100 mb-1">
+            <label className="block text-xs font-bold text-main mb-1">
               Choose Icon
             </label>
-            <div className="grid grid-cols-8 gap-1.5 p-2 rounded-2xl bg-cream-50/70 dark:bg-espresso-850 border border-cream-200 dark:border-espresso-800 text-center text-lg">
+            <div className="grid grid-cols-8 gap-1.5 p-2 rounded-2xl bg-sunken border border-subtle text-center text-lg">
               {EMOJI_OPTIONS.map((e) => (
                 <button
                   key={e}
                   type="button"
                   onClick={() => setIcon(e)}
-                  className={`p-1 rounded-xl transition ${icon === e ? 'bg-white dark:bg-espresso-700 shadow-xs scale-110' : 'hover:scale-105'}`}
+                  className={`p-1 rounded-xl transition cursor-pointer ${icon === e ? 'bg-surface shadow-2xs scale-110 border border-subtle' : 'hover:scale-105'}`}
                 >
                   {e}
                 </button>
@@ -104,24 +104,25 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
 
           {/* Color selection */}
           <div>
-            <label className="block text-xs font-bold text-espresso-800 dark:text-cream-100 mb-1">
-              Theme Color
+            <label className="block text-xs font-bold text-main mb-1">
+              Category Hue
             </label>
-            <div className="flex items-center gap-2">
-              {COLOR_OPTIONS.map((c) => (
+            <div className="flex items-center gap-2 flex-wrap">
+              {CATEGORY_KEYS.map((k) => (
                 <button
-                  key={c}
+                  key={k}
                   type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'scale-125 ring-2 ring-offset-2 ring-slate-400' : 'opacity-80 hover:opacity-100'}`}
-                  style={{ backgroundColor: c }}
+                  onClick={() => setColor(k)}
+                  className={`w-6 h-6 rounded-full transition-transform cursor-pointer border ${color === k ? 'scale-125 ring-2 ring-ring' : 'opacity-80 hover:opacity-100 border-subtle'}`}
+                  style={{ backgroundColor: CATEGORY_TOKENS[k].solidVar }}
+                  title={CATEGORY_TOKENS[k].name}
                 />
               ))}
             </div>
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-between pt-3 border-t border-cream-200 dark:border-espresso-800">
+          <div className="flex items-center justify-between pt-3 border-t border-subtle">
             <button
               type="button"
               onClick={() => {
@@ -130,7 +131,7 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
                   onClose();
                 }
               }}
-              className="text-xs font-semibold text-red-500 hover:text-red-600 flex items-center gap-1"
+              className="text-xs font-semibold text-danger hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Trash2 size={13} />
               <span>Delete</span>
@@ -140,13 +141,13 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs text-espresso-800/60 font-semibold"
+                className="px-3 py-1.5 text-xs text-muted hover:text-main font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-sage-600 hover:bg-sage-500 text-white rounded-xl text-xs font-bold shadow-pill"
+                className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-on-accent rounded-xl text-xs font-bold shadow-soft cursor-pointer transition"
               >
                 Save
               </button>

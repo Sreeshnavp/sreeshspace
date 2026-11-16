@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download, FileText, ExternalLink } from 'lucide-react';
+import { X, Download, FileText } from 'lucide-react';
 import type { Attachment } from '../types';
 import { formatFileSize } from '../utils/urlHelper';
 
@@ -28,23 +28,23 @@ export const AttachmentViewerModal: React.FC<AttachmentViewerModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150"
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center p-3 sm:p-6 bg-main/80 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
     >
       {/* Top Floating Control Bar */}
       <div 
-        className="w-full max-w-4xl flex items-center justify-between px-5 py-3 mb-3 bg-espresso-900/90 text-white rounded-2xl border border-white/10 shadow-2xl backdrop-blur-md"
+        className="w-full max-w-4xl flex items-center justify-between px-5 py-3 mb-3 bg-raised text-main rounded-2xl border border-subtle shadow-raised backdrop-blur-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2.5 truncate pr-3">
-          <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-sunken flex items-center justify-center shrink-0">
             {isImage ? '🖼️' : isPdf ? '📄' : <FileText size={16} />}
           </div>
           <div className="truncate">
-            <h3 className="font-bold text-xs sm:text-sm text-white truncate">
+            <h3 className="font-bold text-xs sm:text-sm text-main truncate">
               {attachment.name}
             </h3>
-            <span className="text-[10px] text-white/50 font-mono">
+            <span className="text-[10px] text-faint font-mono">
               {formatFileSize(attachment.size)}
             </span>
           </div>
@@ -53,14 +53,14 @@ export const AttachmentViewerModal: React.FC<AttachmentViewerModalProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleDownload}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-sage-600 hover:bg-sage-500 text-white rounded-xl text-xs font-bold shadow-pill transition active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-on-accent rounded-xl text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer"
           >
             <Download size={14} />
             <span className="hidden sm:inline">Download</span>
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 text-white/60 hover:text-white rounded-xl hover:bg-white/10 transition"
+            className="p-1.5 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
             title="Close viewer"
           >
             <X size={20} />
@@ -77,10 +77,10 @@ export const AttachmentViewerModal: React.FC<AttachmentViewerModalProps> = ({
           <img 
             src={attachment.dataUrl} 
             alt={attachment.name} 
-            className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl animate-in zoom-in-95 duration-150 select-none"
+            className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-raised animate-in zoom-in-95 duration-150 select-none"
           />
         ) : isPdf ? (
-          <div className="w-full h-[78vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="w-full h-[78vh] bg-surface rounded-2xl overflow-hidden shadow-raised flex flex-col">
             <iframe 
               src={attachment.dataUrl} 
               title={attachment.name} 
@@ -88,22 +88,22 @@ export const AttachmentViewerModal: React.FC<AttachmentViewerModalProps> = ({
             />
           </div>
         ) : (
-          <div className="p-10 rounded-3xl bg-espresso-900 border border-white/10 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-white/10 text-sage-400 flex items-center justify-center mb-3">
+          <div className="p-10 rounded-3xl bg-raised border border-subtle text-center max-w-md shadow-raised text-main">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-sunken text-accent flex items-center justify-center mb-3">
               <FileText size={32} />
             </div>
-            <h4 className="font-bold text-base text-white mb-1 truncate">
+            <h4 className="font-bold text-base text-main mb-1 truncate">
               {attachment.name}
             </h4>
-            <p className="text-xs text-white/60 mb-5">
+            <p className="text-xs text-muted mb-5">
               This document type can be saved and opened on your device.
             </p>
             <button
               onClick={handleDownload}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-sage-600 hover:bg-sage-500 text-white rounded-2xl text-xs font-bold shadow-pill transition active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold rounded-2xl shadow-soft transition active:scale-95 cursor-pointer"
             >
-              <Download size={15} />
-              <span>Download File ({formatFileSize(attachment.size)})</span>
+              <Download size={14} />
+              <span>Download File</span>
             </button>
           </div>
         )}

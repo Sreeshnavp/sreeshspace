@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Sparkles, Flame, CheckCircle2, Calendar, Filter, X, Zap, Trophy } from 'lucide-react';
+import { Sparkles, Flame, X, Trophy } from 'lucide-react';
 import type { LinkItem, TodoItem, NoteItem, ActivityDay } from '../types';
 import { playPopSound } from '../utils/delight';
 
@@ -139,7 +139,6 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       }
     }
 
-    // Scan all days for longest streak
     days.forEach((d) => {
       if (d.count > 0) {
         tempStreak++;
@@ -169,40 +168,40 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   const levelColorClass = (level: number) => {
     switch (level) {
       case 1:
-        return 'bg-sage-200 dark:bg-sage-800 border-sage-300 dark:border-sage-700';
+        return 'bg-heatmap-1';
       case 2:
-        return 'bg-sage-300 dark:bg-sage-700 border-sage-400 dark:border-sage-600';
+        return 'bg-heatmap-2';
       case 3:
-        return 'bg-sage-400 dark:bg-sage-600 border-sage-500 dark:border-sage-500';
+        return 'bg-heatmap-3';
       case 4:
-        return 'bg-sage-600 dark:bg-sage-500 border-sage-700 dark:border-sage-400 shadow-2xs';
+        return 'bg-heatmap-4 shadow-2xs';
       default:
-        return 'bg-cream-200/50 dark:bg-espresso-800/60 border-cream-200/70 dark:border-espresso-750';
+        return 'bg-heatmap-0 border border-subtle';
     }
   };
 
   return (
-    <div className="flex flex-col justify-between h-full min-h-[320px] bg-white/95 dark:bg-espresso-850/95 rounded-3xl p-4 sm:p-5 border border-cream-200/90 dark:border-espresso-750 shadow-soft">
+    <div className="flex flex-col justify-between h-full min-h-[320px] bg-surface rounded-3xl p-4 sm:p-5 border border-subtle shadow-soft text-main">
       
-      {/* 1. Top Ribbon: Detailed Stats */}
+      {/* 1. Top Ribbon */}
       <div>
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sage-100 dark:bg-sage-950 text-sage-700 dark:text-sage-300 flex items-center justify-center text-sm shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-accent-soft text-accent flex items-center justify-center text-sm shadow-2xs">
               🌱
             </div>
             <div>
-              <h3 className="font-extrabold text-xs sm:text-sm text-espresso-900 dark:text-cream-50 leading-tight">
+              <h3 className="font-extrabold text-xs sm:text-sm text-main leading-tight">
                 Activity Heatmap
               </h3>
-              <span className="text-[10px] text-espresso-800/45 dark:text-cream-100/45 font-medium">
+              <span className="text-[10px] text-faint font-medium">
                 Detailed GitHub-style tracker
               </span>
             </div>
           </div>
 
           {/* Activity Category Filters */}
-          <div className="flex items-center p-0.5 rounded-xl bg-cream-100 dark:bg-espresso-800 text-[10px] font-bold border border-cream-200/80 dark:border-espresso-750">
+          <div className="flex items-center p-0.5 rounded-xl bg-sunken text-[10px] font-bold border border-subtle">
             {(['all', 'tasks', 'links', 'notes'] as const).map((type) => (
               <button
                 key={type}
@@ -210,10 +209,10 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                   setFilterType(type);
                   playPopSound();
                 }}
-                className={`px-2 py-0.5 rounded-lg capitalize transition ${
+                className={`px-2 py-0.5 rounded-lg capitalize transition cursor-pointer ${
                   filterType === type
-                    ? 'bg-white dark:bg-espresso-700 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                    : 'text-espresso-800/40 dark:text-cream-100/40 hover:text-espresso-800'
+                    ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-main'
                 }`}
               >
                 {type}
@@ -222,39 +221,39 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
           </div>
         </div>
 
-        {/* 4 Stat Badges (Detailed view) */}
+        {/* 3 Stat Badges */}
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="p-2 rounded-2xl bg-cream-50 dark:bg-espresso-900/60 border border-cream-200/70 dark:border-espresso-800 flex items-center gap-1.5">
-            <Flame size={14} className="text-peach-500 fill-peach-500 shrink-0" />
+          <div className="p-2 rounded-2xl bg-sunken border border-subtle flex items-center gap-1.5">
+            <Flame size={14} className="text-accent fill-accent shrink-0" />
             <div className="min-w-0">
-              <span className="block text-[9px] text-espresso-800/50 dark:text-cream-100/50 font-bold uppercase truncate">
+              <span className="block text-[9px] text-faint font-bold uppercase truncate">
                 Streak
               </span>
-              <span className="text-xs font-black text-espresso-900 dark:text-cream-50 font-mono">
+              <span className="text-xs font-black text-main font-mono">
                 {stats.currentStreak}d
               </span>
             </div>
           </div>
 
-          <div className="p-2 rounded-2xl bg-cream-50 dark:bg-espresso-900/60 border border-cream-200/70 dark:border-espresso-800 flex items-center gap-1.5">
-            <Trophy size={13} className="text-amber-500 shrink-0" />
+          <div className="p-2 rounded-2xl bg-sunken border border-subtle flex items-center gap-1.5">
+            <Trophy size={13} className="text-accent shrink-0" />
             <div className="min-w-0">
-              <span className="block text-[9px] text-espresso-800/50 dark:text-cream-100/50 font-bold uppercase truncate">
+              <span className="block text-[9px] text-faint font-bold uppercase truncate">
                 Best
               </span>
-              <span className="text-xs font-black text-espresso-900 dark:text-cream-50 font-mono">
+              <span className="text-xs font-black text-main font-mono">
                 {stats.longestStreak}d
               </span>
             </div>
           </div>
 
-          <div className="p-2 rounded-2xl bg-cream-50 dark:bg-espresso-900/60 border border-cream-200/70 dark:border-espresso-800 flex items-center gap-1.5">
-            <Sparkles size={13} className="text-sage-600 shrink-0" />
+          <div className="p-2 rounded-2xl bg-sunken border border-subtle flex items-center gap-1.5">
+            <Sparkles size={13} className="text-accent shrink-0" />
             <div className="min-w-0">
-              <span className="block text-[9px] text-espresso-800/50 dark:text-cream-100/50 font-bold uppercase truncate">
+              <span className="block text-[9px] text-faint font-bold uppercase truncate">
                 Actions
               </span>
-              <span className="text-xs font-black text-espresso-900 dark:text-cream-50 font-mono">
+              <span className="text-xs font-black text-main font-mono">
                 {stats.totalActions}
               </span>
             </div>
@@ -267,7 +266,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
         <div className="min-w-[320px]">
           
           {/* Month Labels */}
-          <div className="flex text-[9px] font-bold text-espresso-800/40 dark:text-cream-100/40 mb-1 ml-5">
+          <div className="flex text-[9px] font-bold text-faint mb-1 ml-5">
             {monthLabels.map((m, idx) => (
               <span
                 key={`${m.name}-${idx}`}
@@ -282,7 +281,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
           <div className="flex gap-1.5 items-center">
             
             {/* Weekday indicators */}
-            <div className="flex flex-col justify-between h-[86px] text-[8px] font-bold text-espresso-800/30 dark:text-cream-100/30 pr-1 select-none">
+            <div className="flex flex-col justify-between h-[86px] text-[8px] font-bold text-faint pr-1 select-none">
               <span>M</span>
               <span>W</span>
               <span>F</span>
@@ -305,7 +304,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                         setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
                       }}
                       onMouseLeave={() => setHoveredDay(null)}
-                      className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[4px] border transition-transform duration-150 hover:scale-135 hover:z-10 cursor-pointer ${levelColorClass(
+                      className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[4px] transition-transform duration-150 hover:scale-135 hover:z-10 cursor-pointer ${levelColorClass(
                         day.level
                       )}`}
                     />
@@ -321,13 +320,13 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       {/* Floating Hover Tooltip */}
       {hoveredDay && tooltipPos && (
         <div 
-          className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 pointer-events-none bg-espresso-900/95 dark:bg-cream-100/95 text-white dark:text-espresso-900 px-3 py-1.5 rounded-xl shadow-xl text-[10px] backdrop-blur-md border border-white/10 dark:border-espresso-750 max-w-xs animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 pointer-events-none bg-raised text-main px-3 py-1.5 rounded-xl shadow-raised text-[10px] backdrop-blur-md border border-subtle max-w-xs animate-in fade-in zoom-in-95 duration-100"
           style={{ left: tooltipPos.x, top: tooltipPos.y - 6 }}
         >
           <p className="font-extrabold flex items-center gap-1">
             <span>📅 {hoveredDay.date}</span>
             <span>•</span>
-            <span className="text-sage-400 dark:text-sage-700">{hoveredDay.count} activities</span>
+            <span className="text-accent">{hoveredDay.count} activities</span>
           </p>
           {hoveredDay.details.length > 0 ? (
             <ul className="mt-1 space-y-0.5 opacity-90 text-[9px] list-disc pl-3">
@@ -344,31 +343,31 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
         </div>
       )}
 
-      {/* Day Detail Modal Drawer (When clicked) */}
+      {/* Day Detail Modal Drawer */}
       {selectedDay && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-espresso-950/40 backdrop-blur-xs animate-in fade-in duration-100"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/40 backdrop-blur-xs animate-in fade-in duration-100"
           onClick={() => setSelectedDay(null)}
         >
           <div 
-            className="w-full max-w-sm bg-white dark:bg-espresso-900 rounded-3xl p-5 border border-cream-200 dark:border-espresso-750 shadow-2xl space-y-3"
+            className="w-full max-w-sm bg-surface rounded-3xl p-5 border border-subtle shadow-raised space-y-3 text-main"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-cream-200 dark:border-espresso-800 pb-2">
+            <div className="flex items-center justify-between border-b border-subtle pb-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">📅</span>
                 <div>
-                  <h4 className="font-extrabold text-sm text-espresso-900 dark:text-cream-50">
+                  <h4 className="font-extrabold text-sm text-main">
                     {selectedDay.date}
                   </h4>
-                  <span className="text-[10px] text-sage-600 dark:text-sage-400 font-bold">
+                  <span className="text-[10px] text-accent font-bold">
                     {selectedDay.count} activities logged
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedDay(null)}
-                className="p-1 rounded-lg text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40"
+                className="p-1 rounded-lg text-faint hover:text-main cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -377,12 +376,12 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             <div className="max-h-56 overflow-y-auto space-y-1.5 text-xs">
               {selectedDay.details.length > 0 ? (
                 selectedDay.details.map((detail, idx) => (
-                  <div key={idx} className="p-2 rounded-xl bg-cream-50 dark:bg-espresso-850 text-espresso-800/90 dark:text-cream-100/90 font-medium">
+                  <div key={idx} className="p-2 rounded-xl bg-sunken text-main font-medium border border-subtle">
                     {detail}
                   </div>
                 ))
               ) : (
-                <p className="py-4 text-center text-espresso-800/40 dark:text-cream-100/40 italic">
+                <p className="py-4 text-center text-faint italic">
                   No activity on this date.
                 </p>
               )}
@@ -390,7 +389,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
             <button
               onClick={() => setSelectedDay(null)}
-              className="w-full py-1.5 bg-sage-600 hover:bg-sage-500 text-white rounded-xl text-xs font-bold shadow-pill"
+              className="w-full py-1.5 bg-accent hover:bg-accent-hover text-on-accent rounded-xl text-xs font-bold shadow-soft cursor-pointer transition"
             >
               Close
             </button>
@@ -399,17 +398,18 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       )}
 
       {/* 3. Footer Legend */}
-      <div className="pt-2 mt-auto border-t border-cream-200/80 dark:border-espresso-800/80 flex items-center justify-between text-[10px] text-espresso-800/45 dark:text-cream-100/45 h-7">
+      <div className="pt-2 mt-auto border-t border-subtle flex items-center justify-between text-[10px] text-faint h-7">
         <span className="font-medium">
           {stats.totalActiveDays} active days • Click cell for details
         </span>
 
         <div className="flex items-center gap-1">
           <span>Less</span>
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-cream-200 dark:bg-espresso-800 border border-cream-300 dark:border-espresso-700 inline-block" />
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-sage-200 dark:bg-sage-800 inline-block" />
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-sage-400 dark:bg-sage-600 inline-block" />
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-sage-600 dark:bg-sage-500 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-heatmap-0 border border-subtle inline-block" />
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-heatmap-1 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-heatmap-2 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-heatmap-3 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-heatmap-4 inline-block" />
           <span>More</span>
         </div>
       </div>

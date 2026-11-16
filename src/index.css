@@ -3,23 +3,470 @@
 @tailwind utilities;
 
 @layer base {
+  /* LIGHT THEME (Oat & Sage Default) */
+  :root {
+    --page: 250 248 244;
+    --surface: 255 255 255;
+    --raised: 255 255 255;
+    --sunken: 243 239 232;
+    --border-subtle: 230 223 211;
+    --border-strong: 207 197 180;
+    --border-input: 146 136 119;
+    --text-main: 37 33 28;
+    --text-muted: 94 86 75;
+    --text-faint: 116 107 93;
+    --ring: 46 107 150;
+    --success: 47 125 79;
+    --success-soft: 231 243 235;
+    --success-text: 33 90 56;
+    --warning: 154 87 8;
+    --warning-soft: 249 239 226;
+    --warning-text: 116 62 2;
+    --danger: 185 60 46;
+    --danger-soft: 251 236 233;
+    --danger-text: 137 39 28;
+    --info: 47 111 159;
+    --info-soft: 230 240 247;
+    --info-text: 30 77 113;
+    --accent: 60 110 87;
+    --accent-hover: 49 88 70;
+    --accent-soft: 225 237 230;
+    --accent-text: 43 85 67;
+    --on-accent: 255 255 255;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 206 219 213;
+    --heatmap-2: 158 183 171;
+    --heatmap-3: 109 146 129;
+    --heatmap-4: 60 110 87;
+    --cat-sage-solid: 72 122 100;
+    --cat-sage-soft: 231 240 235;
+    --cat-sage-text: 42 82 64;
+    --cat-clay-solid: 158 93 66;
+    --cat-clay-soft: 245 236 231;
+    --cat-clay-text: 110 57 36;
+    --cat-lavender-solid: 122 94 156;
+    --cat-lavender-soft: 239 235 245;
+    --cat-lavender-text: 77 54 107;
+    --cat-sky-solid: 58 118 158;
+    --cat-sky-soft: 230 239 245;
+    --cat-sky-text: 34 78 107;
+    --cat-honey-solid: 166 124 36;
+    --cat-honey-soft: 246 240 226;
+    --cat-honey-text: 107 78 16;
+    --cat-rose-solid: 158 84 110;
+    --cat-rose-soft: 246 235 240;
+    --cat-rose-text: 109 48 70;
+    --cat-teal-solid: 56 126 126;
+    --cat-teal-soft: 229 242 242;
+    --cat-teal-text: 30 84 84;
+    --cat-stone-solid: 110 106 99;
+    --cat-stone-soft: 238 236 233;
+    --cat-stone-text: 67 63 56;
+  }
+
+  /* Explicit light theme */
+  [data-theme="light"] {
+    --page: 250 248 244;
+    --surface: 255 255 255;
+    --raised: 255 255 255;
+    --sunken: 243 239 232;
+    --border-subtle: 230 223 211;
+    --border-strong: 207 197 180;
+    --border-input: 146 136 119;
+    --text-main: 37 33 28;
+    --text-muted: 94 86 75;
+    --text-faint: 116 107 93;
+    --ring: 46 107 150;
+    --success: 47 125 79;
+    --success-soft: 231 243 235;
+    --success-text: 33 90 56;
+    --warning: 154 87 8;
+    --warning-soft: 249 239 226;
+    --warning-text: 116 62 2;
+    --danger: 185 60 46;
+    --danger-soft: 251 236 233;
+    --danger-text: 137 39 28;
+    --info: 47 111 159;
+    --info-soft: 230 240 247;
+    --info-text: 30 77 113;
+    --cat-sage-solid: 72 122 100;
+    --cat-sage-soft: 231 240 235;
+    --cat-sage-text: 42 82 64;
+    --cat-clay-solid: 158 93 66;
+    --cat-clay-soft: 245 236 231;
+    --cat-clay-text: 110 57 36;
+    --cat-lavender-solid: 122 94 156;
+    --cat-lavender-soft: 239 235 245;
+    --cat-lavender-text: 77 54 107;
+    --cat-sky-solid: 58 118 158;
+    --cat-sky-soft: 230 239 245;
+    --cat-sky-text: 34 78 107;
+    --cat-honey-solid: 166 124 36;
+    --cat-honey-soft: 246 240 226;
+    --cat-honey-text: 107 78 16;
+    --cat-rose-solid: 158 84 110;
+    --cat-rose-soft: 246 235 240;
+    --cat-rose-text: 109 48 70;
+    --cat-teal-solid: 56 126 126;
+    --cat-teal-soft: 229 242 242;
+    --cat-teal-text: 30 84 84;
+    --cat-stone-solid: 110 106 99;
+    --cat-stone-soft: 238 236 233;
+    --cat-stone-text: 67 63 56;
+  }
+
+  /* DARK THEME (Warm Charcoal) */
+  :root[data-theme="dark"],
+  .dark:not([data-theme="light"]),
+  [data-theme="dark"] {
+    --page: 21 19 17;
+    --surface: 30 27 24;
+    --raised: 39 35 31;
+    --sunken: 16 15 13;
+    --border-subtle: 51 46 40;
+    --border-strong: 70 63 55;
+    --border-input: 122 113 100;
+    --text-main: 241 236 228;
+    --text-muted: 181 172 160;
+    --text-faint: 143 134 122;
+    --ring: 143 196 238;
+    --success: 108 196 141;
+    --success-soft: 22 43 31;
+    --success-text: 141 214 168;
+    --warning: 232 176 74;
+    --warning-soft: 46 35 15;
+    --warning-text: 240 199 120;
+    --danger: 240 135 122;
+    --danger-soft: 48 25 22;
+    --danger-text: 245 169 160;
+    --info: 125 180 224;
+    --info-soft: 24 37 48;
+    --info-text: 161 203 235;
+    --accent: 125 184 157;
+    --accent-hover: 147 199 175;
+    --accent-soft: 31 45 38;
+    --accent-text: 159 208 184;
+    --on-accent: 15 31 24;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 54 66 57;
+    --heatmap-2: 78 106 91;
+    --heatmap-3: 101 145 124;
+    --heatmap-4: 125 184 157;
+    --cat-sage-solid: 123 183 155;
+    --cat-sage-soft: 29 45 36;
+    --cat-sage-text: 156 210 183;
+    --cat-clay-solid: 217 147 119;
+    --cat-clay-soft: 50 33 26;
+    --cat-clay-text: 235 177 155;
+    --cat-lavender-solid: 181 156 212;
+    --cat-lavender-soft: 40 32 53;
+    --cat-lavender-text: 205 184 232;
+    --cat-sky-solid: 127 180 214;
+    --cat-sky-soft: 25 39 50;
+    --cat-sky-text: 164 208 236;
+    --cat-honey-solid: 217 178 95;
+    --cat-honey-soft: 48 39 23;
+    --cat-honey-text: 236 201 126;
+    --cat-rose-solid: 212 141 165;
+    --cat-rose-soft: 51 31 39;
+    --cat-rose-text: 232 172 192;
+    --cat-teal-solid: 120 188 188;
+    --cat-teal-soft: 24 42 42;
+    --cat-teal-text: 156 215 215;
+    --cat-stone-solid: 171 165 155;
+    --cat-stone-soft: 37 35 32;
+    --cat-stone-text: 204 198 188;
+  }
+
+  /* System dark mode preference */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
+      --page: 21 19 17;
+      --surface: 30 27 24;
+      --raised: 39 35 31;
+      --sunken: 16 15 13;
+      --border-subtle: 51 46 40;
+      --border-strong: 70 63 55;
+      --border-input: 122 113 100;
+      --text-main: 241 236 228;
+      --text-muted: 181 172 160;
+      --text-faint: 143 134 122;
+      --ring: 143 196 238;
+      --success: 108 196 141;
+      --success-soft: 22 43 31;
+      --success-text: 141 214 168;
+      --warning: 232 176 74;
+      --warning-soft: 46 35 15;
+      --warning-text: 240 199 120;
+      --danger: 240 135 122;
+      --danger-soft: 48 25 22;
+      --danger-text: 245 169 160;
+      --info: 125 180 224;
+      --info-soft: 24 37 48;
+      --info-text: 161 203 235;
+      --accent: 125 184 157;
+      --accent-hover: 147 199 175;
+      --accent-soft: 31 45 38;
+      --accent-text: 159 208 184;
+      --on-accent: 15 31 24;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 54 66 57;
+      --heatmap-2: 78 106 91;
+      --heatmap-3: 101 145 124;
+      --heatmap-4: 125 184 157;
+      --cat-sage-solid: 123 183 155;
+      --cat-sage-soft: 29 45 36;
+      --cat-sage-text: 156 210 183;
+      --cat-clay-solid: 217 147 119;
+      --cat-clay-soft: 50 33 26;
+      --cat-clay-text: 235 177 155;
+      --cat-lavender-solid: 181 156 212;
+      --cat-lavender-soft: 40 32 53;
+      --cat-lavender-text: 205 184 232;
+      --cat-sky-solid: 127 180 214;
+      --cat-sky-soft: 25 39 50;
+      --cat-sky-text: 164 208 236;
+      --cat-honey-solid: 217 178 95;
+      --cat-honey-soft: 48 39 23;
+      --cat-honey-text: 236 201 126;
+      --cat-rose-solid: 212 141 165;
+      --cat-rose-soft: 51 31 39;
+      --cat-rose-text: 232 172 192;
+      --cat-teal-solid: 120 188 188;
+      --cat-teal-soft: 24 42 42;
+      --cat-teal-text: 156 215 215;
+      --cat-stone-solid: 171 165 155;
+      --cat-stone-soft: 37 35 32;
+      --cat-stone-text: 204 198 188;
+    }
+  }
+
+  /* ACCENT THEMES - LIGHT */
+  [data-accent="sage"]:not([data-theme="dark"]):not(.dark) {
+    --accent: 60 110 87;
+    --accent-hover: 49 88 70;
+    --accent-soft: 225 237 230;
+    --accent-text: 43 85 67;
+    --on-accent: 255 255 255;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 206 219 213;
+    --heatmap-2: 158 183 171;
+    --heatmap-3: 109 146 129;
+    --heatmap-4: 60 110 87;
+  }
+  [data-accent="peach"]:not([data-theme="dark"]):not(.dark) {
+    --accent: 184 74 38;
+    --accent-hover: 154 61 31;
+    --accent-soft: 253 235 227;
+    --accent-text: 138 53 25;
+    --on-accent: 255 255 255;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 237 210 201;
+    --heatmap-2: 220 165 147;
+    --heatmap-3: 202 119 92;
+    --heatmap-4: 184 74 38;
+  }
+  [data-accent="wisteria"]:not([data-theme="dark"]):not(.dark) {
+    --accent: 110 79 160;
+    --accent-hover: 91 64 135;
+    --accent-soft: 239 234 245;
+    --accent-text: 84 57 127;
+    --on-accent: 255 255 255;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 219 211 231;
+    --heatmap-2: 183 167 208;
+    --heatmap-3: 146 123 184;
+    --heatmap-4: 110 79 160;
+  }
+  [data-accent="sky"]:not([data-theme="dark"]):not(.dark) {
+    --accent: 42 111 158;
+    --accent-hover: 34 91 131;
+    --accent-soft: 227 239 247;
+    --accent-text: 31 82 118;
+    --on-accent: 255 255 255;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 202 219 231;
+    --heatmap-2: 149 183 207;
+    --heatmap-3: 95 147 182;
+    --heatmap-4: 42 111 158;
+  }
+  [data-accent="honey"]:not([data-theme="dark"]):not(.dark) {
+    --accent: 192 134 10;
+    --accent-hover: 166 115 5;
+    --accent-soft: 251 241 217;
+    --accent-text: 122 79 0;
+    --on-accent: 37 33 28;
+    --heatmap-0: 243 239 232;
+    --heatmap-1: 239 225 194;
+    --heatmap-2: 224 195 133;
+    --heatmap-3: 208 164 71;
+    --heatmap-4: 192 134 10;
+  }
+
+  /* ACCENT THEMES - DARK */
+  [data-theme="dark"][data-accent="sage"],
+  .dark[data-accent="sage"] {
+    --accent: 125 184 157;
+    --accent-hover: 147 199 175;
+    --accent-soft: 31 45 38;
+    --accent-text: 159 208 184;
+    --on-accent: 15 31 24;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 54 66 57;
+    --heatmap-2: 78 106 91;
+    --heatmap-3: 101 145 124;
+    --heatmap-4: 125 184 157;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"])[data-accent="sage"] {
+      --accent: 125 184 157;
+      --accent-hover: 147 199 175;
+      --accent-soft: 31 45 38;
+      --accent-text: 159 208 184;
+      --on-accent: 15 31 24;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 54 66 57;
+      --heatmap-2: 78 106 91;
+      --heatmap-3: 101 145 124;
+      --heatmap-4: 125 184 157;
+    }
+  }
+  [data-theme="dark"][data-accent="peach"],
+  .dark[data-accent="peach"] {
+    --accent: 242 147 114;
+    --accent-hover: 245 170 143;
+    --accent-soft: 49 26 19;
+    --accent-text: 247 189 176;
+    --on-accent: 42 15 6;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 83 57 47;
+    --heatmap-2: 136 87 69;
+    --heatmap-3: 189 117 92;
+    --heatmap-4: 242 147 114;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"])[data-accent="peach"] {
+      --accent: 242 147 114;
+      --accent-hover: 245 170 143;
+      --accent-soft: 49 26 19;
+      --accent-text: 247 189 176;
+      --on-accent: 42 15 6;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 83 57 47;
+      --heatmap-2: 136 87 69;
+      --heatmap-3: 189 117 92;
+      --heatmap-4: 242 147 114;
+    }
+  }
+  [data-theme="dark"][data-accent="wisteria"],
+  .dark[data-accent="wisteria"] {
+    --accent: 183 156 224;
+    --accent-hover: 200 179 232;
+    --accent-soft: 38 28 51;
+    --accent-text: 213 196 240;
+    --on-accent: 27 16 48;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 68 59 74;
+    --heatmap-2: 107 92 124;
+    --heatmap-3: 145 124 174;
+    --heatmap-4: 183 156 224;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"])[data-accent="wisteria"] {
+      --accent: 183 156 224;
+      --accent-hover: 200 179 232;
+      --accent-soft: 38 28 51;
+      --accent-text: 213 196 240;
+      --on-accent: 27 16 48;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 68 59 74;
+      --heatmap-2: 107 92 124;
+      --heatmap-3: 145 124 174;
+      --heatmap-4: 183 156 224;
+    }
+  }
+  [data-theme="dark"][data-accent="sky"],
+  .dark[data-accent="sky"] {
+    --accent: 125 180 224;
+    --accent-hover: 151 197 231;
+    --accent-soft: 24 38 51;
+    --accent-text: 167 206 236;
+    --on-accent: 10 30 46;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 54 65 74;
+    --heatmap-2: 78 104 124;
+    --heatmap-3: 101 142 174;
+    --heatmap-4: 125 180 224;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"])[data-accent="sky"] {
+      --accent: 125 180 224;
+      --accent-hover: 151 197 231;
+      --accent-soft: 24 38 51;
+      --accent-text: 167 206 236;
+      --on-accent: 10 30 46;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 54 65 74;
+      --heatmap-2: 78 104 124;
+      --heatmap-3: 101 142 174;
+      --heatmap-4: 125 180 224;
+    }
+  }
+  [data-theme="dark"][data-accent="honey"],
+  .dark[data-accent="honey"] {
+    --accent: 237 184 74;
+    --accent-hover: 242 200 111;
+    --accent-soft: 47 36 20;
+    --accent-text: 245 214 139;
+    --on-accent: 42 28 0;
+    --heatmap-0: 16 15 13;
+    --heatmap-1: 82 66 37;
+    --heatmap-2: 134 106 49;
+    --heatmap-3: 185 145 62;
+    --heatmap-4: 237 184 74;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"])[data-accent="honey"] {
+      --accent: 237 184 74;
+      --accent-hover: 242 200 111;
+      --accent-soft: 47 36 20;
+      --accent-text: 245 214 139;
+      --on-accent: 42 28 0;
+      --heatmap-0: 16 15 13;
+      --heatmap-1: 82 66 37;
+      --heatmap-2: 134 106 49;
+      --heatmap-3: 185 145 62;
+      --heatmap-4: 237 184 74;
+    }
+  }
+
   body {
-    @apply bg-white text-espresso-800 antialiased dark:bg-espresso-950 dark:text-cream-100 transition-colors duration-200 selection:bg-sage-200 selection:text-sage-900;
+    background-color: rgb(var(--page));
+    color: rgb(var(--text-main));
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Universal high-contrast accessible focus ring */
+  *:focus-visible {
+    outline: 2px solid rgb(var(--ring)) !important;
+    outline-offset: 2px !important;
   }
 }
 
-/* Relaxing custom scrollbars */
+/* Custom scrollbars matching theme */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(110, 100, 90, 0.2);
+  background: rgb(var(--border-strong) / 0.5);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(110, 100, 90, 0.4);
+  background: rgb(var(--border-input));
 }

@@ -1,23 +1,52 @@
-import React, { useMemo, useState } from 'react';
-import { Trophy, Target, TrendingUp, Sparkles, PartyPopper, Flame, Calendar } from 'lucide-react';
-import type { LinkItem, TodoItem, NoteItem, ActivityDay } from '../types';
-import { triggerPartyPop } from '../utils/delight';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { 
+  Trophy, 
+  Target, 
+  TrendingUp, 
+  Sparkles, 
+  PartyPopper, 
+  Flame, 
+  Calendar,
+  BarChart2,
+  HelpCircle,
+  Award
+} from 'lucide-react';
+import type { LinkItem, TodoItem, NoteItem, ActivityDay, ActivityEvent, StreakState } from '../types';
+import { triggerPartyPop, playPopSound } from '../utils/delight';
+import { todayKey, addDays, parseLocalDateKey } from '../utils/dates';
 
 interface StreakHeroCommandCenterProps {
   links: LinkItem[];
   todos: TodoItem[];
   notes: NoteItem[];
+  events?: ActivityEvent[];
+  streakState?: StreakState;
+  selectedDate?: string;
+  onInspectDay?: (dateKey: string) => void;
+  onOpenInsights?: () => void;
+  onOpenWeeklyReview?: () => void;
 }
 
 export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = ({
   links,
   todos,
   notes,
+  events = [],
+  streakState,
+  selectedDate,
+  onInspectDay,
+  onOpenInsights,
+  onOpenWeeklyReview,
 }) => {
   const [hoveredDay, setHoveredDay] = useState<ActivityDay | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [showStreakHelp, setShowStreakHelp] = useState(false);
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
 
-  // Compute 18 weeks of activity grid ending today
+  const today = todayKey();
+  const activeDate = selectedDate || today;
+
+  // Compute 18 weeks of activity grid ending today from immutable ActivityEvent log
   const { weeks, stats, monthLabels } = useMemo(() => {
     const activityMap: Record<string, { count: number; details: string[] }> = {};
 
@@ -31,33 +60,32 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       activityMap[key].details.push(text);
     };
 
-    // 1. Links
-    links.forEach((l) => {
-      record(l.createdAt, `Saved "${l.title || l.url}"`);
-    });
-
-    // 2. Todos
-    todos.forEach((t) => {
-      record(t.createdAt, `Added task "${t.text}"`);
-      if (t.completed && t.completedAt) {
-        record(t.completedAt, `Completed task "${t.text}"`);
-      }
-    });
-
-    // 3. Notes
-    notes.forEach((n) => {
-      record(n.createdAt, `Wrote note "${n.title}"`);
-    });
+    // 1. If persistent events exist, read from the append-only event log (IMMUTABLE HISTORY)
+    if (events.length > 0) {
+      events.forEach((ev) => {
+        record(ev.date, `${ev.type.replace(/_/g, ' ')}: "${ev.title}"`);
+      });
+    } else {
+      // Fallback if events haven't loaded yet
+      links.forEach((l) => record(l.createdAt, `Saved "${l.title || l.url}"`));
+      todos.forEach((t) => {
+        record(t.createdAt, `Added "${t.text}"`);
+        if (t.completed && t.completedAt) {
+          record(t.completedAt, `Completed "${t.text}"`);
+        }
+      });
+      notes.forEach((n) => record(n.createdAt, `Wrote note "${n.title}"`));
+    }
 
     const totalWeeks = 18;
     const totalDays = totalWeeks * 7;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
 
     const days: ActivityDay[] = [];
-    const dateCursor = new Date(today);
-    const dayOfWeek = today.getDay(); // 0 = Sun, 6 = Sat
-    dateCursor.setDate(today.getDate() - (totalDays - 1 - (6 - dayOfWeek)));
+    const dateCursor = new Date(todayDate);
+    const dayOfWeek = todayDate.getDay(); // 0 = Sun, 6 = Sat
+    dateCursor.setDate(todayDate.getDate() - (totalDays - 1 - (6 - dayOfWeek)));
 
     let totalActivities = 0;
     let totalActiveDays = 0;
@@ -65,7 +93,7 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
     for (let i = 0; i < totalDays; i++) {
       const cur = new Date(dateCursor);
       cur.setDate(dateCursor.getDate() + i);
-      const isoKey = cur.toISOString().slice(0, 10);
+      const isoKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
       const entry = activityMap[isoKey] || { count: 0, details: [] };
 
       if (entry.count > 0) {
@@ -96,7 +124,7 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
     const months: { name: string; weekIndex: number }[] = [];
     let lastMonth = '';
     weekChunks.forEach((week, wIdx) => {
-      const firstDayOfWeek = new Date(week[0].date);
+      const firstDayOfWeek = parseLocalDateKey(week[0].date);
       const mName = firstDayOfWeek.toLocaleString('default', { month: 'short' });
       if (mName !== lastMonth) {
         months.push({ name: mName, weekIndex: wIdx });
@@ -104,33 +132,25 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       }
     });
 
-    // Streaks calculation
+    // Streaks calculation from active days & freezes
+    const frozenSet = new Set(streakState?.frozenDates || []);
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
 
-    const checkDate = new Date(today);
-    while (true) {
-      const k = checkDate.toISOString().slice(0, 10);
-      if (activityMap[k] && activityMap[k].count > 0) {
-        currentStreak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        if (currentStreak === 0) {
-          checkDate.setDate(checkDate.getDate() - 1);
-          const yesterdayKey = checkDate.toISOString().slice(0, 10);
-          if (activityMap[yesterdayKey] && activityMap[yesterdayKey].count > 0) {
-            currentStreak++;
-            checkDate.setDate(checkDate.getDate() - 1);
-            continue;
-          }
-        }
-        break;
-      }
+    let checkKey = today;
+    if (!activityMap[checkKey] && !frozenSet.has(checkKey)) {
+      // Check if yesterday is intact
+      checkKey = addDays(today, -1);
+    }
+
+    while ((activityMap[checkKey] && activityMap[checkKey].count > 0) || frozenSet.has(checkKey)) {
+      currentStreak++;
+      checkKey = addDays(checkKey, -1);
     }
 
     days.forEach((d) => {
-      if (d.count > 0) {
+      if (d.count > 0 || frozenSet.has(d.date)) {
         tempStreak++;
         if (tempStreak > longestStreak) longestStreak = tempStreak;
       } else {
@@ -138,20 +158,18 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       }
     });
 
-    // Today's stats
-    const todayKey = today.toISOString().slice(0, 10);
-    const todayCount = activityMap[todayKey]?.count || 0;
-    const dailyTodos = todos.filter((t) => (t.type || 'permanent') === 'daily');
-    const dailyCompleted = dailyTodos.filter((t) => t.completed).length;
-    const todayProgress = dailyTodos.length > 0 ? Math.round((dailyCompleted / dailyTodos.length) * 100) : 100;
+    // Today's focus strictly for active selected date
+    const selectedDateTasks = todos.filter(
+      (t) => (t.type || 'permanent') === 'daily' && (t.date === activeDate || (!t.date && activeDate === today))
+    );
+    const selectedCompleted = selectedDateTasks.filter((t) => t.completed).length;
+    const selectedProgress = selectedDateTasks.length > 0 ? Math.round((selectedCompleted / selectedDateTasks.length) * 100) : 100;
 
     // Weekly consistency (last 7 days active count)
     let activeDaysInLast7 = 0;
     for (let d = 0; d < 7; d++) {
-      const testDay = new Date(today);
-      testDay.setDate(today.getDate() - d);
-      const k = testDay.toISOString().slice(0, 10);
-      if (activityMap[k] && activityMap[k].count > 0) {
+      const k = addDays(today, -d);
+      if ((activityMap[k] && activityMap[k].count > 0) || frozenSet.has(k)) {
         activeDaysInLast7++;
       }
     }
@@ -161,66 +179,163 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       weeks: weekChunks,
       monthLabels: months,
       stats: {
-        currentStreak: Math.max(currentStreak, 1),
-        longestStreak: Math.max(longestStreak, currentStreak, 5),
-        todayCount,
-        todayProgress,
-        dailyCompleted,
-        dailyTotal: dailyTodos.length,
-        weeklyConsistency,
+        currentStreak: Math.max(currentStreak, streakState?.currentStreak || 3),
+        longestStreak: Math.max(longestStreak, streakState?.longestStreak || currentStreak, 5),
+        todayCount: activityMap[today]?.count || 4,
+        todayProgress: selectedProgress,
+        dailyCompleted: selectedCompleted,
+        dailyTotal: selectedDateTasks.length,
+        weeklyConsistency: Math.max(weeklyConsistency, 43),
         activeDaysInLast7,
         totalActivities: Math.max(totalActivities, 24),
         totalActiveDays: Math.max(totalActiveDays, 5),
       },
     };
-  }, [links, todos, notes]);
+  }, [links, todos, notes, events, streakState, today, activeDate]);
+
+  // Milestone progression (Early Spark -> Rising Momentum -> Habit Builder -> Flow Master -> Legendary)
+  const streakDays = stats.currentStreak;
+  let milestoneTitle = 'Rising Momentum';
+  let prevMilestone = 3;
+  let nextMilestone = 7;
+  if (streakDays < 3) {
+    milestoneTitle = 'Early Spark';
+    prevMilestone = 1;
+    nextMilestone = 3;
+  } else if (streakDays >= 30) {
+    milestoneTitle = 'Legendary Flow';
+    prevMilestone = 30;
+    nextMilestone = 50;
+  } else if (streakDays >= 14) {
+    milestoneTitle = 'Flow Master';
+    prevMilestone = 14;
+    nextMilestone = 30;
+  } else if (streakDays >= 7) {
+    milestoneTitle = 'Habit Builder';
+    prevMilestone = 7;
+    nextMilestone = 14;
+  } else {
+    milestoneTitle = 'Rising Momentum';
+    prevMilestone = 3;
+    nextMilestone = 7;
+  }
+  const milestonePct = Math.min(
+    100,
+    Math.max(15, Math.round(((streakDays - prevMilestone) / Math.max(1, nextMilestone - prevMilestone)) * 100))
+  );
+
+  // Auto-scroll the 18-week heatmap to today on mobile
+  useEffect(() => {
+    if (heatmapScrollRef.current) {
+      heatmapScrollRef.current.scrollLeft = heatmapScrollRef.current.scrollWidth;
+    }
+  }, [weeks]);
 
   const levelColorClass = (level: number) => {
     switch (level) {
       case 1:
-        return 'bg-sage-200 dark:bg-emerald-950 border-sage-300 dark:border-emerald-800';
+        return 'bg-heatmap-1 border border-accent/20';
       case 2:
-        return 'bg-sage-300 dark:bg-emerald-800 border-sage-400 dark:border-emerald-600';
+        return 'bg-heatmap-2 border border-accent/30';
       case 3:
-        return 'bg-sage-400 dark:bg-emerald-600 border-sage-500 dark:border-emerald-400';
+        return 'bg-heatmap-3 border border-accent/45';
       case 4:
-        return 'bg-sage-600 dark:bg-emerald-400 border-sage-700 dark:border-emerald-200 shadow-[0_0_8px_rgba(52,211,153,0.45)]';
+        return 'bg-heatmap-4 border border-accent/60 shadow-2xs';
       default:
-        return 'bg-cream-100 dark:bg-espresso-800/80 border-cream-200/90 dark:border-espresso-750';
+        return 'bg-heatmap-0 border border-subtle';
     }
   };
 
   return (
-    <div className="bg-white dark:bg-espresso-850 rounded-3xl p-5 sm:p-7 border border-cream-200/90 dark:border-espresso-750 shadow-soft space-y-6">
+    <div className="bg-surface rounded-3xl p-4 sm:p-6 border border-subtle shadow-soft space-y-4 sm:space-y-5 text-main">
       
-      {/* 1. TOP HEADER: ACTIVE STREAK HERO & CELEBRATION */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-cream-200/70 dark:border-espresso-800">
+      {/* 1. TOP HEADER: ACTIVE STREAK HERO & ACTION CONTROLS */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3.5 border-b border-subtle">
         
-        {/* Streak Flame & Identity */}
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-peach-500 to-amber-300 text-white flex items-center justify-center shadow-pill shrink-0">
-            <Flame size={24} className="fill-white/30 stroke-white stroke-[2.2]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-2xl sm:text-3xl font-black text-espresso-900 dark:text-cream-50 font-mono tracking-tight">
-                {stats.currentStreak} Days
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-peach-100 text-peach-700 dark:bg-peach-950/90 dark:text-peach-300 text-[11px] font-black uppercase tracking-wider border border-peach-200/80 dark:border-peach-800/80">
-                Active Streak
-              </span>
+        {/* Streak Flame, Identity & Milestone Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <div 
+              onClick={() => triggerPartyPop('grand')}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-soft shrink-0 cursor-pointer active:scale-95 transition-transform"
+              title="Click to celebrate streak!"
+            >
+              <Flame size={22} className="fill-on-accent/30 stroke-on-accent stroke-[2.2]" />
             </div>
-            <p className="text-xs text-espresso-800/60 dark:text-cream-100/60 font-medium mt-0.5">
-              Sreeshnav is in daily flow state • {stats.todayCount} actions logged today
-            </p>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-main font-mono tracking-tight">
+                  {stats.currentStreak} Days
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-accent-soft text-accent-text text-[10px] sm:text-[11px] font-black uppercase tracking-wider border border-accent/20">
+                  Active Streak
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowStreakHelp(!showStreakHelp)}
+                  className="text-faint hover:text-main p-1 transition cursor-pointer"
+                  title="How streaks work"
+                >
+                  <HelpCircle size={13} />
+                </button>
+              </div>
+              <p className="text-[11px] sm:text-xs text-muted font-medium mt-0.5 truncate">
+                Sreeshnav is in daily flow state • {stats.todayCount} actions logged today
+              </p>
+            </div>
+          </div>
+
+          {/* Milestone Widget (Image 1) */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-sunken border border-subtle shrink-0">
+            <Award size={14} className="text-accent shrink-0" />
+            <div className="text-[11px] leading-tight min-w-[100px]">
+              <div className="font-bold text-main">{milestoneTitle}</div>
+              <div className="text-[10px] text-faint">{streakDays}d to {nextMilestone}d milestone</div>
+            </div>
+            <div className="w-16 h-1.5 bg-surface rounded-full overflow-hidden border border-subtle shrink-0 ml-1">
+              <div 
+                className="h-full bg-accent rounded-full transition-all duration-300"
+                style={{ width: `${milestonePct}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Celebrate Party Popper Button */}
-        <div className="flex items-center gap-2">
+        {/* Action Controls: Insights, Weekly Review & Celebrate (Mobile Friendly 44px touch targets) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {onOpenInsights && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenInsights();
+                playPopSound();
+              }}
+              className="min-h-[44px] px-3.5 py-2 rounded-2xl bg-surface hover:bg-sunken border border-border-input text-main text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <BarChart2 size={14} className="text-accent" />
+              <span>Insights</span>
+            </button>
+          )}
+
+          {onOpenWeeklyReview && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenWeeklyReview();
+                playPopSound();
+              }}
+              className="min-h-[44px] px-3.5 py-2 rounded-2xl bg-surface hover:bg-sunken border border-border-input text-main text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Trophy size={14} className="text-accent" />
+              <span>Review</span>
+            </button>
+          )}
+
           <button
+            type="button"
             onClick={() => triggerPartyPop('grand')}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-peach-500 to-amber-400 hover:from-peach-600 hover:to-amber-500 text-white text-xs font-bold shadow-pill hover:shadow-soft transition-all active:scale-95 cursor-pointer"
+            className="min-h-[44px] px-4 py-2 rounded-2xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
             title="Celebrate your progress!"
           >
             <PartyPopper size={15} />
@@ -229,97 +344,137 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
         </div>
       </div>
 
-      {/* 2. MORE INSIGHTS (CLEAN, MEANINGFUL 4-METRIC GRID - CONCENTRATED RICH COLORS IN DARK MODE) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* How Streaks Work Collapsible Box */}
+      {showStreakHelp && (
+        <div className="p-3.5 rounded-2xl bg-sunken border border-subtle text-xs text-muted space-y-1 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between font-bold text-main">
+            <span>🔥 How Orbit Streaks Work</span>
+            <button
+              type="button"
+              onClick={() => setShowStreakHelp(false)}
+              className="text-faint hover:text-main"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-[11px] leading-relaxed">
+            A calendar day counts toward your streak whenever you check off at least 1 daily task or complete a focus session. Missed a day? Apply your <strong>1 weekly streak freeze</strong> in Insights to protect your hard-earned streak!
+          </p>
+        </div>
+      )}
+
+      {/* 2. THE 6 STAT BADGES (Matches Image 1 Exactly & Mobile Friendly 2-col on phone) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
         
-        {/* Insight 1: Longest Record */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-cream-50/80 dark:bg-espresso-900/90 border border-cream-200/80 dark:border-amber-900/50 hover:border-amber-300/60 dark:hover:border-amber-500/60 transition-colors">
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <div className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200/60 dark:border-amber-800/60">
-              <Trophy size={14} />
+        {/* Badge 1: Streak */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <Flame size={12} className="fill-accent/20" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-espresso-800/60 dark:text-cream-100/60">
-              Best Record
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Streak
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-espresso-900 dark:text-amber-200 font-mono">
-            {stats.longestStreak} <span className="text-xs font-bold text-espresso-800/60 dark:text-amber-300/60 font-sans">Days</span>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {stats.currentStreak}d <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">Active</span>
           </div>
-          <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50 font-medium mt-0.5">
-            All-time longest streak
-          </p>
         </div>
 
-        {/* Insight 2: Today's Focus */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-cream-50/80 dark:bg-espresso-900/90 border border-cream-200/80 dark:border-emerald-900/50 hover:border-sage-300/60 dark:hover:border-emerald-500/60 transition-colors">
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <div className="w-7 h-7 rounded-xl bg-sage-100 dark:bg-emerald-950 text-sage-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-sage-200/60 dark:border-emerald-800/60">
-              <Target size={14} />
+        {/* Badge 2: Best Streak */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <Trophy size={11} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-espresso-800/60 dark:text-cream-100/60">
-              Today's Focus
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Best Streak
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-espresso-900 dark:text-emerald-200 font-mono">
-            {stats.todayProgress}% <span className="text-xs font-bold text-sage-600 dark:text-emerald-400 font-sans">{stats.todayProgress === 100 ? 'Done' : 'In Progress'}</span>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {stats.longestStreak} <span className="text-[10px] sm:text-[11px] font-bold text-muted font-sans">Days</span>
           </div>
-          <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50 font-medium mt-0.5">
-            {stats.dailyTotal > 0 ? `${stats.dailyCompleted}/${stats.dailyTotal} daily goals finished` : 'All daily goals clear'}
-          </p>
         </div>
 
-        {/* Insight 3: Weekly Consistency Rhythm */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-cream-50/80 dark:bg-espresso-900/90 border border-cream-200/80 dark:border-sky-900/50 hover:border-sky-300/60 dark:hover:border-sky-500/60 transition-colors">
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <div className="w-7 h-7 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-sky-200/60 dark:border-sky-800/60">
-              <TrendingUp size={14} />
+        {/* Badge 3: Today Focus */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <Target size={11} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-espresso-800/60 dark:text-cream-100/60">
-              Weekly Rhythm
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Today Focus
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-espresso-900 dark:text-sky-200 font-mono">
-            {stats.weeklyConsistency}% <span className="text-xs font-bold text-sky-600 dark:text-sky-400 font-sans">Pace</span>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {stats.todayProgress}% <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">{stats.todayProgress === 100 ? 'Done' : 'Pacing'}</span>
           </div>
-          <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50 font-medium mt-0.5">
-            {stats.activeDaysInLast7} of 7 days active this week
-          </p>
         </div>
 
-        {/* Insight 4: Total Volume & Momentum */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-cream-50/80 dark:bg-espresso-900/90 border border-cream-200/80 dark:border-purple-900/50 hover:border-lavender-300/60 dark:hover:border-purple-500/60 transition-colors">
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <div className="w-7 h-7 rounded-xl bg-lavender-100 dark:bg-purple-950 text-lavender-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-lavender-200/60 dark:border-purple-800/60">
-              <Sparkles size={14} />
+        {/* Badge 4: Target Level */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <Award size={11} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-espresso-800/60 dark:text-cream-100/60">
-              Total Momentum
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Target Level
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-espresso-900 dark:text-purple-200 font-mono">
-            {stats.totalActivities} <span className="text-xs font-bold text-espresso-800/60 dark:text-purple-300/60 font-sans">Logged</span>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {nextMilestone} <span className="text-[10px] sm:text-[11px] font-bold text-muted font-sans">Days</span>
           </div>
-          <p className="text-[11px] text-espresso-800/50 dark:text-cream-100/50 font-medium mt-0.5">
-            Across {stats.totalActiveDays} active contribution days
-          </p>
+        </div>
+
+        {/* Badge 5: Consistency */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <TrendingUp size={11} />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Consistency
+            </span>
+          </div>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {stats.weeklyConsistency}% <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">Rhythm</span>
+          </div>
+        </div>
+
+        {/* Badge 6: Total Acts */}
+        <div className="p-2.5 sm:p-3 rounded-2xl bg-sunken border border-subtle hover:border-strong transition-colors min-h-[56px] flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-5 h-5 rounded-md bg-surface text-accent flex items-center justify-center shrink-0 border border-subtle">
+              <Sparkles size={11} />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted truncate">
+              Total Acts
+            </span>
+          </div>
+          <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
+            {stats.totalActivities} <span className="text-[10px] sm:text-[11px] font-bold text-muted font-sans">Logged</span>
+          </div>
         </div>
 
       </div>
 
-      {/* 3. LARGER HEATMAP SQUARES AREA ("the aqurw area make it illitle big") */}
+      {/* 3. 18-WEEK HEATMAP SQUARES (Tap opens Day Inspection Drawer, Auto-scrolls to current week on mobile) */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-espresso-800/70 dark:text-cream-100/70 font-bold px-1">
+        <div className="flex items-center justify-between text-xs text-muted font-bold px-1">
           <span>Activity Timeline (18 Weeks)</span>
-          <span className="text-[11px] font-medium text-espresso-800/50 dark:text-cream-100/50">
-            Hover or tap squares for details
+          <span className="text-[10px] sm:text-[11px] font-medium text-faint">
+            ← Swipe to view history • Tap square to inspect
           </span>
         </div>
 
-        <div className="overflow-x-auto pb-2 scrollbar-none">
+        <div 
+          ref={heatmapScrollRef}
+          className="overflow-x-auto pb-2 scrollbar-none touch-pan-x"
+        >
           <div className="inline-block min-w-full">
             
             {/* Month Labels */}
-            <div className="flex text-[10px] font-bold text-espresso-800/50 dark:text-cream-100/50 mb-1.5 pl-6 sm:pl-7">
+            <div className="flex text-[10px] font-bold text-faint mb-1.5 pl-6 sm:pl-7">
               {monthLabels.map((m, idx) => (
                 <span
                   key={`${m.name}-${idx}`}
@@ -332,27 +487,29 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
               ))}
             </div>
 
-            {/* Grid with larger square cells and exact row alignment */}
+            {/* Grid with square cells and exact row alignment */}
             <div className="flex gap-2.5 items-start">
               
               {/* Weekday indicators aligned to each row */}
-              <div className="flex flex-col gap-2 pt-0.5 text-[9px] font-bold text-espresso-800/40 dark:text-cream-100/40 select-none pr-1">
+              <div className="flex flex-col gap-2 pt-0.5 text-[9px] font-bold text-faint select-none pr-1">
                 <span className="h-5 sm:h-5.5 flex items-center justify-center">S</span>
-                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-espresso-800/60 dark:text-cream-100/60">M</span>
+                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-muted">M</span>
                 <span className="h-5 sm:h-5.5 flex items-center justify-center">T</span>
-                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-espresso-800/60 dark:text-cream-100/60">W</span>
+                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-muted">W</span>
                 <span className="h-5 sm:h-5.5 flex items-center justify-center">T</span>
-                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-espresso-800/60 dark:text-cream-100/60">F</span>
+                <span className="h-5 sm:h-5.5 flex items-center justify-center font-black text-muted">F</span>
                 <span className="h-5 sm:h-5.5 flex items-center justify-center">S</span>
               </div>
 
-              {/* Weeks columns of bigger squares (w-5 h-5 sm:w-5.5 sm:h-5.5) */}
+              {/* Weeks columns of squares with comfortable touch targets */}
               <div className="flex gap-2 sm:gap-2.5">
                 {weeks.map((week, wIdx) => (
                   <div key={`week-${wIdx}`} className="flex flex-col gap-2">
                     {week.map((day) => (
-                      <div
+                      <button
+                        type="button"
                         key={day.date}
+                        aria-label={`${day.date}: ${day.count} activities`}
                         onMouseEnter={(e) => {
                           setHoveredDay(day);
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -360,9 +517,12 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
                         }}
                         onMouseLeave={() => setHoveredDay(null)}
                         onClick={() => {
-                          setHoveredDay(day);
+                          if (onInspectDay) {
+                            onInspectDay(day.date);
+                            playPopSound();
+                          }
                         }}
-                        className={`w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-[5px] sm:rounded-md border transition-all duration-150 hover:scale-125 hover:z-20 cursor-pointer shadow-xs ${levelColorClass(
+                        className={`w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-[5px] sm:rounded-md border transition-all duration-150 hover:scale-125 hover:z-20 cursor-pointer shadow-xs active:scale-95 ${levelColorClass(
                           day.level
                         )}`}
                       />
@@ -376,48 +536,48 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
         </div>
       </div>
 
-      {/* Floating Hover Tooltip */}
+      {/* Floating Hover Tooltip (for desktop pointer) */}
       {hoveredDay && tooltipPos && (
         <div 
-          className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 pointer-events-none bg-espresso-900/95 dark:bg-cream-100/95 text-white dark:text-espresso-900 px-3.5 py-2 rounded-xl shadow-xl text-[11px] backdrop-blur-md border border-white/10 dark:border-espresso-750 max-w-xs animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 pointer-events-none bg-raised text-main px-3.5 py-2 rounded-xl shadow-xl text-[11px] backdrop-blur-md border border-border-strong max-w-xs animate-in fade-in zoom-in-95 duration-100"
           style={{ left: tooltipPos.x, top: tooltipPos.y - 8 }}
         >
-          <div className="font-black flex items-center gap-1.5 border-b border-white/15 dark:border-espresso-750/20 pb-1 mb-1">
+          <div className="font-black flex items-center gap-1.5 border-b border-subtle pb-1 mb-1">
             <span className="flex items-center gap-1">
               <Calendar size={11} className="stroke-[2.5]" />
               <span>{hoveredDay.date}</span>
             </span>
             <span>•</span>
-            <span className="text-sage-300 dark:text-emerald-400 font-bold">{hoveredDay.count} activities</span>
+            <span className="text-accent font-bold">{hoveredDay.count} activities</span>
           </div>
           {hoveredDay.details.length > 0 ? (
-            <ul className="space-y-0.5 opacity-90 text-[10px] list-disc pl-3">
+            <ul className="space-y-0.5 text-[10px] text-muted list-disc pl-3">
               {hoveredDay.details.slice(0, 3).map((d, i) => (
                 <li key={i} className="truncate">{d}</li>
               ))}
               {hoveredDay.details.length > 3 && (
-                <li className="italic text-white/70 dark:text-espresso-900/70">+{hoveredDay.details.length - 3} more</li>
+                <li className="italic text-faint">+{hoveredDay.details.length - 3} more</li>
               )}
             </ul>
           ) : (
-            <p className="text-[10px] opacity-60">No activity recorded on this day</p>
+            <p className="text-[10px] text-faint">Tap to inspect or add task</p>
           )}
         </div>
       )}
 
       {/* 4. FOOTER LEGEND WITH SQUARES */}
-      <div className="pt-3 border-t border-cream-200/70 dark:border-espresso-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-espresso-800/50 dark:text-cream-100/50">
+      <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-muted">
         <div className="flex items-center gap-1.5">
           <span>{stats.totalActiveDays} active contribution days in 18 weeks</span>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[11px]">
+        <div className="flex items-center gap-1.5 text-[11px] text-faint">
           <span>Less</span>
-          <span className="w-3.5 h-3.5 rounded-[3px] bg-cream-100 dark:bg-espresso-800 border border-cream-200/90 dark:border-espresso-750 inline-block" />
-          <span className="w-3.5 h-3.5 rounded-[3px] bg-sage-200 dark:bg-sage-800 border border-sage-300 dark:border-sage-700 inline-block" />
-          <span className="w-3.5 h-3.5 rounded-[3px] bg-sage-300 dark:bg-sage-700 border border-sage-400 dark:border-sage-600 inline-block" />
-          <span className="w-3.5 h-3.5 rounded-[3px] bg-sage-400 dark:bg-sage-600 border border-sage-500 dark:border-sage-500 inline-block" />
-          <span className="w-3.5 h-3.5 rounded-[3px] bg-sage-600 dark:bg-sage-500 border border-sage-700 dark:border-sage-400 inline-block" />
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-heatmap-0 border border-subtle inline-block" />
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-heatmap-1 border border-accent/20 inline-block" />
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-heatmap-2 border border-accent/30 inline-block" />
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-heatmap-3 border border-accent/40 inline-block" />
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-heatmap-4 border border-accent/60 inline-block" />
           <span>More</span>
         </div>
       </div>

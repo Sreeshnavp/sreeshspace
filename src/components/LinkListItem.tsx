@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { LinkItem, CategoryInfo } from '../types';
 import { extractDomain, formatRelativeTime } from '../utils/urlHelper';
+import { getCategoryToken } from '../utils/themeColors';
 
 interface LinkListItemProps {
   link: LinkItem;
@@ -36,7 +37,7 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
 
   const domain = extractDomain(link.url);
   const category = categories.find((c) => c.name === link.category);
-  const categoryColor = category?.color || '#4e876c';
+  const catToken = getCategoryToken(category?.color || link.category);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -67,12 +68,12 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
       draggable
       onDragStart={handleDragStart}
       onClick={() => onOpenDetail(link)}
-      className="group flex items-center justify-between gap-3 p-3.5 bg-white dark:bg-espresso-850 rounded-2xl border border-cream-300/80 dark:border-espresso-800 shadow-soft hover:shadow-soft-hover hover:border-sage-300 dark:hover:border-sage-700 transition cursor-pointer active:cursor-grabbing"
+      className="group flex items-center justify-between gap-3 p-3.5 bg-surface rounded-2xl border border-subtle shadow-soft hover:shadow-soft-hover hover:border-strong transition cursor-pointer active:cursor-grabbing text-main"
     >
       {/* Favicon & Title & Domain */}
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <span 
-          className="text-espresso-800/20 hover:text-espresso-800/50 cursor-grab active:cursor-grabbing" 
+          className="text-faint hover:text-muted cursor-grab active:cursor-grabbing" 
           title="Drag to move into a category square"
         >
           <GripVertical size={14} />
@@ -80,15 +81,15 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
 
         <button
           onClick={handlePin}
-          className="text-espresso-800/20 dark:text-cream-100/20 hover:text-amber-400 transition shrink-0"
+          className="text-faint hover:text-muted transition shrink-0 cursor-pointer"
         >
           <Star 
             size={18} 
-            className={link.pinned ? 'fill-amber-400 text-amber-500' : ''} 
+            className={link.pinned ? 'fill-accent text-accent' : ''} 
           />
         </button>
 
-        <div className="w-8 h-8 rounded-xl bg-cream-100 dark:bg-espresso-900 flex items-center justify-center shrink-0 border border-cream-200 dark:border-espresso-800 overflow-hidden">
+        <div className="w-8 h-8 rounded-xl bg-sunken flex items-center justify-center shrink-0 border border-subtle overflow-hidden">
           {link.favicon && !imgError ? (
             <img 
               src={link.favicon} 
@@ -97,30 +98,30 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
               onError={() => setImgError(true)} 
             />
           ) : (
-            <ExternalLink size={12} className="text-espresso-800/40 dark:text-cream-100/40" />
+            <ExternalLink size={12} className="text-faint" />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-xs sm:text-sm text-espresso-900 dark:text-cream-50 truncate group-hover:text-sage-600 transition-colors">
+            <span className="font-bold text-xs sm:text-sm text-main truncate group-hover:text-accent transition-colors">
               {link.title || link.url}
             </span>
             {link.attachments && link.attachments.length > 0 && (
-              <Paperclip size={12} className="text-peach-500 shrink-0" />
+              <Paperclip size={12} className="text-accent shrink-0" />
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-espresso-800/40 dark:text-cream-100/40 mt-0.5">
+          <div className="flex items-center gap-2 text-xs text-faint mt-0.5">
             <span className="truncate max-w-[130px]">{domain}</span>
             <span>•</span>
             <span 
-              className="font-semibold text-[10px] px-1.5 py-0.2 rounded-full"
-              style={{ color: categoryColor, backgroundColor: `${categoryColor}15` }}
+              className="font-semibold text-[10px] px-1.5 py-0.5 rounded-full border border-subtle"
+              style={{ color: catToken.textVar, backgroundColor: catToken.softVar }}
             >
               {category?.icon || '•'} {link.category}
             </span>
             {link.notes && (
-              <span className="hidden md:inline truncate max-w-[280px] text-espresso-800/60 dark:text-cream-100/60">
+              <span className="hidden md:inline truncate max-w-[280px] text-muted">
                 • {link.notes.split('\n')[0]}
               </span>
             )}
@@ -129,7 +130,7 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
       </div>
 
       {/* Relative Time */}
-      <span className="hidden sm:block text-xs text-espresso-800/40 dark:text-cream-100/40 shrink-0">
+      <span className="hidden sm:block text-xs text-faint shrink-0">
         {formatRelativeTime(link.createdAt)}
       </span>
 
@@ -137,17 +138,17 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={handleCopy}
-          className="p-1.5 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+          className="p-1.5 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
           title="Copy URL"
         >
-          {copied ? <Check size={14} className="text-sage-600" /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-accent" /> : <Copy size={14} />}
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onEdit(link);
           }}
-          className="p-1.5 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+          className="p-1.5 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
           title="Edit"
         >
           <Edit3 size={14} />
@@ -157,14 +158,14 @@ export const LinkListItem: React.FC<LinkListItemProps> = ({
             e.stopPropagation();
             onDelete(link.id);
           }}
-          className="p-1.5 text-espresso-800/40 hover:text-red-500 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+          className="p-1.5 text-faint hover:text-danger rounded-lg hover:bg-sunken transition cursor-pointer"
           title="Delete"
         >
           <Trash2 size={14} />
         </button>
         <button
           onClick={handleVisit}
-          className="px-2.5 py-1 text-xs font-bold text-sage-700 bg-sage-50 hover:bg-sage-100 dark:bg-sage-950/60 dark:text-sage-300 rounded-xl transition"
+          className="px-2.5 py-1 text-xs font-bold text-accent-text bg-accent-soft hover:bg-accent hover:text-on-accent rounded-xl transition cursor-pointer border border-subtle"
         >
           Open
         </button>

@@ -1,15 +1,15 @@
 {
-  "name": "SreeshSpace — Sreeshnav's Cozy Link Vault",
-  "short_name": "SreeshSpace",
-  "description": "Sreeshnav's cozy personal vault for links, uses notes, category bento squares, and file attachments.",
-  "start_url": "/",
+  "name": "Orbit — Personal Link Vault & Habit Hub",
+  "short_name": "Orbit",
+  "description": "Personal link vault, daily habits, notebook, and goal tracker.",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#141210",
-  "theme_color": "#4e876c",
+  "background_color": "#151311",
+  "theme_color": "#3C6E57",
   "orientation": "any",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

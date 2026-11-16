@@ -15,7 +15,8 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import type { LinkItem, CategoryInfo, Attachment } from '../types';
-import { extractDomain, formatRelativeTime } from '../utils/urlHelper';
+import { extractDomain } from '../utils/urlHelper';
+import { getCategoryToken } from '../utils/themeColors';
 
 interface FolderGridPopupProps {
   category: CategoryInfo | null;
@@ -57,6 +58,8 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
   const [isBackdropOver, setIsBackdropOver] = useState(false);
 
   if (!category) return null;
+
+  const catToken = getCategoryToken(category.color || category.name);
 
   const categoryLinks = links.filter(
     (l) => (l.category || '').toLowerCase() === category.name.toLowerCase()
@@ -119,7 +122,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
   return (
     <div 
       className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 transition-all duration-300 ${
-        isBackdropOver ? 'bg-sage-950/70' : 'bg-espresso-950/50 backdrop-blur-md'
+        isBackdropOver ? 'bg-accent/40' : 'bg-main/50 backdrop-blur-md'
       }`}
       onClick={onClose}
       onDragOver={(e) => {
@@ -131,42 +134,41 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
     >
       {/* Drop-outside liquid notice */}
       {isBackdropOver && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-60 px-5 py-2.5 rounded-full bg-white/90 dark:bg-espresso-850/90 shadow-2xl border border-sage-400 text-xs sm:text-sm font-bold text-sage-700 dark:text-sage-300 flex items-center gap-2 animate-bounce">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-60 px-5 py-2.5 rounded-full bg-surface shadow-raised border border-accent text-xs sm:text-sm font-bold text-accent flex items-center gap-2 animate-bounce">
           <Sparkles size={16} />
           <span>Release here to move link out to the Home canvas!</span>
         </div>
       )}
 
       <div 
-        className="w-full max-w-3xl bg-cream-50/95 dark:bg-espresso-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-cream-200/80 dark:border-espresso-750 flex flex-col max-h-[88vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-3xl bg-surface border border-subtle rounded-3xl shadow-raised flex flex-col max-h-[88vh] overflow-hidden animate-in zoom-in-95 duration-200 text-main"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header with Liquid Pastel Glow */}
+        {/* Header */}
         <div 
-          className="p-5 sm:p-6 pb-4 border-b border-cream-200/80 dark:border-espresso-800 flex items-center justify-between"
-          style={{ background: `linear-gradient(135deg, ${category.color}18 0%, transparent 100%)` }}
+          className="p-5 sm:p-6 pb-4 border-b border-subtle flex items-center justify-between bg-surface"
         >
           <div className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-2xl shadow-xs"
-              style={{ backgroundColor: `${category.color}25` }}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-2xl shadow-2xs"
+              style={{ backgroundColor: catToken.softVar, color: catToken.textVar }}
             >
               {category.icon || '📁'}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black text-espresso-900 dark:text-cream-50">
+                <h2 className="text-base sm:text-lg font-black text-main">
                   {category.name}
                 </h2>
                 <button
                   onClick={() => onEditCategory(category)}
-                  className="p-1 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-lg hover:bg-cream-200 dark:hover:bg-espresso-800 transition"
+                  className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
                   title="Rename folder"
                 >
                   <Edit3 size={13} />
                 </button>
               </div>
-              <p className="text-xs text-espresso-800/50 dark:text-cream-100/50 font-medium">
+              <p className="text-xs text-muted font-medium">
                 {categoryLinks.length} {categoryLinks.length === 1 ? 'bookmark' : 'bookmarks'} • Drag to re-order or drag outside to remove!
               </p>
             </div>
@@ -175,14 +177,14 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onAddNewLinkToCategory(category.name)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sage-600 hover:bg-sage-500 text-white rounded-2xl text-xs font-bold shadow-pill transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-on-accent rounded-2xl text-xs font-bold shadow-soft transition-all active:scale-95 cursor-pointer"
             >
               <Plus size={14} />
               <span>Add Link</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-xl hover:bg-cream-200 dark:hover:bg-espresso-800 transition"
+              className="p-2 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -190,21 +192,21 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
         </div>
 
         {/* Card Grid */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-sunken">
           {categoryLinks.length === 0 ? (
             <div className="py-14 text-center">
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-cream-200 dark:bg-espresso-800 text-espresso-800/40 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-surface border border-subtle text-faint flex items-center justify-center mb-3">
                 <Sparkles size={22} />
               </div>
-              <h4 className="text-sm font-bold text-espresso-900 dark:text-cream-50 mb-1">
+              <h4 className="text-sm font-bold text-main mb-1">
                 This folder is empty
               </h4>
-              <p className="text-xs text-espresso-800/50 dark:text-cream-100/50 mb-4 max-w-xs mx-auto">
+              <p className="text-xs text-muted mb-4 max-w-xs mx-auto">
                 Drag any link from the home screen into this folder, or add one below!
               </p>
               <button
                 onClick={() => onAddNewLinkToCategory(category.name)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-sage-600 text-white rounded-2xl text-xs font-bold shadow-pill active:scale-95 transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-on-accent rounded-2xl text-xs font-bold shadow-soft active:scale-95 transition cursor-pointer"
               >
                 <Plus size={14} />
                 <span>Add first bookmark</span>
@@ -226,30 +228,30 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                     onDragOver={(e) => handleCardDragOver(e, index)}
                     onDrop={(e) => handleCardDrop(e, index)}
                     onClick={() => onOpenLinkDetail(link)}
-                    className={`group relative flex flex-col justify-between bg-white dark:bg-espresso-850 rounded-3xl p-4 sm:p-4.5 border shadow-soft transition-all duration-200 cursor-grab active:cursor-grabbing h-[205px] overflow-hidden ${
+                    className={`group relative flex flex-col justify-between bg-surface rounded-3xl p-4 sm:p-4.5 border shadow-soft transition-all duration-200 cursor-grab active:cursor-grabbing h-[205px] overflow-hidden ${
                       isOver
-                        ? 'border-sage-500 bg-sage-50 dark:bg-sage-950/80 scale-[1.02] ring-4 ring-sage-400/30'
+                        ? 'border-accent bg-accent-soft scale-[1.02] ring-4 ring-ring/30'
                         : isDraggingThis
-                        ? 'opacity-30 border-dashed border-sage-400 scale-95'
-                        : 'border-cream-200/90 dark:border-espresso-750 hover:shadow-soft-hover hover:border-sage-300 dark:hover:border-sage-600 hover:-translate-y-0.5'
+                        ? 'opacity-30 border-dashed border-accent scale-95'
+                        : 'border-subtle hover:shadow-soft-hover hover:border-strong hover:-translate-y-0.5'
                     }`}
                   >
                     {/* Top Bar: Grip + Favicon + Domain + Star */}
                     <div className="flex items-center justify-between gap-1.5 h-7 shrink-0">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-espresso-800/25 group-hover:text-espresso-800/60 dark:text-cream-100/25 cursor-grab" title="Drag to reorder or drag outside to remove">
+                        <span className="text-faint group-hover:text-muted cursor-grab" title="Drag to reorder or drag outside to remove">
                           <GripVertical size={14} />
                         </span>
 
-                        <div className="w-6 h-6 rounded-lg bg-cream-100 dark:bg-espresso-800 flex items-center justify-center shrink-0 border border-cream-200 dark:border-espresso-750 overflow-hidden">
+                        <div className="w-6 h-6 rounded-lg bg-sunken flex items-center justify-center shrink-0 border border-subtle overflow-hidden">
                           {link.favicon ? (
                             <img src={link.favicon} alt="" className="w-3.5 h-3.5 object-contain" />
                           ) : (
-                            <ExternalLink size={11} className="text-espresso-800/40" />
+                            <ExternalLink size={11} className="text-faint" />
                           )}
                         </div>
 
-                        <span className="text-[11px] text-espresso-800/50 dark:text-cream-100/50 truncate font-medium">
+                        <span className="text-[11px] text-faint truncate font-medium">
                           {domain}
                         </span>
                       </div>
@@ -259,22 +261,22 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                           e.stopPropagation();
                           onTogglePin(link.id);
                         }}
-                        className={`p-1 rounded-lg transition ${
-                          link.pinned ? 'text-amber-500' : 'text-espresso-800/20 hover:text-amber-400'
+                        className={`p-1 rounded-lg transition cursor-pointer ${
+                          link.pinned ? 'text-accent' : 'text-faint hover:text-muted'
                         }`}
                       >
-                        <Star size={15} className={link.pinned ? 'fill-amber-400 text-amber-500' : ''} />
+                        <Star size={15} className={link.pinned ? 'fill-accent text-accent' : ''} />
                       </button>
                     </div>
 
-                    {/* Middle Body: Symmetrical 88px area */}
+                    {/* Middle Body */}
                     <div className="my-auto h-[88px] flex flex-col justify-between overflow-hidden">
-                      <h4 className="font-extrabold text-xs sm:text-sm text-espresso-900 dark:text-cream-50 leading-tight line-clamp-2 group-hover:text-sage-600 transition-colors">
+                      <h4 className="font-extrabold text-xs sm:text-sm text-main leading-tight line-clamp-2 group-hover:text-accent transition-colors">
                         {link.title || link.url}
                       </h4>
 
                       {link.notes ? (
-                        <p className="text-[11px] text-espresso-800/70 dark:text-cream-100/70 line-clamp-2 leading-relaxed bg-cream-50 dark:bg-espresso-900 px-2.5 py-1 rounded-xl border border-cream-200/70 dark:border-espresso-800 font-normal">
+                        <p className="text-[11px] text-muted line-clamp-2 leading-relaxed bg-sunken px-2.5 py-1 rounded-xl border border-subtle font-normal">
                           {link.notes}
                         </p>
                       ) : link.attachments && link.attachments.length > 0 ? (
@@ -285,21 +287,21 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                               e.stopPropagation();
                               onOpenAttachment(link.attachments[0]);
                             }}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-peach-600 dark:text-peach-300 bg-peach-50 dark:bg-peach-950 px-2.5 py-0.5 rounded-full border border-peach-200 dark:border-peach-900 hover:bg-peach-100 transition active:scale-95"
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent-text bg-accent-soft px-2.5 py-0.5 rounded-full border border-subtle hover:opacity-90 transition active:scale-95 cursor-pointer"
                           >
                             <Paperclip size={10} />
                             <span>{link.attachments.length} file(s) • View</span>
                           </button>
                         </div>
                       ) : (
-                        <div className="text-[10px] text-espresso-800/35 dark:text-cream-100/35 italic">
+                        <div className="text-[10px] text-faint italic">
                           No notes added
                         </div>
                       )}
                     </div>
 
                     {/* Bottom Actions */}
-                    <div className="pt-2 mt-auto border-t border-cream-200 dark:border-espresso-800 flex items-center justify-between text-xs h-7 shrink-0">
+                    <div className="pt-2 mt-auto border-t border-subtle flex items-center justify-between text-xs h-7 shrink-0">
                       {/* Move to another category dropdown */}
                       <div className="relative">
                         <button
@@ -307,7 +309,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                             e.stopPropagation();
                             setMovingLinkId(movingLinkId === link.id ? null : link.id);
                           }}
-                          className="p-1 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+                          className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
                           title="Move to another category"
                         >
                           <FolderInput size={13} />
@@ -315,10 +317,10 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
 
                         {movingLinkId === link.id && (
                           <div 
-                            className="absolute left-0 bottom-full mb-1 z-30 w-44 bg-white dark:bg-espresso-800 rounded-2xl shadow-xl border border-cream-300 dark:border-espresso-700 py-1.5 text-xs text-espresso-800 dark:text-cream-100 animate-in fade-in"
+                            className="absolute left-0 bottom-full mb-1 z-30 w-44 bg-raised rounded-2xl shadow-raised border border-subtle py-1.5 text-xs text-main animate-in fade-in"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="px-3 py-1 font-bold text-[10px] uppercase text-espresso-800/40 border-b border-cream-200 dark:border-espresso-700">
+                            <div className="px-3 py-1 font-bold text-[10px] uppercase text-faint border-b border-subtle">
                               Move to...
                             </div>
                             <button
@@ -326,7 +328,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                                 onMoveLinkCategory(link.id, 'Uncategorized');
                                 setMovingLinkId(null);
                               }}
-                              className="w-full text-left px-3 py-1.5 hover:bg-cream-100 dark:hover:bg-espresso-750 font-medium text-xs flex items-center gap-1.5"
+                              className="w-full text-left px-3 py-1.5 hover:bg-sunken font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                             >
                               <span>📎</span> <span>Home Canvas</span>
                             </button>
@@ -337,7 +339,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                                   onMoveLinkCategory(link.id, c.name);
                                   setMovingLinkId(null);
                                 }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-cream-100 dark:hover:bg-espresso-750 font-medium text-xs flex items-center gap-1.5"
+                                className="w-full text-left px-3 py-1.5 hover:bg-sunken font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                               >
                                 <span>{c.icon || '📁'}</span>
                                 <span className="truncate">{c.name}</span>
@@ -350,17 +352,17 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => handleCopy(e, link)}
-                          className="p-1 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+                          className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
                           title="Copy link"
                         >
-                          {isCopied ? <Check size={13} className="text-sage-600" /> : <Copy size={13} />}
+                          {isCopied ? <Check size={13} className="text-accent" /> : <Copy size={13} />}
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onEditLink(link);
                           }}
-                          className="p-1 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+                          className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
                           title="Edit"
                         >
                           <Edit3 size={13} />
@@ -370,7 +372,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                             e.stopPropagation();
                             onDeleteLink(link.id);
                           }}
-                          className="p-1 text-espresso-800/40 hover:text-red-500 rounded-lg hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+                          className="p-1 text-faint hover:text-danger rounded-lg hover:bg-sunken transition cursor-pointer"
                           title="Delete"
                         >
                           <Trash2 size={13} />
@@ -381,7 +383,7 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
                             onVisitLink(link);
                             window.open(link.url, '_blank', 'noopener,noreferrer');
                           }}
-                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-sage-700 bg-sage-50 hover:bg-sage-100 dark:bg-sage-950/60 dark:text-sage-300 rounded-xl transition border border-sage-200/80 dark:border-sage-800 ml-1"
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-accent-text bg-accent-soft hover:bg-accent hover:text-on-accent rounded-xl transition border border-subtle ml-1 cursor-pointer"
                         >
                           <span>Open</span>
                           <ArrowUpRight size={11} />
@@ -396,10 +398,10 @@ export const FolderGridPopup: React.FC<FolderGridPopupProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-cream-200 dark:border-espresso-800 bg-cream-50/50 dark:bg-espresso-950/50 flex justify-end">
+        <div className="px-6 py-3 border-t border-subtle bg-sunken flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-bold text-white bg-sage-600 hover:bg-sage-500 rounded-xl shadow-pill transition"
+            className="px-4 py-1.5 text-xs font-bold text-on-accent bg-accent hover:bg-accent-hover rounded-xl shadow-soft transition cursor-pointer"
           >
             Done
           </button>

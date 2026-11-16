@@ -1,23 +1,50 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen } from 'lucide-react';
+import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw } from 'lucide-react';
 
-import type { LinkItem, CategoryInfo, Attachment, TodoItem, NoteItem, WorkspaceView } from './types';
+import type { 
+  LinkItem, 
+  CategoryInfo, 
+  Attachment, 
+  TodoItem, 
+  NoteItem, 
+  WorkspaceView, 
+  ActivityEvent, 
+  StreakState, 
+  DayLog, 
+  RoutineItem 
+} from './types';
 import { 
   loadLinks, 
   saveLinks, 
   loadCategories, 
   saveCategories, 
-  loadTodos,
-  saveTodos,
-  loadNotes,
-  saveNotes,
+  loadTodos, 
+  saveTodos, 
+  loadNotes, 
+  saveNotes, 
+  loadActivityEvents, 
+  saveActivityEvents, 
+  logActivity, 
+  loadDayLogs, 
+  saveDayLog, 
+  loadStreakState, 
+  saveStreakState, 
+  loadRoutines, 
+  saveRoutines, 
+  runDataMigration, 
+  loadCustomBackground,
+  saveCustomBackgroundImage,
+  saveBackgroundSettings,
+  type BackgroundSettings,
   DEFAULT_CATEGORIES, 
-  INITIAL_LINKS,
-  INITIAL_TODOS,
-  INITIAL_NOTES
+  INITIAL_LINKS, 
+  INITIAL_TODOS, 
+  INITIAL_NOTES 
 } from './services/storage';
 import { normalizeUrl, generateSuggestedTitle, getFaviconUrl, extractDomain, formatRelativeTime } from './utils/urlHelper';
+import { triggerPartyPop, playPopSound } from './utils/delight';
+import { todayKey, addDays, toLocalDateKey } from './utils/dates';
 
 import { Header } from './components/Header';
 import { QuickAddBar } from './components/QuickAddBar';
@@ -31,6 +58,24 @@ import { ExportImportModal } from './components/ExportImportModal';
 import { PwaPrompt } from './components/PwaPrompt';
 import { AttachmentViewerModal } from './components/AttachmentViewerModal';
 import { NotebookArea } from './components/NotebookArea';
+import { DesignGuideModal } from './components/DesignGuideModal';
+
+import { GoalModal } from './components/GoalModal';
+import { ExtendDeadlineModal } from './components/ExtendDeadlineModal';
+import { FocusTimerModal } from './components/FocusTimerModal';
+import { DailyHistoryTimelineModal } from './components/DailyHistoryTimelineModal';
+import { DayInspectionDrawer } from './components/DayInspectionDrawer';
+import { InsightsModal } from './components/InsightsModal';
+import { WeeklyReviewModal } from './components/WeeklyReviewModal';
+import { UnfinishedRolloverSheet } from './components/UnfinishedRolloverSheet';
+import { WallpaperModal } from './components/WallpaperModal';
+import { SyncModal } from './components/SyncModal';
+import { 
+  syncWithCloud, 
+  initRealtimeSync, 
+  subscribeToSyncStatus, 
+  type SyncStatusState 
+} from './services/syncService';
 
 export function App() {
   // Main Data States
@@ -41,27 +86,49 @@ export function App() {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('both');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Date, Streaks & Activity Log
+  const [selectedDate, setSelectedDate] = useState<string>(todayKey());
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
+  const [streakState, setStreakState] = useState<StreakState>({
+    currentStreak: 3,
+    longestStreak: 5,
+    totalActiveDays: 5,
+    freezesRemaining: 1,
+    lastActiveDate: todayKey(),
+    frozenDates: [],
+  });
+  const [routines, setRoutines] = useState<RoutineItem[]>([]);
+
   // Search Query
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Active Dragging Link ID & Category Dragging State (for 100% reliable fluid drag-and-drop)
+  // Active Dragging Link ID & Category Dragging State
   const [activeDraggingLinkId, setActiveDraggingLinkId] = useState<string | null>(null);
   const [isDraggingAnyCategory, setIsDraggingAnyCategory] = useState(false);
 
   // Toast / feedback message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [undoArchive, setUndoArchive] = useState<{
+    archivedIds: string[];
+    message: string;
+    timeoutId: any;
+  } | null>(null);
 
   // Dark/Light Theme
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('sreeshspace_theme');
     if (saved) return saved === 'dark';
-    return false; // Warm cream theme default
+    return false; // Calm Oat & Sage light default
   });
 
-  // Copied feedback helper
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Accent Theme (sage, peach, wisteria, sky, honey)
+  const [accentTheme, setAccentTheme] = useState<string>(() => {
+    return localStorage.getItem('sreeshspace_accent') || 'sage';
+  });
 
-  // Modals & Viewer
+  // Modals & Viewers
+  const [isDesignGuideOpen, setIsDesignGuideOpen] = useState(false);
   const [activeAttachment, setActiveAttachment] = useState<Attachment | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [prefilledUrl, setPrefilledUrl] = useState<string>('');
@@ -74,25 +141,153 @@ export function App() {
   const [isPwaPromptOpen, setIsPwaPromptOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
+  // To-Do, Goals & Habits Specific Modals
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [activeGoalForModal, setActiveGoalForModal] = useState<TodoItem | null>(null);
+  const [extendingGoal, setExtendingGoal] = useState<TodoItem | null>(null);
+  const [focusTask, setFocusTask] = useState<TodoItem | null>(null);
+  const [isHistoryTimelineOpen, setIsHistoryTimelineOpen] = useState(false);
+  const [inspectingDateKey, setInspectingDateKey] = useState<string | null>(null);
+  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+  const [isWeeklyReviewOpen, setIsWeeklyReviewOpen] = useState(false);
+  const [isRolloverOpen, setIsRolloverOpen] = useState(false);
+  const [rolloverCandidateTasks, setRolloverCandidateTasks] = useState<TodoItem[]>([]);
+
+  // Custom Wallpaper & Opacity
+  const [customBgImage, setCustomBgImage] = useState<string | null>(null);
+  const [bgSettings, setBgSettings] = useState<BackgroundSettings>({
+    opacity: 0.25,
+    blur: 0,
+    enabled: true,
+  });
+  const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
+
+  // Cloud Sync State
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncStatusState>('synced');
+  const syncDebounceTimer = useRef<any>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Initial Data Load
+  const refreshDataFromStorage = async () => {
+    try {
+      const [
+        loadedLinks,
+        loadedCats,
+        loadedTodos,
+        loadedNotes,
+        loadedEvents,
+        loadedDayLogs,
+        loadedStreak,
+        loadedRoutines,
+      ] = await Promise.all([
+        loadLinks(),
+        loadCategories(),
+        loadTodos(),
+        loadNotes(),
+        loadActivityEvents(),
+        loadDayLogs(),
+        loadStreakState(),
+        loadRoutines(),
+      ]);
+      setLinks(loadedLinks);
+      setCategories(loadedCats);
+      setTodos(loadedTodos);
+      setNotes(loadedNotes);
+      setEvents(loadedEvents);
+      setDayLogs(loadedDayLogs);
+      if (loadedStreak) setStreakState(loadedStreak);
+      setRoutines(loadedRoutines);
+    } catch (err) {
+      console.error('Failed to refresh data from storage:', err);
+    }
+  };
+
+  const triggerAutoSync = () => {
+    if (syncDebounceTimer.current) {
+      clearTimeout(syncDebounceTimer.current);
+    }
+    syncDebounceTimer.current = setTimeout(() => {
+      syncWithCloud({ onMerged: refreshDataFromStorage });
+    }, 2500);
+  };
+
+  // Cloud Sync setup & background listeners
+  useEffect(() => {
+    const unsubStatus = subscribeToSyncStatus((status) => {
+      setSyncState(status.state);
+    });
+
+    const unsubRealtime = initRealtimeSync(() => {
+      refreshDataFromStorage();
+    });
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithCloud({ onMerged: refreshDataFromStorage });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      unsubStatus();
+      unsubRealtime();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  // Initial Data Load & Migration
   useEffect(() => {
     async function init() {
       try {
-        const [loadedLinks, loadedCats, loadedTodos, loadedNotes] = await Promise.all([
+        await runDataMigration();
+        const [
+          loadedLinks,
+          loadedCats,
+          loadedTodos,
+          loadedNotes,
+          loadedEvents,
+          loadedDayLogs,
+          loadedStreak,
+          loadedRoutines,
+          loadedBgData,
+        ] = await Promise.all([
           loadLinks(),
           loadCategories(),
           loadTodos(),
           loadNotes(),
+          loadActivityEvents(),
+          loadDayLogs(),
+          loadStreakState(),
+          loadRoutines(),
+          loadCustomBackground(),
         ]);
         setLinks(loadedLinks);
         setCategories(loadedCats);
         setTodos(loadedTodos);
         setNotes(loadedNotes);
+        setEvents(loadedEvents);
+        setDayLogs(loadedDayLogs);
+        if (loadedStreak) setStreakState(loadedStreak);
+        setRoutines(loadedRoutines);
+        if (loadedBgData?.imageUrl) setCustomBgImage(loadedBgData.imageUrl);
+        if (loadedBgData?.settings) setBgSettings(loadedBgData.settings);
+
+        // Check for unfinished yesterday tasks on open
+        const yesterday = addDays(todayKey(), -1);
+        const unfinishedYesterday = loadedTodos.filter(
+          (t) => (t.type || 'permanent') === 'daily' && t.date === yesterday && !t.completed && t.status !== 'archived'
+        );
+        if (unfinishedYesterday.length > 0) {
+          setRolloverCandidateTasks(unfinishedYesterday);
+          setIsRolloverOpen(true);
+        }
+
+        // Background cloud sync with Supabase
+        syncWithCloud({ onMerged: refreshDataFromStorage });
       } catch (err) {
         console.error('Failed to load data:', err);
       } finally {
@@ -102,26 +297,100 @@ export function App() {
     init();
   }, []);
 
-  // Theme Sync
+  // Midnight rollover watcher & visibility check
+  useEffect(() => {
+    const handleCheckDayRollover = () => {
+      const nowKey = todayKey();
+      if (selectedDate !== nowKey && selectedDate === addDays(nowKey, -1)) {
+        setSelectedDate(nowKey);
+      }
+    };
+    document.addEventListener('visibilitychange', handleCheckDayRollover);
+    const interval = setInterval(handleCheckDayRollover, 60000);
+    // Wallpaper handlers
+  const handleSaveCustomBgImage = async (dataUrl: string | null) => {
+    setCustomBgImage(dataUrl);
+    await saveCustomBackgroundImage(dataUrl);
+    if (dataUrl) {
+      showToast('Custom wallpaper updated! 🖼️');
+    } else {
+      showToast('Wallpaper removed. Restored cozy theme.');
+    }
+  };
+
+  const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
+    setBgSettings(newSettings);
+    saveBackgroundSettings(newSettings);
+  };
+
+  return () => {
+      document.removeEventListener('visibilitychange', handleCheckDayRollover);
+      clearInterval(interval);
+    };
+  }, [selectedDate]);
+
+  // Theme & Accent Sync to <html>
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('sreeshspace_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
       localStorage.setItem('sreeshspace_theme', 'light');
     }
   }, [darkMode]);
 
-  // PWA install prompt listener
   useEffect(() => {
-    const handler = (e: any) => {
+    document.documentElement.setAttribute('data-accent', accentTheme);
+    localStorage.setItem('sreeshspace_accent', accentTheme);
+  }, [accentTheme]);
+
+  // PWA beforeinstallprompt handler
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    // Wallpaper handlers
+  const handleSaveCustomBgImage = async (dataUrl: string | null) => {
+    setCustomBgImage(dataUrl);
+    await saveCustomBackgroundImage(dataUrl);
+    if (dataUrl) {
+      showToast('Custom wallpaper updated! 🖼️');
+    } else {
+      showToast('Wallpaper removed. Restored cozy theme.');
+    }
+  };
+
+  const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
+    setBgSettings(newSettings);
+    saveBackgroundSettings(newSettings);
+  };
+
+  return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
+
+  // Listen to #/design hash navigation for Color Guide modal
+  useEffect(() => {
+    const checkHash = () => {
+      if (window.location.hash === '#/design') {
+        setIsDesignGuideOpen(true);
+      }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
+
+  const handleCloseDesignGuide = () => {
+    setIsDesignGuideOpen(false);
+    if (window.location.hash === '#/design') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
 
   const handleInstallPwa = async () => {
     if (deferredPrompt) {
@@ -129,73 +398,50 @@ export function App() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
-        setIsPwaPromptOpen(false);
       }
     }
+    setIsPwaPromptOpen(false);
   };
 
-  // Keyboard shortcut: Ctrl+K or / to search, N to add
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = ['INPUT', 'TEXTAREA'].includes(
-        (document.activeElement?.tagName || '').toUpperCase()
-      );
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        (document.querySelector('header input') as HTMLInputElement | null)?.focus();
-      } else if (!isInput && (e.key === 'n' || e.key === 'N')) {
-        e.preventDefault();
-        setEditingLink(null);
-        setPrefilledUrl('');
-        setPrefilledCategory('Uncategorized');
-        setIsAddModalOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // Standalone Links Filtered
+  const standaloneLinks = useMemo(() => {
+    return links.filter(
+      (l) => !l.category || l.category === 'Uncategorized' || l.category === ''
+    );
+  }, [links]);
 
-  // Separate links into Standalone/Loose links and Categorized links
-  const { standaloneLinks, searchFilteredLinks } = useMemo(() => {
-    const catNameSet = new Set(categories.map((c) => c.name.toLowerCase()));
-    
-    // Standalone links on the canvas
-    const standalone = links.filter((l) => {
-      const cat = (l.category || '').toLowerCase();
-      return !cat || cat === 'uncategorized' || !catNameSet.has(cat);
-    });
+  // Filtered links by search query
+  const searchFilteredLinks = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return links.filter(
+      (l) =>
+        (l.title && l.title.toLowerCase().includes(q)) ||
+        (l.url && l.url.toLowerCase().includes(q)) ||
+        (l.category && l.category.toLowerCase().includes(q)) ||
+        (l.notes && l.notes.toLowerCase().includes(q))
+    );
+  }, [links, searchQuery]);
 
-    let searchResults: LinkItem[] = [];
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      searchResults = links.filter((l) => {
-        const inTitle = (l.title || '').toLowerCase().includes(q);
-        const inUrl = (l.url || '').toLowerCase().includes(q);
-        const inNotes = (l.notes || '').toLowerCase().includes(q);
-        const inCat = (l.category || '').toLowerCase().includes(q);
-        return inTitle || inUrl || inNotes || inCat;
-      });
-    }
+  // --- LINK & CATEGORY ACTIONS ---
+  const handleQuickAdd = async (url: string) => {
+    const cleanUrl = normalizeUrl(url);
+    if (!cleanUrl) return;
 
-    return {
-      standaloneLinks: standalone,
-      searchFilteredLinks: searchResults,
-    };
-  }, [links, categories, searchQuery]);
+    const domain = extractDomain(cleanUrl);
+    const suggestedTitle = generateSuggestedTitle(cleanUrl);
+    const favicon = getFaviconUrl(cleanUrl);
 
-  // Quick 1-click Add -> Saves directly to canvas
-  const handleQuickAdd = async (url: string, suggestedTitle?: string) => {
-    const normalized = normalizeUrl(url);
     const newLink: LinkItem = {
-      id: `link-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      url: normalized,
-      title: suggestedTitle || generateSuggestedTitle(normalized),
+      id: `link-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      url: cleanUrl,
+      title: suggestedTitle || domain,
       category: 'Uncategorized',
       notes: '',
       pinned: false,
       attachments: [],
       clicks: 0,
-      favicon: getFaviconUrl(normalized),
+      favicon,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -203,243 +449,615 @@ export function App() {
     const updated = [newLink, ...links];
     setLinks(updated);
     await saveLinks(updated);
+    await logActivity('link_added', newLink.id, newLink.title || newLink.url);
 
-    confetti({ particleCount: 35, spread: 50, origin: { y: 0.85 } });
-    showToast('Saved to your canvas! Drag into any folder above ✨');
+    triggerPartyPop('single');
+    showToast(`Saved ${newLink.title}! 🌿`);
+    triggerAutoSync();
   };
 
-  // Save Link from Modal
   const handleSaveLink = async (linkData: Partial<LinkItem>) => {
-    let updated: LinkItem[];
-
     if (editingLink) {
-      updated = links.map((l) =>
+      const updated = links.map((l) =>
         l.id === editingLink.id
-          ? ({ ...l, ...linkData, updatedAt: new Date().toISOString() } as LinkItem)
+          ? {
+              ...l,
+              ...linkData,
+              updatedAt: new Date().toISOString(),
+            }
           : l
       );
+      setLinks(updated);
+      await saveLinks(updated);
+      showToast('Link updated! ✨');
+      triggerAutoSync();
     } else {
+      const cleanUrl = normalizeUrl(linkData.url || '');
+      const domain = extractDomain(cleanUrl);
+      const favicon = getFaviconUrl(cleanUrl);
+
       const newLink: LinkItem = {
-        id: `link-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        url: linkData.url || '',
-        title: linkData.title || '',
+        id: `link-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        url: cleanUrl,
+        title: linkData.title || domain || 'Saved Bookmark',
         category: linkData.category || 'Uncategorized',
         notes: linkData.notes || '',
-        pinned: linkData.pinned || false,
+        pinned: Boolean(linkData.pinned),
         attachments: linkData.attachments || [],
         clicks: 0,
-        favicon: linkData.favicon || getFaviconUrl(linkData.url || ''),
+        favicon,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      updated = [newLink, ...links];
-      confetti({ particleCount: 35, spread: 50, origin: { y: 0.85 } });
-      showToast('Saved to your vault! 🌸');
+
+      const updated = [newLink, ...links];
+      setLinks(updated);
+      await saveLinks(updated);
+      await logActivity('link_added', newLink.id, newLink.title || newLink.url);
+      triggerPartyPop('single');
+      showToast('Added bookmark! 🌿');
+      triggerAutoSync();
     }
 
-    setLinks(updated);
-    await saveLinks(updated);
+    setIsAddModalOpen(false);
     setEditingLink(null);
   };
 
-  // Delete Link
   const handleDeleteLink = async (id: string) => {
     const updated = links.filter((l) => l.id !== id);
     setLinks(updated);
     await saveLinks(updated);
-    if (detailLink?.id === id) {
-      setDetailLink(null);
-    }
+    if (detailLink && detailLink.id === id) setDetailLink(null);
     showToast('Bookmark deleted');
+    triggerAutoSync();
   };
 
-  // Toggle Pin
   const handleTogglePin = async (id: string) => {
     const updated = links.map((l) =>
       l.id === id ? { ...l, pinned: !l.pinned, updatedAt: new Date().toISOString() } : l
     );
     setLinks(updated);
     await saveLinks(updated);
-    if (detailLink?.id === id) {
-      setDetailLink(updated.find((l) => l.id === id) || null);
-    }
   };
 
-  // Click tracking
   const handleVisitLink = async (link: LinkItem) => {
     const updated = links.map((l) =>
       l.id === link.id ? { ...l, clicks: (l.clicks || 0) + 1 } : l
     );
     setLinks(updated);
     await saveLinks(updated);
+    await logActivity('link_opened', link.id, link.title || link.url);
   };
 
-  // DRAG & DROP ONTO CATEGORY SQUARE: 100% reliable
-  const handleDropLinkOnCategory = async (linkId: string, targetCategoryName: string) => {
-    setActiveDraggingLinkId(null);
+  const handleDropLinkOnCategory = async (linkId: string, categoryName: string) => {
     const targetLink = links.find((l) => l.id === linkId);
     if (!targetLink) return;
 
-    if (targetLink.category.toLowerCase() === targetCategoryName.toLowerCase()) {
-      return;
-    }
+    if (targetLink.category === categoryName) return;
 
     const updated = links.map((l) =>
       l.id === linkId
-        ? { ...l, category: targetCategoryName, updatedAt: new Date().toISOString() }
+        ? { ...l, category: categoryName, updatedAt: new Date().toISOString() }
         : l
     );
-
     setLinks(updated);
     await saveLinks(updated);
-
-    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
-    showToast(`Filed "${targetLink.title}" into ${targetCategoryName}! 📂`);
+    playPopSound();
+    triggerPartyPop('single');
+    showToast(`Moved "${targetLink.title}" to ${categoryName}! 📁`);
   };
 
-  // Reorder Category Squares by dragging
+  const handleMoveLinkCategory = async (linkId: string, newCategoryName: string) => {
+    const updated = links.map((l) =>
+      l.id === linkId
+        ? { ...l, category: newCategoryName, updatedAt: new Date().toISOString() }
+        : l
+    );
+    setLinks(updated);
+    await saveLinks(updated);
+    showToast(`Moved bookmark to ${newCategoryName}`);
+  };
+
+  const handleReorderLinksInCategory = async (reorderedLinks: LinkItem[], categoryName: string) => {
+    const others = links.filter((l) => l.category !== categoryName);
+    const finalLinks = [...reorderedLinks, ...others];
+    setLinks(finalLinks);
+    await saveLinks(finalLinks);
+  };
+
   const handleReorderCategory = async (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
     const reordered = [...categories];
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     setCategories(reordered);
     await saveCategories(reordered);
-    showToast('Categories reordered! ✨');
   };
 
-  // Move link directly to another category (from inside popup or backdrop drop)
-  const handleMoveLinkCategory = async (linkId: string, newCategoryName: string) => {
-    const updated = links.map((l) =>
-      l.id === linkId ? { ...l, category: newCategoryName } : l
-    );
-    setLinks(updated);
-    await saveLinks(updated);
-    showToast(newCategoryName === 'Uncategorized' ? 'Moved to Home canvas! 📎' : `Moved to ${newCategoryName}! ✨`);
-  };
-
-  // Reorder links inside a category folder (from inside popup)
-  const handleReorderLinksInCategory = async (reorderedLinks: LinkItem[]) => {
-    setLinks(reorderedLinks);
-    await saveLinks(reorderedLinks);
-  };
-
-  // Add Category Bundle
-  const handleAddCategory = async (newCat: { name: string; color: string; icon?: string }) => {
-    const id = `cat-${Date.now()}`;
-    const updated = [...categories, { id, name: newCat.name, color: newCat.color, icon: newCat.icon || '📁' }];
+  const handleAddCategory = async (newCat: { name: string; color: string; icon: string }) => {
+    const cat: CategoryInfo = {
+      id: `cat-${Date.now()}`,
+      name: newCat.name,
+      color: newCat.color,
+      icon: newCat.icon,
+    };
+    const updated = [...categories, cat];
     setCategories(updated);
     await saveCategories(updated);
-    showToast(`Created folder "${newCat.name}"! 🌸`);
+    showToast(`Created folder "${cat.name}"! 📁`);
   };
 
-  // Save / Rename Category
   const handleSaveCategory = async (updatedCat: CategoryInfo) => {
     const oldCat = categories.find((c) => c.id === updatedCat.id);
-    const updatedCats = categories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
+    const updated = categories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
+    setCategories(updated);
+    await saveCategories(updated);
 
-    let updatedLinks = links;
     if (oldCat && oldCat.name !== updatedCat.name) {
-      updatedLinks = links.map((l) =>
-        l.category.toLowerCase() === oldCat.name.toLowerCase()
-          ? { ...l, category: updatedCat.name }
-          : l
+      const updatedLinks = links.map((l) =>
+        l.category === oldCat.name ? { ...l, category: updatedCat.name } : l
       );
       setLinks(updatedLinks);
       await saveLinks(updatedLinks);
     }
 
+    setEditingCategory(null);
+    showToast('Folder updated! ✨');
+  };
+
+  const handleDeleteCategory = async (catId: string, deleteLinksInCat: boolean = false) => {
+    const catToDelete = categories.find((c) => c.id === catId);
+    if (!catToDelete) return;
+
+    const updatedCats = categories.filter((c) => c.id !== catId);
     setCategories(updatedCats);
     await saveCategories(updatedCats);
 
-    if (folderModalCategory?.id === updatedCat.id) {
-      setFolderModalCategory(updatedCat);
-    }
-
-    showToast(`Updated "${updatedCat.name}"! ✨`);
-  };
-
-  // Delete Category
-  const handleDeleteCategory = async (catId: string, catName: string) => {
-    const remainingCats = categories.filter((c) => c.id !== catId);
-
-    const updatedLinks = links.map((l) =>
-      l.category.toLowerCase() === catName.toLowerCase()
-        ? { ...l, category: 'Uncategorized' }
-        : l
-    );
-
-    setLinks(updatedLinks);
-    setCategories(remainingCats);
-    await saveLinks(updatedLinks);
-    await saveCategories(remainingCats);
-
-    if (folderModalCategory?.id === catId) {
-      setFolderModalCategory(null);
+    if (deleteLinksInCat) {
+      const updatedLinks = links.filter((l) => l.category !== catToDelete.name);
+      setLinks(updatedLinks);
+      await saveLinks(updatedLinks);
+    } else {
+      const updatedLinks = links.map((l) =>
+        l.category === catToDelete.name ? { ...l, category: 'Uncategorized' } : l
+      );
+      setLinks(updatedLinks);
+      await saveLinks(updatedLinks);
     }
 
     showToast(`Folder removed. Bookmarks moved to canvas.`);
   };
 
-  // --- TODO HANDLERS ---
+  // --- TO-DO, GOALS & HABITS HANDLERS ---
+
+  // Add Daily or Permanent task
   const handleAddTodo = async (
     text: string, 
     type: 'daily' | 'permanent' = 'daily', 
-    priority: 'low' | 'medium' | 'high' = 'medium'
+    priority: 'low' | 'medium' | 'high' = 'medium',
+    dateKey?: string,
+    tags?: string[]
   ) => {
+    const date = type === 'daily' ? (dateKey || selectedDate) : undefined;
     const newTodo: TodoItem = {
       id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       text,
       type,
-      date: new Date().toISOString().slice(0, 10),
+      date,
+      startDate: type === 'permanent' ? todayKey() : undefined,
+      status: 'active',
+      progressMode: 'checklist',
+      progress: 0,
+      subtasks: [],
+      extensions: [],
       completed: false,
       priority,
+      tags: tags || [],
       createdAt: new Date().toISOString(),
     };
+
     const updated = [newTodo, ...todos];
     setTodos(updated);
     await saveTodos(updated);
-    showToast(`Added ${type === 'daily' ? 'daily task' : 'permanent goal'} "${text}"! 📋`);
+
+    const eventType = type === 'daily' ? 'task_added' : 'goal_created';
+    await logActivity(eventType, newTodo.id, text, { priority, date });
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
+    triggerPartyPop('single');
+    showToast(`Added ${type === 'daily' ? 'daily task' : 'master goal'} "${text}"! 📋`);
+    triggerAutoSync();
   };
 
+  // Toggle Complete / Incomplete
   const handleToggleTodo = async (id: string) => {
-    const updated = todos.map((t) =>
-      t.id === id
-        ? {
-            ...t,
-            completed: !t.completed,
-            completedAt: !t.completed ? new Date().toISOString() : undefined,
-          }
-        : t
-    );
+    const target = todos.find((t) => t.id === id);
+    if (!target) return;
+
+    const nextCompleted = !target.completed;
+    const nowIso = new Date().toISOString();
+
+    const updated = todos.map((t) => {
+      if (t.id !== id) return t;
+      return {
+        ...t,
+        completed: nextCompleted,
+        completedAt: nextCompleted ? nowIso : undefined,
+        status: (nextCompleted ? 'completed' : 'active') as any,
+        progress: t.type === 'permanent' ? (nextCompleted ? 100 : t.progress) : t.progress,
+      };
+    });
+
     setTodos(updated);
     await saveTodos(updated);
+
+    const isDaily = (target.type || 'permanent') === 'daily';
+    const eventType = nextCompleted 
+      ? (isDaily ? 'task_completed' : 'goal_completed')
+      : 'task_uncompleted';
+
+    await logActivity(eventType, target.id, target.text);
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
+    if (nextCompleted) {
+      triggerPartyPop('single');
+      playPopSound();
+      showToast(`Completed "${target.text}"! 🎉`);
+
+      // Update streak state
+      const today = todayKey();
+      if (streakState.lastActiveDate !== today) {
+        const nextStreak = streakState.currentStreak + 1;
+        const newStreak: StreakState = {
+          ...streakState,
+          currentStreak: nextStreak,
+          longestStreak: Math.max(streakState.longestStreak, nextStreak),
+          totalActiveDays: streakState.totalActiveDays + 1,
+          lastActiveDate: today,
+        };
+        setStreakState(newStreak);
+        await saveStreakState(newStreak);
+      }
+    }
+    triggerAutoSync();
   };
 
+  // Delete Todo (Leaves snapshot in immutable ActivityEvent history)
   const handleDeleteTodo = async (id: string) => {
+    const target = todos.find((t) => t.id === id);
     const updated = todos.filter((t) => t.id !== id);
     setTodos(updated);
     await saveTodos(updated);
+
+    if (target) {
+      await logActivity('task_deleted', target.id, target.text);
+      const freshEvents = await loadActivityEvents();
+      setEvents(freshEvents);
+    }
     showToast('Task removed');
+    triggerAutoSync();
   };
 
-  const handleClearCompletedDaily = async () => {
-    const updated = todos.filter((t) => !(t.type === 'daily' && t.completed));
+  // Archive completed daily tasks with 10-second Undo toast
+  const handleArchiveCompletedDaily = async (dateKey: string) => {
+    const toArchive = todos.filter(
+      (t) => (t.type || 'permanent') === 'daily' && (t.date === dateKey || (!t.date && dateKey === todayKey())) && t.completed && t.status !== 'archived'
+    );
+    if (toArchive.length === 0) return;
+
+    const toArchiveIds = new Set(toArchive.map((t) => t.id));
+    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const } : t));
     setTodos(updated);
     await saveTodos(updated);
-    showToast('Cleared completed daily tasks ✨');
+
+    if (undoArchive?.timeoutId) clearTimeout(undoArchive.timeoutId);
+    const timeoutId = setTimeout(() => setUndoArchive(null), 10000);
+
+    setUndoArchive({
+      archivedIds: Array.from(toArchiveIds),
+      message: `Archived ${toArchive.length} completed task${toArchive.length > 1 ? 's' : ''}`,
+      timeoutId,
+    });
   };
 
-  const handleClearCompletedPermanent = async () => {
-    const updated = todos.filter((t) => !(t.type === 'permanent' && t.completed));
+  // Archive completed permanent goals with 10-second Undo toast
+  const handleArchiveCompletedPermanent = async () => {
+    const toArchive = todos.filter((t) => t.type === 'permanent' && t.completed && t.status !== 'archived');
+    if (toArchive.length === 0) return;
+
+    const toArchiveIds = new Set(toArchive.map((t) => t.id));
+    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const } : t));
     setTodos(updated);
     await saveTodos(updated);
-    showToast('Cleared completed permanent goals 🎯');
+
+    if (undoArchive?.timeoutId) clearTimeout(undoArchive.timeoutId);
+    const timeoutId = setTimeout(() => setUndoArchive(null), 10000);
+
+    setUndoArchive({
+      archivedIds: Array.from(toArchiveIds),
+      message: `Archived ${toArchive.length} completed goal${toArchive.length > 1 ? 's' : ''}`,
+      timeoutId,
+    });
   };
 
+  // Handle Undo for Archive
+  const handleUndoArchive = async () => {
+    if (!undoArchive) return;
+    const ids = new Set(undoArchive.archivedIds);
+    const restored = todos.map((t) => (ids.has(t.id) ? { ...t, status: 'completed' as const } : t));
+    setTodos(restored);
+    await saveTodos(restored);
+    if (undoArchive.timeoutId) clearTimeout(undoArchive.timeoutId);
+    setUndoArchive(null);
+    showToast('Restored archived items! ↩️');
+  };
+
+  // Reorder todos (liquid drag-and-drop)
   const handleReorderTodos = async (reordered: TodoItem[]) => {
     setTodos(reordered);
     await saveTodos(reordered);
+  };
+
+  // Subtask Toggle on Goal
+  const handleToggleSubtask = async (goalId: string, subtaskId: string) => {
+    const goal = todos.find((t) => t.id === goalId);
+    if (!goal) return;
+
+    const subtasks = goal.subtasks || [];
+    const updatedSubtasks = subtasks.map((st) =>
+      st.id === subtaskId
+        ? {
+            ...st,
+            done: !st.done,
+            doneAt: !st.done ? new Date().toISOString() : undefined,
+          }
+        : st
+    );
+
+    const totalSub = updatedSubtasks.length;
+    const doneSub = updatedSubtasks.filter((s) => s.done).length;
+    const progress = totalSub > 0 ? Math.round((doneSub / totalSub) * 100) : goal.progress || 0;
+    const isCompleted = totalSub > 0 && doneSub === totalSub;
+
+    const updated = todos.map((t) =>
+      t.id === goalId
+        ? {
+            ...t,
+            subtasks: updatedSubtasks,
+            progress,
+            completed: isCompleted,
+            status: (isCompleted ? 'completed' : 'active') as any,
+            completedAt: isCompleted ? new Date().toISOString() : undefined,
+          }
+        : t
+    );
+
+    setTodos(updated);
+    await saveTodos(updated);
+
+    const stItem = updatedSubtasks.find((s) => s.id === subtaskId);
+    if (stItem?.done) {
+      await logActivity('subtask_done', goalId, `Subtask: "${stItem.text}" in "${goal.text}"`);
+      const freshEvents = await loadActivityEvents();
+      setEvents(freshEvents);
+      playPopSound();
+    }
+  };
+
+  // Create or update Master Goal
+  const handleSaveGoal = async (goalData: Partial<TodoItem>) => {
+    if (activeGoalForModal) {
+      // Editing existing goal
+      const updated = todos.map((t) =>
+        t.id === activeGoalForModal.id
+          ? {
+              ...t,
+              ...goalData,
+            }
+          : t
+      );
+      setTodos(updated);
+      await saveTodos(updated);
+      showToast('Master goal updated! ✨');
+    } else {
+      // Create new goal
+      const newGoal: TodoItem = {
+        id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        text: goalData.text || 'Master Goal',
+        type: 'permanent',
+        priority: goalData.priority || 'medium',
+        startDate: goalData.startDate || todayKey(),
+        endDate: goalData.endDate,
+        status: 'active',
+        progressMode: goalData.progressMode || 'checklist',
+        progress: goalData.progress || 0,
+        subtasks: goalData.subtasks || [],
+        extensions: [],
+        tags: goalData.tags || [],
+        notes: goalData.notes,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updated = [newGoal, ...todos];
+      setTodos(updated);
+      await saveTodos(updated);
+      await logActivity('goal_created', newGoal.id, newGoal.text, { endDate: newGoal.endDate });
+      const freshEvents = await loadActivityEvents();
+      setEvents(freshEvents);
+
+      triggerPartyPop('single');
+      showToast(`Created master goal "${newGoal.text}"! 🎯`);
+    }
+
+    setIsGoalModalOpen(false);
+    setActiveGoalForModal(null);
+  };
+
+  // Extend Goal Deadline
+  const handleExtendGoal = async (goalId: string, newEndDate: string, reason?: string) => {
+    const goal = todos.find((t) => t.id === goalId);
+    if (!goal) return;
+
+    const extension = {
+      from: goal.endDate || todayKey(),
+      to: newEndDate,
+      reason,
+      at: new Date().toISOString(),
+    };
+
+    const updated = todos.map((t) =>
+      t.id === goalId
+        ? {
+            ...t,
+            endDate: newEndDate,
+            extensions: [...(t.extensions || []), extension],
+          }
+        : t
+    );
+
+    setTodos(updated);
+    await saveTodos(updated);
+    await logActivity('goal_extended', goalId, `Extended "${goal.text}" to ${newEndDate}`, { reason });
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
+    setExtendingGoal(null);
+    showToast(`Extended deadline to ${newEndDate}! 📅`);
+  };
+
+  // Focus Timer Session Completed
+  const handleFinishFocusSession = async (taskId: string, durationMinutes: number) => {
+    const task = todos.find((t) => t.id === taskId);
+    const title = task ? task.text : 'Focus session';
+
+    await logActivity('focus_session', taskId, `Focus Session (${durationMinutes}m): "${title}"`, { minutes: durationMinutes });
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
+    // Update streak day
+    const today = todayKey();
+    if (streakState.lastActiveDate !== today) {
+      const nextStreak = streakState.currentStreak + 1;
+      const newStreak: StreakState = {
+        ...streakState,
+        currentStreak: nextStreak,
+        longestStreak: Math.max(streakState.longestStreak, nextStreak),
+        totalActiveDays: streakState.totalActiveDays + 1,
+        lastActiveDate: today,
+      };
+      setStreakState(newStreak);
+      await saveStreakState(newStreak);
+    }
+
+    setFocusTask(null);
+    triggerPartyPop('grand');
+    showToast(`Great work! Logged ${durationMinutes}m focus session! 🧘`);
+  };
+
+  // Apply Streak Freeze
+  const handleApplyStreakFreeze = async (dateToFreeze: string) => {
+    if (streakState.freezesRemaining <= 0) return;
+    if (streakState.frozenDates?.includes(dateToFreeze)) return;
+
+    const nextFreezes = streakState.freezesRemaining - 1;
+    const nextFrozenDates = [...(streakState.frozenDates || []), dateToFreeze];
+    const newStreak: StreakState = {
+      ...streakState,
+      freezesRemaining: nextFreezes,
+      frozenDates: nextFrozenDates,
+    };
+    setStreakState(newStreak);
+    await saveStreakState(newStreak);
+    showToast(`Streak freeze applied for ${dateToFreeze}! ❄️`);
+  };
+
+  // Rollover Unfinished Tasks Handlers
+  const handleCarrySelectedRollover = async (selectedIds: string[]) => {
+    const today = todayKey();
+    const selSet = new Set(selectedIds);
+
+    const updated = todos.map((t) => {
+      if (!selSet.has(t.id)) return t;
+      return {
+        ...t,
+        date: today,
+        carriedFrom: t.date || addDays(today, -1),
+        carryCount: (t.carryCount || 0) + 1,
+      };
+    });
+
+    setTodos(updated);
+    await saveTodos(updated);
+    setIsRolloverOpen(false);
+    showToast(`Carried over ${selectedIds.length} tasks to today! ☀️`);
+  };
+
+  const handleLeaveBehindRollover = () => {
+    setIsRolloverOpen(false);
+  };
+
+  // Copy yesterday's task list to today
+  const handleCopyYesterdayList = async () => {
+    const yesterday = addDays(todayKey(), -1);
+    const yesterdayTasks = todos.filter(
+      (t) => (t.type || 'permanent') === 'daily' && t.date === yesterday && t.status !== 'archived'
+    );
+    if (yesterdayTasks.length === 0) {
+      showToast('No tasks recorded for yesterday.');
+      return;
+    }
+
+    const today = todayKey();
+    const copiedTasks: TodoItem[] = yesterdayTasks.map((t) => ({
+      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      text: t.text,
+      type: 'daily',
+      priority: t.priority,
+      date: today,
+      completed: false,
+      status: 'active',
+      carriedFrom: yesterday,
+      originId: t.id,
+      carryCount: (t.carryCount || 0) + 1,
+      subtasks: (t.subtasks || []).map((s) => ({ ...s, done: false, doneAt: undefined })),
+      createdAt: new Date().toISOString(),
+    }));
+
+    const updated = [...copiedTasks, ...todos];
+    setTodos(updated);
+    await saveTodos(updated);
+    showToast(`Copied ${copiedTasks.length} tasks from yesterday! 📋`);
+  };
+
+  // DayLog reflection & mood updates
+  const handleSaveDayLog = async (dateKey: string, updates: Partial<DayLog>) => {
+    const existing = dayLogs[dateKey] || { date: dateKey, planned: 0, completed: 0 };
+    const merged: DayLog = { ...existing, ...updates };
+    const nextLogs = { ...dayLogs, [dateKey]: merged };
+    setDayLogs(nextLogs);
+    await saveDayLog(dateKey, merged);
+  };
+
+  // Sunday Weekly Review save priorities
+  const handleSaveNextWeekPriorities = async (priorities: string[]) => {
+    const nextMon = addDays(todayKey(), 1);
+    const newItems: TodoItem[] = priorities.map((p) => ({
+      id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      text: p,
+      type: 'daily',
+      priority: 'high',
+      date: nextMon,
+      completed: false,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    }));
+
+    const updated = [...newItems, ...todos];
+    setTodos(updated);
+    await saveTodos(updated);
+    showToast('Scheduled top priorities for next week! 🚀');
   };
 
   // --- NOTE HANDLERS ---
@@ -465,14 +1083,24 @@ export function App() {
     const updated = [item, ...notes];
     setNotes(updated);
     await saveNotes(updated);
+    await logActivity('note_added', item.id, item.title);
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
     showToast(`Saved note "${item.title}"! 📝`);
+    triggerAutoSync();
   };
 
   const handleUpdateNote = async (updatedNote: NoteItem) => {
     const updated = notes.map((n) => (n.id === updatedNote.id ? updatedNote : n));
     setNotes(updated);
     await saveNotes(updated);
+    await logActivity('note_edited', updatedNote.id, updatedNote.title);
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+
     showToast('Note updated! ✨');
+    triggerAutoSync();
   };
 
   const handleDeleteNote = async (id: string) => {
@@ -480,11 +1108,13 @@ export function App() {
     setNotes(updated);
     await saveNotes(updated);
     showToast('Note deleted');
+    triggerAutoSync();
   };
 
   const handleReorderNotes = async (reordered: NoteItem[]) => {
     setNotes(reordered);
     await saveNotes(reordered);
+    triggerAutoSync();
   };
 
   // Import Backup
@@ -533,35 +1163,83 @@ export function App() {
     showToast('Reset to cozy defaults! 🌿');
   };
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-espresso-950 flex flex-col font-sans transition-colors duration-200">
-      
-      {/* Header */}
-      <Header
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onOpenAddModal={() => {
-          setEditingLink(null);
-          setPrefilledUrl('');
-          setPrefilledCategory('Uncategorized');
-          setIsAddModalOpen(true);
-        }}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
-        onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
-        totalCount={links.length}
-      />
+  // Wallpaper handlers
+  const handleSaveCustomBgImage = async (dataUrl: string | null) => {
+    setCustomBgImage(dataUrl);
+    await saveCustomBackgroundImage(dataUrl);
+    if (dataUrl) {
+      showToast('Custom wallpaper updated! 🖼️');
+    } else {
+      showToast('Wallpaper removed. Restored cozy theme.');
+    }
+  };
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-espresso-900/90 dark:bg-cream-100/90 text-white dark:text-espresso-900 px-4 py-2 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-          {toastMessage}
-        </div>
+  const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
+    setBgSettings(newSettings);
+    saveBackgroundSettings(newSettings);
+  };
+
+  return (
+    <div className="min-h-screen bg-page text-main flex flex-col font-sans transition-colors duration-200 relative overflow-x-hidden">
+      
+      {/* Full-Screen Custom Wallpaper Layer (Controlled Opacity & Blur) */}
+      {customBgImage && bgSettings.enabled && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-300"
+          style={{
+            backgroundImage: `url(${customBgImage})`,
+            opacity: bgSettings.opacity,
+            filter: bgSettings.blur > 0 ? `blur(${bgSettings.blur}px)` : undefined,
+            transform: bgSettings.blur > 0 ? 'scale(1.04)' : undefined,
+          }}
+          aria-hidden="true"
+        />
       )}
 
+      {/* Main Content Layer */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Header */}
+        <Header
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onOpenAddModal={() => {
+            setEditingLink(null);
+            setPrefilledUrl('');
+            setPrefilledCategory('Uncategorized');
+            setIsAddModalOpen(true);
+          }}
+          onOpenBackupModal={() => setIsBackupModalOpen(true)}
+          onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
+          onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
+          onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
+          onOpenSync={() => setIsSyncModalOpen(true)}
+          syncState={syncState}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          totalCount={links.length}
+        />
+
+      {/* Floating Toast Notification / Undo Toast */}
+      {undoArchive ? (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2.5 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <span>{undoArchive.message}</span>
+          <button
+            type="button"
+            onClick={handleUndoArchive}
+            className="flex items-center gap-1 text-accent font-extrabold hover:underline cursor-pointer"
+          >
+            <RotateCcw size={13} />
+            <span>Undo</span>
+          </button>
+        </div>
+      ) : toastMessage ? (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {toastMessage}
+        </div>
+      ) : null}
+
       {/* Main Single Screen Canvas */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-7 space-y-5 sm:space-y-6">
         
         {/* Quick Add Bar */}
         <QuickAddBar
@@ -578,28 +1256,28 @@ export function App() {
         {searchQuery.trim() ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1 text-xs">
-              <span className="font-bold text-espresso-900 dark:text-cream-50">
+              <span className="font-bold text-main">
                 Search results for "{searchQuery}" ({searchFilteredLinks.length})
               </span>
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-sage-700 dark:text-sage-300 font-semibold hover:underline"
+                className="text-accent font-semibold hover:underline"
               >
                 Clear search
               </button>
             </div>
 
             {searchFilteredLinks.length === 0 ? (
-              <div className="p-8 text-center rounded-3xl bg-white dark:bg-espresso-850 border border-cream-300 dark:border-espresso-800">
-                <p className="text-sm font-bold text-espresso-800 dark:text-cream-100 mb-1">
+              <div className="p-8 text-center rounded-3xl bg-surface border border-subtle">
+                <p className="text-sm font-bold text-main mb-1">
                   No matching links found
                 </p>
-                <p className="text-xs text-espresso-800/50 dark:text-cream-100/50">
+                <p className="text-xs text-faint">
                   Try searching with a different keyword or clear search.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3.5 sm:gap-4.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
                 {searchFilteredLinks.map((link) => (
                   <StandaloneLinkCard
                     key={link.id}
@@ -622,17 +1300,17 @@ export function App() {
           </div>
         ) : (
           /* MAIN WORKSPACE CANVAS: VIEW SWITCHER + LINKS + NOTEBOOK & TASKS */
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
 
             {/* Workspace View Switcher: All-in-One vs Links vs Notebook */}
-            <div className="flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-cream-200/50 dark:bg-espresso-900/50 border border-cream-200/80 dark:border-espresso-800">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between gap-2 p-1 sm:p-1.5 rounded-2xl bg-sunken border border-subtle">
+              <div className="flex items-center gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => setWorkspaceView('both')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
                     workspaceView === 'both'
-                      ? 'bg-white dark:bg-espresso-800 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                      : 'text-espresso-800/60 dark:text-cream-100/60 hover:text-espresso-900 dark:hover:text-cream-50'
+                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
                   }`}
                 >
                   <LayoutGrid size={13} className="stroke-[2.2]" />
@@ -640,10 +1318,10 @@ export function App() {
                 </button>
                 <button
                   onClick={() => setWorkspaceView('links')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
                     workspaceView === 'links'
-                      ? 'bg-white dark:bg-espresso-800 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                      : 'text-espresso-800/60 dark:text-cream-100/60 hover:text-espresso-900 dark:hover:text-cream-50'
+                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
                   }`}
                 >
                   <Link2 size={13} className="stroke-[2.2]" />
@@ -651,29 +1329,29 @@ export function App() {
                 </button>
                 <button
                   onClick={() => setWorkspaceView('notebook')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
                     workspaceView === 'notebook'
-                      ? 'bg-white dark:bg-espresso-800 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                      : 'text-espresso-800/60 dark:text-cream-100/60 hover:text-espresso-900 dark:hover:text-cream-50'
+                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
                   }`}
                 >
                   <BookOpen size={13} className="stroke-[2.2]" />
-                  <span>Notebook & Tasks ({todos.filter(t => !t.completed).length})</span>
+                  <span>Habits & Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
                 </button>
               </div>
             </div>
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'both' || workspaceView === 'links') && (
-              <div className="space-y-4">
+              <div className="space-y-3.5 sm:space-y-4">
                 {/* Toolbar Header with Small "+ New Folder" Button */}
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <span className="text-base select-none">🔗</span>
-                    <h2 className="font-extrabold text-base sm:text-lg text-espresso-900 dark:text-cream-50">
+                    <h2 className="font-extrabold text-base sm:text-lg text-main">
                       Links
                     </h2>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-cream-200 dark:bg-espresso-800 text-espresso-800/70 dark:text-cream-100/70 font-mono font-bold">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
                       {links.length}
                     </span>
                   </div>
@@ -685,12 +1363,12 @@ export function App() {
                       if (name && name.trim()) {
                         handleAddCategory({
                           name: name.trim(),
-                          color: '#4e876c',
+                          color: 'sage',
                           icon: '📁',
                         });
                       }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-espresso-850 hover:bg-cream-200 dark:hover:bg-espresso-800 border border-cream-300 dark:border-espresso-750 text-xs font-bold text-sage-700 dark:text-sage-300 shadow-2xs transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-accent shadow-2xs transition-all active:scale-95 cursor-pointer min-h-[38px]"
                   >
                     <Plus size={13} className="stroke-[2.5]" />
                     <span>New Folder</span>
@@ -698,7 +1376,7 @@ export function App() {
                 </div>
 
                 {/* UNIFIED SYMMETRICAL GRID: Category Squares AND Standalone Bookmarks all in one view! */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3.5 sm:gap-4.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
                   
                   {/* Category Bundle Squares */}
                   {categories.map((category, index) => (
@@ -748,12 +1426,34 @@ export function App() {
                   links={links}
                   todos={todos}
                   notes={notes}
+                  events={events}
+                  streakState={streakState}
+                  selectedDate={selectedDate}
+                  onSelectDate={(d) => setSelectedDate(d)}
+                  dayLogs={dayLogs}
+                  onSaveDayLog={handleSaveDayLog}
                   onAddTodo={handleAddTodo}
                   onToggleTodo={handleToggleTodo}
                   onDeleteTodo={handleDeleteTodo}
-                  onClearCompletedDaily={handleClearCompletedDaily}
-                  onClearCompletedPermanent={handleClearCompletedPermanent}
+                  onArchiveCompletedDaily={handleArchiveCompletedDaily}
+                  onArchiveCompletedPermanent={handleArchiveCompletedPermanent}
                   onReorderTodos={handleReorderTodos}
+                  onOpenHistoryTimeline={() => setIsHistoryTimelineOpen(true)}
+                  onOpenCreateGoal={() => {
+                    setActiveGoalForModal(null);
+                    setIsGoalModalOpen(true);
+                  }}
+                  onOpenEditGoal={(goal) => {
+                    setActiveGoalForModal(goal);
+                    setIsGoalModalOpen(true);
+                  }}
+                  onOpenExtendGoal={(goal) => setExtendingGoal(goal)}
+                  onStartFocusSession={(task) => setFocusTask(task)}
+                  onToggleSubtask={handleToggleSubtask}
+                  onCopyYesterdayList={handleCopyYesterdayList}
+                  onInspectDay={(dateKey) => setInspectingDateKey(dateKey)}
+                  onOpenInsights={() => setIsInsightsOpen(true)}
+                  onOpenWeeklyReview={() => setIsWeeklyReviewOpen(true)}
                   onAddNote={handleAddNote}
                   onUpdateNote={handleUpdateNote}
                   onDeleteNote={handleDeleteNote}
@@ -776,13 +1476,95 @@ export function App() {
           setPrefilledCategory('Uncategorized');
           setIsAddModalOpen(true);
         }}
-        className="fixed bottom-5 right-5 sm:hidden z-40 w-13 h-13 rounded-full bg-sage-600 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+        className="fixed bottom-5 right-5 sm:hidden z-40 w-13 h-13 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
         aria-label="Add Bookmark"
       >
         <Plus size={24} className="stroke-[2.5]" />
       </button>
 
       {/* MODALS */}
+
+      {/* 1. Goal Creation / Editing Modal */}
+      <GoalModal
+        isOpen={isGoalModalOpen}
+        onClose={() => {
+          setIsGoalModalOpen(false);
+          setActiveGoalForModal(null);
+        }}
+        onSave={handleSaveGoal}
+        goal={activeGoalForModal}
+      />
+
+      {/* 2. Extend Deadline Modal */}
+      <ExtendDeadlineModal
+        isOpen={Boolean(extendingGoal)}
+        goal={extendingGoal}
+        onClose={() => setExtendingGoal(null)}
+        onExtend={handleExtendGoal}
+      />
+
+      {/* 3. Pomodoro Focus Timer Modal */}
+      <FocusTimerModal
+        isOpen={Boolean(focusTask)}
+        task={focusTask}
+        onClose={() => setFocusTask(null)}
+        onCompleteSession={handleFinishFocusSession}
+      />
+
+      {/* 4. Daily History Timeline Modal */}
+      <DailyHistoryTimelineModal
+        isOpen={isHistoryTimelineOpen}
+        onClose={() => setIsHistoryTimelineOpen(false)}
+        todos={todos}
+        dayLogs={dayLogs}
+        onSelectDate={(date) => {
+          setSelectedDate(date);
+          setIsHistoryTimelineOpen(false);
+        }}
+      />
+
+      {/* 5. Day Inspection Drawer (Bottom Sheet on Mobile) */}
+      <DayInspectionDrawer
+        isOpen={Boolean(inspectingDateKey)}
+        dateKey={inspectingDateKey}
+        onClose={() => setInspectingDateKey(null)}
+        events={events}
+        dayLog={inspectingDateKey ? dayLogs[inspectingDateKey] : undefined}
+        dayTodos={todos.filter(t => t.date === inspectingDateKey || (inspectingDateKey === todayKey() && !t.date))}
+        onGoToDay={(date: string) => {
+          setSelectedDate(date);
+          setInspectingDateKey(null);
+        }}
+      />
+
+      {/* 6. Deep Insights Modal */}
+      <InsightsModal
+        isOpen={isInsightsOpen}
+        onClose={() => setIsInsightsOpen(false)}
+        events={events}
+        todos={todos}
+        dayLogs={dayLogs}
+        streakState={streakState}
+        onApplyFreeze={handleApplyStreakFreeze}
+      />
+
+      {/* 7. Weekly Sunday Review Modal */}
+      <WeeklyReviewModal
+        isOpen={isWeeklyReviewOpen}
+        onClose={() => setIsWeeklyReviewOpen(false)}
+        todos={todos}
+        onAddNextWeekPriorities={handleSaveNextWeekPriorities}
+      />
+
+      {/* 8. Unfinished Rollover Sheet (Bottom Sheet on Mobile) */}
+      <UnfinishedRolloverSheet
+        isOpen={isRolloverOpen}
+        yesterdayTasks={rolloverCandidateTasks}
+        yesterdayDateStr={addDays(todayKey(), -1)}
+        onClose={() => setIsRolloverOpen(false)}
+        onCarryOver={handleCarrySelectedRollover}
+        onLeaveBehind={handleLeaveBehindRollover}
+      />
 
       {/* Link Creation / Editing Modal */}
       <LinkModal
@@ -817,7 +1599,7 @@ export function App() {
         categories={categories}
       />
 
-      {/* Category Square Folder POPUP (Grid of Cards inside + Reordering + Move!) */}
+      {/* Category Square Folder POPUP */}
       <FolderGridPopup
         category={folderModalCategory}
         links={links}
@@ -843,10 +1625,14 @@ export function App() {
         }}
         onEditCategory={(cat) => setEditingCategory(cat)}
         onMoveLinkCategory={handleMoveLinkCategory}
-        onReorderLinksInCategory={handleReorderLinksInCategory}
+        onReorderLinksInCategory={(reorderedLinks) => {
+          if (folderModalCategory) {
+            handleReorderLinksInCategory(reorderedLinks, folderModalCategory.name);
+          }
+        }}
       />
 
-      {/* Top-Level High-Z Attachment Viewer (Floats above current tab without going back!) */}
+      {/* Top-Level High-Z Attachment Viewer */}
       <AttachmentViewerModal
         attachment={activeAttachment}
         onClose={() => setActiveAttachment(null)}
@@ -858,7 +1644,7 @@ export function App() {
         category={editingCategory}
         onClose={() => setEditingCategory(null)}
         onSave={handleSaveCategory}
-        onDelete={handleDeleteCategory}
+        onDelete={(id) => handleDeleteCategory(id, false)}
       />
 
       {/* Backup and Sync Modal */}
@@ -881,6 +1667,35 @@ export function App() {
         onInstallClick={handleInstallPwa}
       />
 
+      {/* Colour Guide & Design System Modal */}
+      <DesignGuideModal
+        isOpen={isDesignGuideOpen}
+        onClose={handleCloseDesignGuide}
+        currentAccent={accentTheme}
+        onSelectAccent={(acc) => setAccentTheme(acc)}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
+      />
+
+      {/* Custom Wallpaper & Opacity Modal */}
+      <WallpaperModal
+        isOpen={isWallpaperModalOpen}
+        onClose={() => setIsWallpaperModalOpen(false)}
+        currentImage={customBgImage}
+        settings={bgSettings}
+        onSaveImage={handleSaveCustomBgImage}
+        onUpdateSettings={handleUpdateBgSettings}
+      />
+
+      {/* Supabase Cloud Sync & Mobile Pairing Modal */}
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onDataRefreshed={refreshDataFromStorage}
+        onToast={showToast}
+      />
+
+      </div>
     </div>
   );
 }

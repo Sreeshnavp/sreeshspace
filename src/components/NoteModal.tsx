@@ -5,13 +5,9 @@ import {
   Star, 
   Paperclip, 
   Sparkles, 
-  Download, 
   FileText, 
-  Image as ImageIcon,
   Check,
   Copy,
-  Plus,
-  BookOpen,
   Edit3,
   Eye,
   Calendar,
@@ -21,7 +17,7 @@ import {
 import type { NoteItem, Attachment } from '../types';
 import { formatFileSize, formatDate } from '../utils/urlHelper';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
-import { getConcentratedNoteTheme, NOTE_THEMES } from '../utils/themeColors';
+import { CATEGORY_KEYS, CATEGORY_TOKENS, resolveCategoryKey, getCategoryToken } from '../utils/themeColors';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -32,15 +28,6 @@ interface NoteModalProps {
   onOpenAttachment?: (attachment: Attachment) => void;
 }
 
-const PASTEL_THEMES = [
-  { key: 'sage', name: 'Matcha Sage', color: '#f0f7f3', border: '#cde4d6' },
-  { key: 'peach', name: 'Apricot Peach', color: '#fff4ef', border: '#fddbcf' },
-  { key: 'honey', name: 'Warm Honey', color: '#fff9ec', border: '#fde8b8' },
-  { key: 'lavender', name: 'Lavender Wisteria', color: '#f6f2fa', border: '#e2d6ef' },
-  { key: 'sky', name: 'Sky Ice Blue', color: '#f1f8fc', border: '#cce7f7' },
-  { key: 'rose', name: 'Rose Quartz', color: '#fdf2f6', border: '#fcd3e1' },
-];
-
 export const NoteModal: React.FC<NoteModalProps> = ({
   isOpen,
   note,
@@ -49,12 +36,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   onDelete,
   onOpenAttachment,
 }) => {
-  // Mode: 'read' for distraction-free reading, 'edit' for editing
   const [viewMode, setViewMode] = useState<'read' | 'edit'>('read');
   const [headline, setHeadline] = useState('');
   const [highlight, setHighlight] = useState('');
   const [paragraph, setParagraph] = useState('');
-  const [color, setColor] = useState('#f0f7f3');
+  const [color, setColor] = useState('sage');
   const [pinned, setPinned] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [copied, setCopied] = useState(false);
@@ -65,22 +51,24 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setHeadline(note.title || '');
       setHighlight(note.highlight || '');
       setParagraph(note.content || '');
-      setColor(note.color || '#f0f7f3');
+      setColor(resolveCategoryKey(note.color));
       setPinned(Boolean(note.pinned));
       setAttachments(note.attachments || []);
-      setViewMode('read'); // Open existing notes in Reader View!
+      setViewMode('read');
     } else {
       setHeadline('');
       setHighlight('');
       setParagraph('');
-      setColor('#f0f7f3');
+      setColor('sage');
       setPinned(false);
       setAttachments([]);
-      setViewMode('edit'); // Open new notes in Edit View directly!
+      setViewMode('edit');
     }
   }, [note, isOpen]);
 
   if (!isOpen) return null;
+
+  const currentCatToken = getCategoryToken(color);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -139,47 +127,40 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     setTimeout(() => setCopied(false), 1800);
   };
 
-  // Word count & reading time helper
   const wordCount = paragraph.trim() ? paragraph.trim().split(/\s+/).length : 0;
   const readTimeMin = Math.max(1, Math.ceil(wordCount / 180));
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-espresso-950/60 backdrop-blur-md animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-main/50 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
     >
-      {/* Solid, clean porcelain card (NO MUDDY GRADIENT EFFECT!) */}
       <div 
-        className="w-full max-w-2xl bg-white dark:bg-espresso-900 rounded-3xl shadow-2xl border border-cream-200 dark:border-espresso-750 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-2xl bg-surface rounded-3xl shadow-raised border border-subtle flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 text-main"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Solid Pastel Accent Ribbon */}
-        {(() => {
-          const currentTheme = getConcentratedNoteTheme(color);
-          return (
-            <div 
-              className="h-1.5 w-full shrink-0" 
-              style={{ backgroundColor: currentTheme.accent }} 
-            />
-          );
-        })()}
+        {/* Top Solid Accent Ribbon */}
+        <div 
+          className="h-1.5 w-full shrink-0" 
+          style={{ backgroundColor: currentCatToken.solidVar }} 
+        />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-cream-200 dark:border-espresso-800">
+        <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-subtle bg-surface">
           
           {/* Reader vs Edit Mode Toggle Tabs */}
           <div className="flex items-center gap-1.5">
-            <div className="flex items-center p-1 rounded-2xl bg-cream-100 dark:bg-espresso-800 border border-cream-200/80 dark:border-espresso-750 text-xs font-bold">
+            <div className="flex items-center p-1 rounded-2xl bg-sunken border border-subtle text-xs font-bold">
               <button
                 type="button"
                 onClick={() => {
                   setViewMode('read');
                   playPopSound();
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
                   viewMode === 'read'
-                    ? 'bg-white dark:bg-espresso-700 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                    : 'text-espresso-800/50 dark:text-cream-100/50 hover:text-espresso-800'
+                    ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-main'
                 }`}
               >
                 <Eye size={13} />
@@ -192,10 +173,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   setViewMode('edit');
                   playPopSound();
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
                   viewMode === 'edit'
-                    ? 'bg-white dark:bg-espresso-700 text-espresso-900 dark:text-cream-50 shadow-2xs font-extrabold'
-                    : 'text-espresso-800/50 dark:text-cream-100/50 hover:text-espresso-800'
+                    ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-main'
                 }`}
               >
                 <Edit3 size={13} />
@@ -212,45 +193,43 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 setPinned(!pinned);
                 playPopSound();
               }}
-              className={`p-2 rounded-xl transition ${
-                pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/60' : 'text-espresso-800/30 hover:text-amber-400'
+              className={`p-2 rounded-xl transition cursor-pointer ${
+                pinned ? 'text-accent bg-accent-soft' : 'text-faint hover:text-muted'
               }`}
               title={pinned ? 'Pinned to top' : 'Pin note'}
             >
-              <Star size={17} className={pinned ? 'fill-amber-400' : ''} />
+              <Star size={17} className={pinned ? 'fill-accent' : ''} />
             </button>
 
             <button
               type="button"
               onClick={handleCopyNote}
-              className="p-2 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-xl hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+              className="p-2 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
               title="Copy note text"
             >
-              {copied ? <Check size={16} className="text-sage-600" /> : <Copy size={16} />}
+              {copied ? <Check size={16} className="text-accent" /> : <Copy size={16} />}
             </button>
 
             <button
               onClick={onClose}
-              className="p-2 text-espresso-800/40 hover:text-espresso-800 dark:text-cream-100/40 dark:hover:text-cream-100 rounded-xl hover:bg-cream-100 dark:hover:bg-espresso-800 transition"
+              className="p-2 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
             >
               <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* ========================================================
-            VIEW MODE 1: DEDICATED READER VIEW (CALM, CLEAN, EDITORIAL)
-            ======================================================== */}
+        {/* VIEW MODE 1: DEDICATED READER VIEW */}
         {viewMode === 'read' ? (
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5">
+          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 bg-surface">
             
             {/* Headline */}
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-espresso-900 dark:text-cream-50 leading-tight tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-main leading-tight tracking-tight">
                 {headline || 'Untitled Note'}
               </h2>
 
-              <div className="flex items-center gap-3 mt-2 text-[11px] text-espresso-800/45 dark:text-cream-100/45 font-medium">
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-faint font-medium">
                 <span className="flex items-center gap-1">
                   <Calendar size={12} />
                   <span>{note ? formatDate(note.updatedAt) : 'Today'}</span>
@@ -263,17 +242,23 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               </div>
             </div>
 
-            {/* Key Highlight Banner (if present) */}
+            {/* Key Highlight Banner */}
             {highlight && (
-              <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-900/60 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <div 
+                className="p-4 rounded-2xl border border-subtle flex items-start gap-3"
+                style={{ backgroundColor: currentCatToken.softVar, color: currentCatToken.textVar }}
+              >
+                <div 
+                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: currentCatToken.solidVar, color: 'rgb(var(--on-accent))' }}
+                >
                   <Lightbulb size={18} className="stroke-[2.5]" />
                 </div>
                 <div>
-                  <span className="block text-[10px] font-extrabold uppercase tracking-wider text-amber-800/70 dark:text-amber-300/70 mb-0.5">
+                  <span className="block text-[10px] font-extrabold uppercase tracking-wider opacity-75 mb-0.5">
                     Key Highlight
                   </span>
-                  <p className="text-xs sm:text-sm font-bold text-espresso-900 dark:text-cream-50 leading-snug">
+                  <p className="text-xs sm:text-sm font-bold leading-snug">
                     {highlight}
                   </p>
                 </div>
@@ -281,14 +266,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             )}
 
             {/* Paragraph / Body Content */}
-            <div className="prose prose-sm max-w-none text-xs sm:text-sm text-espresso-900/90 dark:text-cream-50/90 leading-relaxed font-normal whitespace-pre-line py-1">
-              {paragraph || <span className="italic text-espresso-800/40">No content written yet. Click "Edit Note" to add thoughts.</span>}
+            <div className="text-xs sm:text-sm text-main leading-relaxed font-normal whitespace-pre-line py-1">
+              {paragraph || <span className="italic text-faint">No content written yet. Click "Edit Note" to add thoughts.</span>}
             </div>
 
             {/* Attachments Section in Reader Mode */}
             {attachments.length > 0 && (
-              <div className="pt-4 border-t border-cream-200 dark:border-espresso-800">
-                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50 mb-2.5 flex items-center gap-1.5">
+              <div className="pt-4 border-t border-subtle">
+                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-faint mb-2.5 flex items-center gap-1.5">
                   <Paperclip size={12} />
                   <span>Attached Files & Screenshots ({attachments.length})</span>
                 </h4>
@@ -301,21 +286,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                       <div
                         key={att.id}
                         onClick={() => onOpenAttachment && onOpenAttachment(att)}
-                        className="group flex items-center gap-2.5 p-2.5 rounded-2xl bg-cream-50/70 dark:bg-espresso-850 border border-cream-200 dark:border-espresso-800 hover:border-sage-400 dark:hover:border-sage-600 transition cursor-pointer shadow-2xs"
+                        className="group flex items-center gap-2.5 p-2.5 rounded-2xl bg-sunken border border-subtle hover:border-strong transition cursor-pointer shadow-2xs"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-espresso-750 flex items-center justify-center shrink-0 overflow-hidden border border-cream-200 dark:border-espresso-700">
+                        <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center shrink-0 overflow-hidden border border-subtle">
                           {isImg ? (
                             <img src={att.dataUrl} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                           ) : (
-                            <FileText size={18} className="text-espresso-800/50" />
+                            <FileText size={18} className="text-faint" />
                           )}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-espresso-900 dark:text-cream-50 truncate group-hover:text-sage-600 transition-colors">
+                          <p className="text-xs font-bold text-main truncate group-hover:text-accent transition-colors">
                             {att.name}
                           </p>
-                          <span className="text-[10px] text-espresso-800/40 dark:text-cream-100/40 font-mono">
+                          <span className="text-[10px] text-faint font-mono">
                             {formatFileSize(att.size)}
                           </span>
                         </div>
@@ -327,9 +312,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             )}
 
             {/* Reader Mode Footer */}
-            <div className="pt-4 border-t border-cream-200 dark:border-espresso-800 flex items-center justify-between">
-              <span className="text-xs text-espresso-800/40 dark:text-cream-100/40 font-medium">
-                SreeshSpace Reader Mode
+            <div className="pt-4 border-t border-subtle flex items-center justify-between">
+              <span className="text-xs text-faint font-medium">
+                Orbit Reader Mode
               </span>
 
               <button
@@ -338,7 +323,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   setViewMode('edit');
                   playPopSound();
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-sage-600 hover:bg-sage-500 text-white rounded-2xl text-xs font-bold shadow-pill transition active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-on-accent rounded-2xl text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer"
               >
                 <Edit3 size={13} />
                 <span>Edit Note</span>
@@ -347,14 +332,12 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
           </div>
         ) : (
-          /* ========================================================
-              VIEW MODE 2: SOLID CLEAN EDIT MODE (NO GRADIENT EFFECT!)
-              ======================================================== */
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+          /* VIEW MODE 2: EDIT MODE */
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 bg-surface">
             
             {/* 1. Headline */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50 mb-1">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint mb-1">
                 Headline
               </label>
               <input
@@ -362,23 +345,23 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
                 placeholder="Give your note a bold headline..."
-                className="w-full px-4 py-2.5 rounded-2xl bg-cream-50/70 dark:bg-espresso-850 border border-cream-200 dark:border-espresso-800 text-sm sm:text-base font-extrabold text-espresso-900 dark:text-cream-50 focus:outline-none focus:ring-2 focus:ring-sage-400/40"
+                className="w-full px-4 py-2.5 rounded-2xl bg-sunken border border-input text-sm sm:text-base font-extrabold text-main focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
 
             {/* 2. Key Highlight Banner */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50 mb-1">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint mb-1">
                 Key Highlight / Takeaway (Optional)
               </label>
-              <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60">
-                <Lightbulb size={16} className="text-amber-600 dark:text-amber-400 shrink-0 stroke-[2.2]" />
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken border border-input">
+                <Lightbulb size={16} className="text-accent shrink-0 stroke-[2.2]" />
                 <input
                   type="text"
                   value={highlight}
                   onChange={(e) => setHighlight(e.target.value)}
                   placeholder="Core takeaway or highlight banner..."
-                  className="flex-1 bg-transparent text-xs sm:text-sm font-semibold text-espresso-900 dark:text-cream-50 focus:outline-none placeholder-amber-800/40 dark:placeholder-amber-200/40"
+                  className="flex-1 bg-transparent text-xs sm:text-sm font-semibold text-main focus:outline-none placeholder-faint"
                 />
               </div>
             </div>
@@ -386,7 +369,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             {/* 3. Paragraph / Body with Quick Formatting Toolbar */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50">
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint">
                   Paragraph / Body Notes
                 </label>
 
@@ -394,21 +377,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   <button
                     type="button"
                     onClick={() => insertFormatting('• ')}
-                    className="px-2 py-0.5 rounded-lg bg-cream-100 dark:bg-espresso-800 hover:bg-cream-200 text-espresso-800 dark:text-cream-100"
+                    className="px-2 py-0.5 rounded-lg bg-sunken hover:bg-surface border border-subtle text-muted hover:text-main cursor-pointer"
                   >
                     Bullet
                   </button>
                   <button
                     type="button"
                     onClick={() => insertFormatting('[ ] ')}
-                    className="px-2 py-0.5 rounded-lg bg-cream-100 dark:bg-espresso-800 hover:bg-cream-200 text-espresso-800 dark:text-cream-100"
+                    className="px-2 py-0.5 rounded-lg bg-sunken hover:bg-surface border border-subtle text-muted hover:text-main cursor-pointer"
                   >
                     Task [ ]
                   </button>
                   <button
                     type="button"
                     onClick={() => insertFormatting('**', '**')}
-                    className="px-2 py-0.5 rounded-lg bg-cream-100 dark:bg-espresso-800 hover:bg-cream-200 text-espresso-800 dark:text-cream-100"
+                    className="px-2 py-0.5 rounded-lg bg-sunken hover:bg-surface border border-subtle text-muted hover:text-main cursor-pointer"
                   >
                     Bold
                   </button>
@@ -420,21 +403,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 onChange={(e) => setParagraph(e.target.value)}
                 placeholder="Write your detailed thoughts, study points, or instructions here..."
                 rows={6}
-                className="w-full px-4 py-3 rounded-2xl bg-cream-50/70 dark:bg-espresso-850 border border-cream-200 dark:border-espresso-800 text-xs sm:text-sm text-espresso-900 dark:text-cream-50 focus:outline-none focus:ring-2 focus:ring-sage-400/40 resize-none font-normal leading-relaxed"
+                className="w-full px-4 py-3 rounded-2xl bg-sunken border border-input text-xs sm:text-sm text-main focus:outline-none focus:ring-2 focus:ring-ring resize-none font-normal leading-relaxed"
               />
             </div>
 
             {/* 4. Attachments */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50">
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint">
                   Attachments ({attachments.length})
                 </label>
 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1 px-3 py-1 bg-sage-50 dark:bg-sage-950/60 hover:bg-sage-100 text-sage-700 dark:text-sage-300 rounded-xl text-xs font-bold border border-sage-200/80 dark:border-sage-800 transition active:scale-95"
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-accent-soft hover:bg-accent text-accent-text hover:text-on-accent rounded-xl text-xs font-bold border border-subtle transition active:scale-95 cursor-pointer"
                 >
                   <Paperclip size={12} />
                   <span>Attach Image / File</span>
@@ -450,34 +433,34 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               </div>
 
               {attachments.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-2xl bg-cream-50/60 dark:bg-espresso-850 border border-cream-200 dark:border-espresso-800">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-2xl bg-sunken border border-subtle">
                   {attachments.map((att) => {
                     const isImg = att.type.startsWith('image/');
 
                     return (
                       <div
                         key={att.id}
-                        className="group relative flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-espresso-800 border border-cream-200/80 dark:border-espresso-750 shadow-2xs overflow-hidden"
+                        className="group relative flex items-center gap-2 p-2 rounded-xl bg-surface border border-subtle shadow-2xs overflow-hidden"
                       >
                         <div 
                           onClick={() => onOpenAttachment && onOpenAttachment(att)}
-                          className="w-8 h-8 rounded-lg bg-cream-100 dark:bg-espresso-700 flex items-center justify-center shrink-0 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                          className="w-8 h-8 rounded-lg bg-sunken flex items-center justify-center shrink-0 overflow-hidden cursor-pointer hover:opacity-80 transition"
                         >
                           {isImg ? (
                             <img src={att.dataUrl} alt={att.name} className="w-full h-full object-cover" />
                           ) : (
-                            <FileText size={15} className="text-espresso-800/40" />
+                            <FileText size={15} className="text-faint" />
                           )}
                         </div>
 
                         <div className="min-w-0 flex-1">
                           <p 
                             onClick={() => onOpenAttachment && onOpenAttachment(att)}
-                            className="text-[11px] font-bold text-espresso-900 dark:text-cream-50 truncate cursor-pointer hover:underline"
+                            className="text-[11px] font-bold text-main truncate cursor-pointer hover:underline"
                           >
                             {att.name}
                           </p>
-                          <span className="text-[9px] text-espresso-800/40 dark:text-cream-100/40 font-mono">
+                          <span className="text-[9px] text-faint font-mono">
                             {formatFileSize(att.size)}
                           </span>
                         </div>
@@ -485,7 +468,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         <button
                           type="button"
                           onClick={() => removeAttachment(att.id)}
-                          className="p-1 text-espresso-800/30 hover:text-red-500 rounded-lg transition"
+                          className="p-1 text-faint hover:text-danger rounded-lg transition cursor-pointer"
                           title="Remove attachment"
                         >
                           <X size={12} />
@@ -497,50 +480,47 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               ) : (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-3.5 rounded-2xl border border-dashed border-cream-300 dark:border-espresso-750 text-center cursor-pointer hover:border-sage-400 dark:hover:border-sage-600 transition bg-cream-50/30 dark:bg-espresso-900/30"
+                  className="p-3.5 rounded-2xl border border-dashed border-input text-center cursor-pointer hover:border-accent transition bg-sunken/40"
                 >
-                  <Paperclip size={15} className="mx-auto text-espresso-800/30 dark:text-cream-100/30 mb-1" />
-                  <p className="text-xs font-semibold text-espresso-800/60 dark:text-cream-100/60">
+                  <Paperclip size={15} className="mx-auto text-faint mb-1" />
+                  <p className="text-xs font-semibold text-muted">
                     Click to attach images, screenshots, PDFs, or documents
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 5. Solid Pastel Card Theme */}
+            {/* 5. Category Hue Picker */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-espresso-800/50 dark:text-cream-100/50 mb-1.5">
-                Note Color Theme
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint mb-1.5">
+                Note Color Palette
               </label>
-              <div className="flex items-center gap-2.5">
-                {PASTEL_THEMES.map((theme) => {
-                  const themeDetails = NOTE_THEMES[theme.key] || NOTE_THEMES.sage;
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {CATEGORY_KEYS.map((k) => {
+                  const token = CATEGORY_TOKENS[k];
+                  const isSelected = resolveCategoryKey(color) === k;
                   return (
                     <button
-                      key={theme.name}
+                      key={k}
                       type="button"
                       onClick={() => {
-                        setColor(theme.color);
+                        setColor(k);
                         playPopSound();
                       }}
-                      className={`relative w-8 h-8 rounded-xl border-2 transition-all cursor-pointer ${
-                        color === theme.color
-                          ? 'scale-120 shadow-md ring-2 ring-sage-500/60 dark:ring-emerald-400'
-                          : 'hover:scale-110 opacity-80 hover:opacity-100'
+                      className={`relative w-8 h-8 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'scale-115 ring-2 ring-ring shadow-soft'
+                          : 'hover:scale-105 opacity-80 hover:opacity-100 border-subtle'
                       }`}
                       style={{
-                        backgroundColor: themeDetails.lightBg,
-                        borderColor: themeDetails.lightBorder,
+                        backgroundColor: token.softVar,
+                        borderColor: token.solidVar,
                       }}
-                      title={theme.name}
+                      title={token.name}
                     >
-                      {/* Dark mode jewel indicator */}
                       <span 
-                        className="absolute inset-1 rounded-lg hidden dark:block"
-                        style={{
-                          backgroundColor: themeDetails.darkBg,
-                          border: `1.5px solid ${themeDetails.darkBorder}`,
-                        }}
+                        className="w-3 h-3 rounded-full mx-auto block"
+                        style={{ backgroundColor: token.solidVar }}
                       />
                     </button>
                   );
@@ -549,7 +529,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             </div>
 
             {/* Footer Controls */}
-            <div className="pt-3 border-t border-cream-200 dark:border-espresso-800 flex items-center justify-between">
+            <div className="pt-3 border-t border-subtle flex items-center justify-between">
               {note && onDelete ? (
                 <button
                   type="button"
@@ -557,7 +537,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     onDelete(note.id);
                     onClose();
                   }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-danger hover:bg-danger-soft rounded-xl transition cursor-pointer"
                 >
                   <Trash2 size={13} />
                   <span>Delete</span>
@@ -571,13 +551,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     if (note) setViewMode('read');
                     else onClose();
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-espresso-800/60 dark:text-cream-100/60 hover:bg-cream-100 dark:hover:bg-espresso-800"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-muted hover:text-main hover:bg-sunken cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-2xl bg-sage-600 hover:bg-sage-500 text-white text-xs font-bold shadow-pill transition active:scale-95"
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-2xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer"
                 >
                   <Sparkles size={14} />
                   <span>Save Note</span>

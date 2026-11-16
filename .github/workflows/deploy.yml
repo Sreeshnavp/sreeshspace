@@ -1,4 +1,4 @@
-name: Deploy SreeshSpace to GitHub Pages
+name: Deploy Orbit to GitHub Pages
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npm run build

@@ -1,130 +1,165 @@
-// Helper for concentrated, rich jewel theme colors in dark mode and serene pastels in light mode
+// Semantic tokens authority for Categories, Folders, and Notes
 
-export interface NoteColorTheme {
+export type CategoryKey = 'sage' | 'clay' | 'lavender' | 'sky' | 'honey' | 'rose' | 'teal' | 'stone';
+
+export interface CategoryToken {
+  key: CategoryKey;
   name: string;
-  lightBg: string;
-  lightBorder: string;
-  lightText: string;
-  lightHighlightBg: string;
-  lightHighlightText: string;
-  darkBg: string;
-  darkBorder: string;
-  darkText: string;
-  darkHighlightBg: string;
-  darkHighlightText: string;
-  accent: string;
+  solidClass: string;
+  softClass: string;
+  textClass: string;
+  solidVar: string;
+  softVar: string;
+  textVar: string;
 }
 
-export const NOTE_THEMES: Record<string, NoteColorTheme> = {
+export const CATEGORY_KEYS: CategoryKey[] = [
+  'sage',
+  'clay',
+  'lavender',
+  'sky',
+  'honey',
+  'rose',
+  'teal',
+  'stone',
+];
+
+export const CATEGORY_TOKENS: Record<CategoryKey, CategoryToken> = {
   sage: {
-    name: 'Matcha Sage',
-    lightBg: '#f0f7f3',
-    lightBorder: '#cde4d6',
-    lightText: '#142a1f',
-    lightHighlightBg: '#e1ede6',
-    lightHighlightText: '#23533c',
-    darkBg: '#0e241b',
-    darkBorder: '#235e44',
-    darkText: '#bbf0d8',
-    darkHighlightBg: '#183c2e',
-    darkHighlightText: '#5be4a7',
-    accent: '#4e876c',
+    key: 'sage',
+    name: 'Sage',
+    solidClass: 'bg-cat-sage-solid',
+    softClass: 'bg-cat-sage-soft',
+    textClass: 'text-cat-sage-text',
+    solidVar: 'rgb(var(--cat-sage-solid))',
+    softVar: 'rgb(var(--cat-sage-soft))',
+    textVar: 'rgb(var(--cat-sage-text))',
   },
-  peach: {
-    name: 'Apricot Peach',
-    lightBg: '#fff4ef',
-    lightBorder: '#fddbcf',
-    lightText: '#3a1a11',
-    lightHighlightBg: '#feeddf',
-    lightHighlightText: '#7a311d',
-    darkBg: '#2d160f',
-    darkBorder: '#6d311f',
-    darkText: '#ffd0be',
-    darkHighlightBg: '#441f14',
-    darkHighlightText: '#ff9c78',
-    accent: '#ee7751',
-  },
-  honey: {
-    name: 'Warm Honey',
-    lightBg: '#fff9ec',
-    lightBorder: '#fde8b8',
-    lightText: '#352409',
-    lightHighlightBg: '#fef5e1',
-    lightHighlightText: '#7b5711',
-    darkBg: '#281d09',
-    darkBorder: '#604513',
-    darkText: '#fee3a2',
-    darkHighlightBg: '#3d2c0e',
-    darkHighlightText: '#fbbd41',
-    accent: '#f59e0b',
+  clay: {
+    key: 'clay',
+    name: 'Clay',
+    solidClass: 'bg-cat-clay-solid',
+    softClass: 'bg-cat-clay-soft',
+    textClass: 'text-cat-clay-text',
+    solidVar: 'rgb(var(--cat-clay-solid))',
+    softVar: 'rgb(var(--cat-clay-soft))',
+    textVar: 'rgb(var(--cat-clay-text))',
   },
   lavender: {
-    name: 'Lavender Wisteria',
-    lightBg: '#f6f2fa',
-    lightBorder: '#e2d6ef',
-    lightText: '#2b1b3d',
-    lightHighlightBg: '#efeaf5',
-    lightHighlightText: '#583679',
-    darkBg: '#221430',
-    darkBorder: '#562f7e',
-    darkText: '#e8d4fc',
-    darkHighlightBg: '#361c4f',
-    darkHighlightText: '#cc9cff',
-    accent: '#8e6eb4',
+    key: 'lavender',
+    name: 'Lavender',
+    solidClass: 'bg-cat-lavender-solid',
+    softClass: 'bg-cat-lavender-soft',
+    textClass: 'text-cat-lavender-text',
+    solidVar: 'rgb(var(--cat-lavender-solid))',
+    softVar: 'rgb(var(--cat-lavender-soft))',
+    textVar: 'rgb(var(--cat-lavender-text))',
   },
   sky: {
-    name: 'Sky Ice Blue',
-    lightBg: '#f1f8fc',
-    lightBorder: '#cce7f7',
-    lightText: '#102737',
-    lightHighlightBg: '#e1f2fb',
-    lightHighlightText: '#1d5479',
-    darkBg: '#0e2030',
-    darkBorder: '#1e4d75',
-    darkText: '#bfe4fd',
-    darkHighlightBg: '#17344e',
-    darkHighlightText: '#5ec2fb',
-    accent: '#4597de',
+    key: 'sky',
+    name: 'Sky',
+    solidClass: 'bg-cat-sky-solid',
+    softClass: 'bg-cat-sky-soft',
+    textClass: 'text-cat-sky-text',
+    solidVar: 'rgb(var(--cat-sky-solid))',
+    softVar: 'rgb(var(--cat-sky-soft))',
+    textVar: 'rgb(var(--cat-sky-text))',
+  },
+  honey: {
+    key: 'honey',
+    name: 'Honey',
+    solidClass: 'bg-cat-honey-solid',
+    softClass: 'bg-cat-honey-soft',
+    textClass: 'text-cat-honey-text',
+    solidVar: 'rgb(var(--cat-honey-solid))',
+    softVar: 'rgb(var(--cat-honey-soft))',
+    textVar: 'rgb(var(--cat-honey-text))',
   },
   rose: {
-    name: 'Rose Quartz',
-    lightBg: '#fdf2f6',
-    lightBorder: '#fcd3e1',
-    lightText: '#371321',
-    lightHighlightBg: '#feebe6',
-    lightHighlightText: '#872a4e',
-    darkBg: '#2d111e',
-    darkBorder: '#6c2242',
-    darkText: '#fec9de',
-    darkHighlightBg: '#45162c',
-    darkHighlightText: '#fb6a9f',
-    accent: '#e64980',
+    key: 'rose',
+    name: 'Rose',
+    solidClass: 'bg-cat-rose-solid',
+    softClass: 'bg-cat-rose-soft',
+    textClass: 'text-cat-rose-text',
+    solidVar: 'rgb(var(--cat-rose-solid))',
+    softVar: 'rgb(var(--cat-rose-soft))',
+    textVar: 'rgb(var(--cat-rose-text))',
+  },
+  teal: {
+    key: 'teal',
+    name: 'Teal',
+    solidClass: 'bg-cat-teal-solid',
+    softClass: 'bg-cat-teal-soft',
+    textClass: 'text-cat-teal-text',
+    solidVar: 'rgb(var(--cat-teal-solid))',
+    softVar: 'rgb(var(--cat-teal-soft))',
+    textVar: 'rgb(var(--cat-teal-text))',
+  },
+  stone: {
+    key: 'stone',
+    name: 'Stone',
+    solidClass: 'bg-cat-stone-solid',
+    softClass: 'bg-cat-stone-soft',
+    textClass: 'text-cat-stone-text',
+    solidVar: 'rgb(var(--cat-stone-solid))',
+    softVar: 'rgb(var(--cat-stone-soft))',
+    textVar: 'rgb(var(--cat-stone-text))',
   },
 };
 
-// Match arbitrary hex color to nearest theme or return fallback
-export function getConcentratedNoteTheme(hex?: string): NoteColorTheme {
-  if (!hex) return NOTE_THEMES.sage;
+export function resolveCategoryKey(input?: string): CategoryKey {
+  if (!input) return 'sage';
+  const val = input.toLowerCase();
 
-  const h = hex.toLowerCase();
-  if (h.includes('e1ed') || h.includes('f0f7') || h.includes('c5dc') || h.includes('matcha') || h.includes('sage')) {
-    return NOTE_THEMES.sage;
-  }
-  if (h.includes('feed') || h.includes('fff4') || h.includes('fddb') || h.includes('peach') || h.includes('apricot')) {
-    return NOTE_THEMES.peach;
-  }
-  if (h.includes('fef5') || h.includes('fff9') || h.includes('fde8') || h.includes('honey') || h.includes('amber')) {
-    return NOTE_THEMES.honey;
-  }
-  if (h.includes('efea') || h.includes('f6f2') || h.includes('e2d6') || h.includes('lavender') || h.includes('wisteria')) {
-    return NOTE_THEMES.lavender;
-  }
-  if (h.includes('e1f2') || h.includes('f1f8') || h.includes('cce7') || h.includes('sky') || h.includes('blue')) {
-    return NOTE_THEMES.sky;
-  }
-  if (h.includes('feeb') || h.includes('fdf2') || h.includes('fcd3') || h.includes('rose') || h.includes('pink')) {
-    return NOTE_THEMES.rose;
+  for (const k of CATEGORY_KEYS) {
+    if (val === k || val.includes(k)) return k;
   }
 
-  return NOTE_THEMES.sage;
+  // Legacy hex mappings
+  if (val.includes('4e876c') || val.includes('e1ed') || val.includes('f0f7') || val.includes('cde4')) return 'sage';
+  if (val.includes('f7885e') || val.includes('ee7751') || val.includes('b74422') || val.includes('peach') || val.includes('apricot')) return 'clay';
+  if (val.includes('aa73d7') || val.includes('8e6eb4') || val.includes('wisteria') || val.includes('purple')) return 'lavender';
+  if (val.includes('38bdf8') || val.includes('4597de') || val.includes('2c79c5') || val.includes('sky') || val.includes('blue')) return 'sky';
+  if (val.includes('f59e0b') || val.includes('honey') || val.includes('amber') || val.includes('warm')) return 'honey';
+  if (val.includes('ec4899') || val.includes('e64980') || val.includes('rose') || val.includes('pink')) return 'rose';
+  if (val.includes('teal') || val.includes('cyan') || val.includes('green')) return 'teal';
+
+  return 'stone';
+}
+
+export function getCategoryToken(input?: string): CategoryToken {
+  return CATEGORY_TOKENS[resolveCategoryKey(input)];
+}
+
+// Note Themes interface for backward compatibility & rich semantics
+export interface NoteColorTheme {
+  key: CategoryKey;
+  name: string;
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+  solidVar: string;
+  softVar: string;
+  textVar: string;
+}
+
+export const NOTE_THEMES: Record<CategoryKey, NoteColorTheme> = Object.fromEntries(
+  CATEGORY_KEYS.map((k) => [
+    k,
+    {
+      key: k,
+      name: CATEGORY_TOKENS[k].name,
+      bgClass: CATEGORY_TOKENS[k].softClass,
+      textClass: CATEGORY_TOKENS[k].textClass,
+      borderClass: 'border-subtle',
+      solidVar: CATEGORY_TOKENS[k].solidVar,
+      softVar: CATEGORY_TOKENS[k].softVar,
+      textVar: CATEGORY_TOKENS[k].textVar,
+    },
+  ])
+) as Record<CategoryKey, NoteColorTheme>;
+
+export function getConcentratedNoteTheme(color?: string): NoteColorTheme {
+  const key = resolveCategoryKey(color);
+  return NOTE_THEMES[key];
 }

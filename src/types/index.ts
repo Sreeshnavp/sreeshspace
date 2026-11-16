@@ -36,16 +36,7 @@ export type ViewMode = 'grid' | 'list';
 export type WorkspaceView = 'links' | 'notebook' | 'both';
 export type AccentTheme = 'sage' | 'peach' | 'wisteria' | 'sky' | 'honey';
 
-export interface TodoItem {
-  id: string;
-  text: string;
-  completed: boolean;
-  type: 'daily' | 'permanent';
-  date?: string; // YYYY-MM-DD
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-  completedAt?: string;
-}
+export * from './todo';
 
 export interface NoteItem {
   id: string;

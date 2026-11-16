@@ -1,4 +1,5 @@
 import confetti from 'canvas-confetti';
+import { CONFETTI_COLORS, STAR_COLORS } from '../tokens';
 
 // Audio Context Singleton for instant zero-latency feedback without external assets
 let audioCtx: AudioContext | null = null;
@@ -106,14 +107,14 @@ export function triggerPartyPop(mode: 'single' | 'grand' | 'stars' = 'single') {
       angle: 60,
       spread: 55,
       origin: { x: 0, y: 0.8 },
-      colors: ['#4e876c', '#feeddf', '#f7885e', '#a78dc7', '#fad480'],
+      colors: [...CONFETTI_COLORS],
     });
     confetti({
       particleCount: 60,
       angle: 120,
       spread: 55,
       origin: { x: 1, y: 0.8 },
-      colors: ['#4e876c', '#feeddf', '#f7885e', '#a78dc7', '#fad480'],
+      colors: [...CONFETTI_COLORS],
     });
   } else if (mode === 'stars') {
     playPopSound();
@@ -122,7 +123,7 @@ export function triggerPartyPop(mode: 'single' | 'grand' | 'stars' = 'single') {
       spread: 60,
       origin: { y: 0.75 },
       shapes: ['star'],
-      colors: ['#f59e0b', '#fbbf24', '#fde68a'],
+      colors: [...STAR_COLORS],
     });
   } else {
     playPopSound();
@@ -130,7 +131,7 @@ export function triggerPartyPop(mode: 'single' | 'grand' | 'stars' = 'single') {
       particleCount: 28,
       spread: 45,
       origin: { y: 0.8 },
-      colors: ['#4e876c', '#f7885e', '#a78dc7', '#fad480'],
+      colors: [...CONFETTI_COLORS],
     });
   }
 }
