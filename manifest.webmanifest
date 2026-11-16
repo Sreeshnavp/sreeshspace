@@ -1,0 +1,19 @@
+{
+  "name": "SreeshSpace — Sreeshnav's Cozy Link Vault",
+  "short_name": "SreeshSpace",
+  "description": "Sreeshnav's cozy personal vault for links, uses notes, category bento squares, and file attachments.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141210",
+  "theme_color": "#4e876c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}
