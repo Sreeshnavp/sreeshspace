@@ -28,6 +28,7 @@ import {
   logActivity, 
   loadDayLogs, 
   saveDayLog, 
+  saveDayLogs, 
   loadStreakState, 
   saveStreakState, 
   loadRoutines, 
@@ -91,11 +92,10 @@ export function App() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
   const [streakState, setStreakState] = useState<StreakState>({
-    currentStreak: 3,
-    longestStreak: 5,
-    totalActiveDays: 5,
+    currentStreak: 0,
+    longestStreak: 0,
+    totalActiveDays: 0,
     freezesRemaining: 1,
-    lastActiveDate: todayKey(),
     frozenDates: [],
   });
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
@@ -1150,17 +1150,31 @@ export function App() {
     showToast('Import successful! 🎉');
   };
 
-  // Reset to Sample Data
+  // Clear all data to fresh empty canvas
   const handleResetData = async () => {
-    setLinks(INITIAL_LINKS);
+    setLinks([]);
     setCategories(DEFAULT_CATEGORIES);
-    setTodos(INITIAL_TODOS);
-    setNotes(INITIAL_NOTES);
-    await saveLinks(INITIAL_LINKS);
+    setTodos([]);
+    setNotes([]);
+    setEvents([]);
+    setDayLogs({});
+    const cleanStreak: StreakState = {
+      currentStreak: 0,
+      longestStreak: 0,
+      totalActiveDays: 0,
+      freezesRemaining: 1,
+      frozenDates: [],
+    };
+    setStreakState(cleanStreak);
+    await saveLinks([]);
     await saveCategories(DEFAULT_CATEGORIES);
-    await saveTodos(INITIAL_TODOS);
-    await saveNotes(INITIAL_NOTES);
-    showToast('Reset to cozy defaults! 🌿');
+    await saveTodos([]);
+    await saveNotes([]);
+    await saveActivityEvents([]);
+    await saveDayLogs({});
+    await saveStreakState(cleanStreak);
+    triggerAutoSync();
+    showToast('All sample data removed. Clean canvas ready! 🌿');
   };
 
   // Wallpaper handlers

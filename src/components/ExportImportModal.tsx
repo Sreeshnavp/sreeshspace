@@ -181,17 +181,17 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
           </div>
 
           <div className="pt-2 flex justify-between items-center text-xs text-faint">
-            <span>Reset sample items?</span>
+            <span>Clear workspace?</span>
             <button
               onClick={() => {
-                if (window.confirm('Reset bookmarks back to sample data?')) {
+                if (window.confirm('Clear all items and reset to a clean empty canvas?')) {
                   onResetData();
                   onClose();
                 }
               }}
               className="text-xs text-faint hover:text-danger flex items-center gap-1 transition cursor-pointer"
             >
-              <RotateCcw size={12} /> Reset to defaults
+              <RotateCcw size={12} /> Clear to clean canvas
             </button>
           </div>
 

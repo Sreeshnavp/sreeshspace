@@ -32,204 +32,9 @@ export const DEFAULT_CATEGORIES: CategoryInfo[] = [
   { id: 'ideas', name: 'Inspiration', color: 'rose', icon: '💡' },
 ];
 
-export const INITIAL_TODOS: TodoItem[] = [
-  // ☀️ Daily Tasks
-  {
-    id: 'todo-d1',
-    text: 'Explore Orbit notebook and activity tracker',
-    completed: true,
-    type: 'daily',
-    date: todayKey(),
-    priority: 'high',
-    subtasks: [
-      { id: 'st-1', text: 'Check out Daily History navigator', done: true, doneAt: new Date().toISOString() },
-      { id: 'st-2', text: 'Test calendar date picker', done: true, doneAt: new Date().toISOString() },
-    ],
-    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-    completedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-  },
-  {
-    id: 'todo-d2',
-    text: 'Review daily study & coding habit',
-    completed: false,
-    type: 'daily',
-    date: todayKey(),
-    priority: 'high',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'todo-d3',
-    text: 'Jot down an evening reflection note in the scratchpad',
-    completed: false,
-    type: 'daily',
-    date: todayKey(),
-    priority: 'medium',
-    createdAt: new Date().toISOString(),
-  },
-  // 📌 Permanent Long-Term Goals
-  {
-    id: 'todo-p1',
-    text: 'Design Orbit personal vault & notebook',
-    completed: true,
-    type: 'permanent',
-    priority: 'high',
-    startDate: addDays(todayKey(), -14),
-    endDate: addDays(todayKey(), -1),
-    status: 'completed',
-    progressMode: 'checklist',
-    progress: 100,
-    subtasks: [
-      { id: 'sub-p1-1', text: 'Establish Oat & Sage semantic palette', done: true },
-      { id: 'sub-p1-2', text: 'Build liquid drag & drop bento', done: true },
-      { id: 'sub-p1-3', text: 'PWA offline install support', done: true },
-    ],
-    extensions: [],
-    createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
-    completedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'todo-p2',
-    text: 'File code and AI resources into cute folders',
-    completed: true,
-    type: 'permanent',
-    priority: 'medium',
-    startDate: addDays(todayKey(), -10),
-    endDate: addDays(todayKey(), -2),
-    status: 'completed',
-    progressMode: 'manual',
-    progress: 100,
-    subtasks: [],
-    extensions: [],
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    completedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'todo-p3',
-    text: 'Build daily coding and knowledge streak',
-    completed: false,
-    type: 'permanent',
-    priority: 'high',
-    startDate: addDays(todayKey(), -5),
-    endDate: addDays(todayKey(), 30),
-    status: 'active',
-    progressMode: 'checklist',
-    progress: 40,
-    subtasks: [
-      { id: 'sub-p3-1', text: 'Log 5 active days in heatmap', done: true },
-      { id: 'sub-p3-2', text: 'Complete 30 daily tasks', done: false },
-      { id: 'sub-p3-3', text: 'Save 10 reference bookmarks', done: true },
-      { id: 'sub-p3-4', text: 'Write 5 deep-dive study notes', done: false },
-    ],
-    extensions: [],
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 'todo-p4',
-    text: 'Test PWA install on phone for mobile access',
-    completed: false,
-    type: 'permanent',
-    priority: 'low',
-    startDate: todayKey(),
-    endDate: addDays(todayKey(), 7),
-    status: 'active',
-    progressMode: 'manual',
-    progress: 25,
-    subtasks: [],
-    extensions: [],
-    createdAt: new Date().toISOString(),
-  },
-];
-
-export const INITIAL_NOTES: NoteItem[] = [
-  {
-    id: 'note-1',
-    title: '🌿 Daily Philosophy & Mindset',
-    content: 'Build clean, soothing, beautiful things. Keep it simple and calm! Orbit is my digital zen garden for bookmarks, focus, and quick thoughts.\n\nKeep focusing on small daily wins and maintain clarity in everything I do.',
-    highlight: '⭐ Focus on small daily wins and stay curious.',
-    color: 'sage',
-    pinned: true,
-    attachments: [],
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'note-2',
-    title: '💡 Creative Ideas for Orbit',
-    content: '1. PWA mobile home screen ready for iOS and Android\n2. Instant link pasting and fluid folder drag & drop\n3. Heatmap contribution squares to visualize daily progress\n4. Popup note editor with headline, formatted paragraphs, highlights, and file attachments!',
-    highlight: '🚀 Turn web app into mobile & desktop daily driver.',
-    color: 'clay',
-    pinned: false,
-    attachments: [],
-    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'note-3',
-    title: '🎨 Color Palette & Zen Tokens',
-    content: 'Oat & Sage Palette • Warm Charcoal Dark Mode • WCAG AA 4.5:1 Contrast System\n\nDesigned to be calm, cozy, and easy on the eyes at any time of day or night.',
-    highlight: '🎨 Calm semantic tokens that prevent eye fatigue.',
-    color: 'honey',
-    pinned: false,
-    attachments: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-export const INITIAL_LINKS: LinkItem[] = [
-  {
-    id: 'link-1',
-    url: 'https://ai.google.dev',
-    title: 'Google AI Studio & Gemini',
-    category: 'Work & Projects',
-    notes: 'Fast prompt playground and Gemini models for coding and agent ideas.',
-    pinned: true,
-    attachments: [],
-    clicks: 14,
-    favicon: 'https://www.google.com/s2/favicons?sz=128&domain=ai.google.dev',
-    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'link-2',
-    url: 'https://tailwindcss.com',
-    title: 'Tailwind CSS Reference',
-    category: 'Design & UI',
-    notes: 'Soft rounded corners, cozy shadows, and pastel styling classes.',
-    pinned: true,
-    attachments: [],
-    clicks: 22,
-    favicon: 'https://www.google.com/s2/favicons?sz=128&domain=tailwindcss.com',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'link-3',
-    url: 'https://excalidraw.com',
-    title: 'Excalidraw Sketchboard',
-    category: 'Uncategorized',
-    notes: 'Super cute virtual whiteboard for sketching mindmaps and flowcharts. Drag this into Daily Tools above!',
-    pinned: false,
-    attachments: [],
-    clicks: 9,
-    favicon: 'https://www.google.com/s2/favicons?sz=128&domain=excalidraw.com',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: 'link-4',
-    url: 'https://developer.mozilla.org',
-    title: 'MDN Web Knowledge Base',
-    category: 'Uncategorized',
-    notes: 'Documentation for modern Web APIs, JavaScript, and CSS. Drag this into Study & Docs above!',
-    pinned: false,
-    attachments: [],
-    clicks: 18,
-    favicon: 'https://www.google.com/s2/favicons?sz=128&domain=developer.mozilla.org',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  }
-];
+export const INITIAL_TODOS: TodoItem[] = [];
+export const INITIAL_NOTES: NoteItem[] = [];
+export const INITIAL_LINKS: LinkItem[] = [];
 
 function sanitizeLinks(raw: any[]): LinkItem[] {
   if (!Array.isArray(raw)) return [];
@@ -251,24 +56,24 @@ function sanitizeLinks(raw: any[]): LinkItem[] {
 export async function loadLinks(): Promise<LinkItem[]> {
   try {
     const idbData = await get<any[]>(STORAGE_KEY_LINKS);
-    if (idbData && Array.isArray(idbData) && idbData.length > 0) {
+    if (idbData !== undefined && Array.isArray(idbData)) {
       return sanitizeLinks(idbData);
     }
 
     const local = localStorage.getItem(STORAGE_KEY_LINKS);
-    if (local) {
+    if (local !== null) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         const sanitized = sanitizeLinks(parsed);
         await set(STORAGE_KEY_LINKS, sanitized);
         return sanitized;
       }
     }
 
-    await saveLinks(INITIAL_LINKS);
-    return INITIAL_LINKS;
+    await saveLinks([]);
+    return [];
   } catch (err) {
-    return INITIAL_LINKS;
+    return [];
   }
 }
 
@@ -324,20 +129,20 @@ export async function saveCategories(categories: CategoryInfo[]): Promise<void> 
 export async function loadNotes(): Promise<NoteItem[]> {
   try {
     const data = await get<NoteItem[]>(STORAGE_KEY_NOTES);
-    if (data && Array.isArray(data) && data.length > 0) {
+    if (data !== undefined && Array.isArray(data)) {
       return data;
     }
     const local = localStorage.getItem(STORAGE_KEY_NOTES);
-    if (local) {
+    if (local !== null) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
-    await saveNotes(INITIAL_NOTES);
-    return INITIAL_NOTES;
+    await saveNotes([]);
+    return [];
   } catch (err) {
-    return INITIAL_NOTES;
+    return [];
   }
 }
 
@@ -537,29 +342,29 @@ export async function loadTodos(): Promise<TodoItem[]> {
   try {
     // 1. Try v2 key
     const data = await get<TodoItem[]>(STORAGE_KEY_TODOS);
-    if (data && Array.isArray(data) && data.length > 0) {
+    if (data !== undefined && Array.isArray(data)) {
       return data;
     }
     const local = localStorage.getItem(STORAGE_KEY_TODOS);
-    if (local) {
+    if (local !== null) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
 
     // 2. Fall back to v1 key if migration hasn't run yet
     const v1Data = await get<any[]>(STORAGE_KEY_TODOS_V1);
-    if (v1Data && Array.isArray(v1Data) && v1Data.length > 0) {
+    if (v1Data !== undefined && Array.isArray(v1Data)) {
       await runDataMigration();
-      return (await get<TodoItem[]>(STORAGE_KEY_TODOS)) || INITIAL_TODOS;
+      return (await get<TodoItem[]>(STORAGE_KEY_TODOS)) || [];
     }
 
     // 3. First-time initialization
-    await saveTodos(INITIAL_TODOS);
-    return INITIAL_TODOS;
+    await saveTodos([]);
+    return [];
   } catch (err) {
-    return INITIAL_TODOS;
+    return [];
   }
 }
 
