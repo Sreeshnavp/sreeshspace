@@ -34,6 +34,7 @@ import {
   loadRoutines, 
   saveRoutines, 
   runDataMigration, 
+  purgeAllSampleData, 
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
@@ -243,6 +244,9 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
+        if (localStorage.getItem('orbit_clean_slate_v3') !== 'true') {
+          await purgeAllSampleData();
+        }
         await runDataMigration();
         const [
           loadedLinks,

@@ -16,6 +16,7 @@ import {
   saveRoutines,
   loadStreakState,
   saveStreakState,
+  isSampleItem,
 } from './storage';
 import type {
   LinkItem,
@@ -189,7 +190,7 @@ export function mergeVaultData(
     local.links || [],
     remote.links || [],
     (l) => new Date(l.updatedAt || l.createdAt || 0).getTime()
-  );
+  ).filter((l) => !isSampleItem(l));
 
   // 2. Categories
   const categories = mergeItemsById(
@@ -203,19 +204,19 @@ export function mergeVaultData(
     local.todos || [],
     remote.todos || [],
     (t) => new Date(t.completedAt || t.createdAt || 0).getTime()
-  );
+  ).filter((t) => !isSampleItem(t));
 
   // 4. Notes
   const notes = mergeItemsById(
     local.notes || [],
     remote.notes || [],
     (n) => new Date(n.updatedAt || n.createdAt || 0).getTime()
-  );
+  ).filter((n) => !isSampleItem(n));
 
   // 5. Events (append-only log, merge and sort by timestamp desc)
   const eventMap = new Map<string, ActivityEvent>();
   for (const e of [...(local.events || []), ...(remote.events || [])]) {
-    if (e && e.id && !eventMap.has(e.id)) {
+    if (e && e.id && !isSampleItem(e) && !eventMap.has(e.id)) {
       eventMap.set(e.id, e);
     }
   }

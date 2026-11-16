@@ -36,6 +36,89 @@ export const INITIAL_TODOS: TodoItem[] = [];
 export const INITIAL_NOTES: NoteItem[] = [];
 export const INITIAL_LINKS: LinkItem[] = [];
 
+export function isSampleItem(item: any): boolean {
+  if (!item) return false;
+  const id = String(item.id || '');
+  const text = String(item.text || item.title || item.url || '');
+  
+  if (['link-1', 'link-2', 'link-3', 'link-4', 'todo-d1', 'todo-d2', 'todo-d3', 'todo-p1', 'todo-p2', 'todo-p3', 'todo-p4', 'note-1', 'note-2', 'note-3'].includes(id)) {
+    return true;
+  }
+  if (
+    id.startsWith('ev-backfill-todo-d') ||
+    id.startsWith('ev-backfill-todo-p') ||
+    id.startsWith('ev-backfill-link-') ||
+    id.startsWith('ev-backfill-note-')
+  ) {
+    return true;
+  }
+
+  if (
+    text.includes('Explore Orbit notebook') ||
+    text.includes('Review daily study') ||
+    text.includes('Jot down an evening reflection') ||
+    text.includes('Design Orbit personal vault') ||
+    text.includes('File code and AI resources') ||
+    text.includes('Build daily coding and knowledge streak') ||
+    text.includes('Test PWA install on phone') ||
+    text.includes('Supabase Cloud Sync Verified') ||
+    text.includes('Daily Philosophy & Mindset') ||
+    text.includes('Creative Ideas for Orbit') ||
+    text.includes('Color Palette & Zen Tokens') ||
+    text.includes('ai.google.dev') ||
+    text.includes('Google AI Studio') ||
+    text.includes('Tailwind CSS Reference') ||
+    text.includes('Excalidraw Sketchboard') ||
+    text.includes('MDN Web Knowledge Base')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function purgeAllSampleData(): Promise<void> {
+  try {
+    await Promise.all([
+      set(STORAGE_KEY_LINKS, []),
+      set(STORAGE_KEY_TODOS, []),
+      set(STORAGE_KEY_TODOS_V1, []),
+      set(STORAGE_KEY_NOTES, []),
+      set(STORAGE_KEY_EVENTS, []),
+      set(STORAGE_KEY_DAYLOGS, {}),
+      set(STORAGE_KEY_ROUTINES, []),
+      set(STORAGE_KEY_STREAK, {
+        currentStreak: 0,
+        longestStreak: 0,
+        totalActiveDays: 0,
+        freezesRemaining: 1,
+        frozenDates: [],
+      }),
+    ]);
+
+    localStorage.setItem(STORAGE_KEY_LINKS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEY_TODOS, JSON.stringify([]));
+    localStorage.removeItem(STORAGE_KEY_TODOS_V1);
+    localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEY_DAYLOGS, JSON.stringify({}));
+    localStorage.setItem(STORAGE_KEY_ROUTINES, JSON.stringify([]));
+    localStorage.setItem(
+      STORAGE_KEY_STREAK,
+      JSON.stringify({
+        currentStreak: 0,
+        longestStreak: 0,
+        totalActiveDays: 0,
+        freezesRemaining: 1,
+        frozenDates: [],
+      })
+    );
+    localStorage.setItem('orbit_clean_slate_v3', 'true');
+  } catch (err) {
+    console.error('Error purging sample data:', err);
+  }
+}
+
 function sanitizeLinks(raw: any[]): LinkItem[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((item) => ({
@@ -57,14 +140,14 @@ export async function loadLinks(): Promise<LinkItem[]> {
   try {
     const idbData = await get<any[]>(STORAGE_KEY_LINKS);
     if (idbData !== undefined && Array.isArray(idbData)) {
-      return sanitizeLinks(idbData);
+      return sanitizeLinks(idbData).filter((l) => !isSampleItem(l));
     }
 
     const local = localStorage.getItem(STORAGE_KEY_LINKS);
     if (local !== null) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed)) {
-        const sanitized = sanitizeLinks(parsed);
+        const sanitized = sanitizeLinks(parsed).filter((l) => !isSampleItem(l));
         await set(STORAGE_KEY_LINKS, sanitized);
         return sanitized;
       }
@@ -130,13 +213,13 @@ export async function loadNotes(): Promise<NoteItem[]> {
   try {
     const data = await get<NoteItem[]>(STORAGE_KEY_NOTES);
     if (data !== undefined && Array.isArray(data)) {
-      return data;
+      return data.filter((n) => !isSampleItem(n));
     }
     const local = localStorage.getItem(STORAGE_KEY_NOTES);
     if (local !== null) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.filter((n) => !isSampleItem(n));
       }
     }
     await saveNotes([]);
@@ -343,13 +426,13 @@ export async function loadTodos(): Promise<TodoItem[]> {
     // 1. Try v2 key
     const data = await get<TodoItem[]>(STORAGE_KEY_TODOS);
     if (data !== undefined && Array.isArray(data)) {
-      return data;
+      return data.filter((t) => !isSampleItem(t));
     }
     const local = localStorage.getItem(STORAGE_KEY_TODOS);
     if (local !== null) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.filter((t) => !isSampleItem(t));
       }
     }
 
@@ -357,7 +440,7 @@ export async function loadTodos(): Promise<TodoItem[]> {
     const v1Data = await get<any[]>(STORAGE_KEY_TODOS_V1);
     if (v1Data !== undefined && Array.isArray(v1Data)) {
       await runDataMigration();
-      return (await get<TodoItem[]>(STORAGE_KEY_TODOS)) || [];
+      return ((await get<TodoItem[]>(STORAGE_KEY_TODOS)) || []).filter((t) => !isSampleItem(t));
     }
 
     // 3. First-time initialization
@@ -389,11 +472,14 @@ export async function loadActivityEvents(): Promise<ActivityEvent[]> {
   try {
     const data = await get<ActivityEvent[]>(STORAGE_KEY_EVENTS);
     if (data && Array.isArray(data)) {
-      return data;
+      return data.filter((e) => !isSampleItem(e));
     }
     const local = localStorage.getItem(STORAGE_KEY_EVENTS);
     if (local) {
-      return JSON.parse(local);
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((e) => !isSampleItem(e));
+      }
     }
     return [];
   } catch {
