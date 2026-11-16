@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-espresso-800 antialiased dark:bg-espresso-950 dark:text-cream-100 transition-colors duration-200 selection:bg-sage-200 selection:text-sage-900;
+  }
+}
+
+/* Relaxing custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(110, 100, 90, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(110, 100, 90, 0.4);
+}
