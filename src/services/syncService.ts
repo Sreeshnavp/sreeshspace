@@ -21,6 +21,8 @@ import {
   saveBackgroundSettings,
   loadTombstones,
   saveTombstones,
+  loadFinanceTransactions,
+  saveFinanceTransactions,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -33,6 +35,7 @@ import type {
   DayLog,
   RoutineItem,
   StreakState,
+  FinanceTransaction,
 } from '../types';
 
 export const STORAGE_KEY_SYNC_KEY = 'orbit_sync_key_v1';
@@ -382,11 +385,23 @@ export function mergeVaultData(
   } else {
     mergedWp = localWp;
   }
+
+  // 10. Finances (Income & Expense Transactions)
+  const localFinances: FinanceTransaction[] = (local.settings?.finances as FinanceTransaction[]) || [];
+  const remoteFinances: FinanceTransaction[] = (remote.settings?.finances as FinanceTransaction[]) || [];
+  const finances = mergeItemsById(
+    localFinances,
+    remoteFinances,
+    (tx) => new Date(tx.updatedAt || tx.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
     wallpaper: mergedWp,
     tombstones: mergedTombstones,
+    finances,
   };
 
   return {
@@ -444,6 +459,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localStreak,
       localBg,
       localTombstones,
+      localFinances,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -455,6 +471,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadStreakState(),
       loadCustomBackground(),
       loadTombstones(),
+      loadFinanceTransactions(),
     ]);
 
     const localData = {
@@ -476,6 +493,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
           removedAt: localBg.settings.removedAt,
         },
         tombstones: localTombstones,
+        finances: localFinances,
       },
     };
 
@@ -519,6 +537,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       saveStreakState(mergedPayload.streak),
       mergedPayload.settings?.tombstones
         ? saveTombstones(mergedPayload.settings.tombstones)
+        : Promise.resolve(),
+      mergedPayload.settings?.finances
+        ? saveFinanceTransactions(mergedPayload.settings.finances)
         : Promise.resolve(),
     ]);
 

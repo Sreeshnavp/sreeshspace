@@ -7,7 +7,8 @@ import type {
   ActivityEvent, 
   DayLog, 
   RoutineItem, 
-  StreakState 
+  StreakState,
+  FinanceTransaction
 } from '../types';
 import { toLocalDateKey, todayKey, addDays } from '../utils/dates';
 
@@ -862,4 +863,35 @@ export function downloadJsonFile(content: string, filename = 'orbit-backup.json'
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ==========================================
+// 💳 FINANCE & EXPENSE / INCOME TRACKING (MIBU V1)
+// ==========================================
+
+export const STORAGE_KEY_FINANCE = 'orbit_finance_transactions_v1';
+
+export async function loadFinanceTransactions(): Promise<FinanceTransaction[]> {
+  try {
+    const data = await get<FinanceTransaction[]>(STORAGE_KEY_FINANCE);
+    if (data && Array.isArray(data)) {
+      return data;
+    }
+    const local = localStorage.getItem(STORAGE_KEY_FINANCE);
+    if (local) {
+      return JSON.parse(local);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveFinanceTransactions(transactions: FinanceTransaction[]): Promise<void> {
+  try {
+    await set(STORAGE_KEY_FINANCE, transactions);
+    localStorage.setItem(STORAGE_KEY_FINANCE, JSON.stringify(transactions));
+  } catch (err) {
+    console.error('Error saving finance transactions:', err);
+  }
 }

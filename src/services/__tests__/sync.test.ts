@@ -306,7 +306,7 @@ describe('syncService - merge algorithms', () => {
       settings: {},
     };
 
-    const merged = mergeVaultData(localVault, remoteVault);
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
 
     // The deleted todo MUST NOT be resurrected!
     expect(merged.todos.length).toBe(1);
@@ -314,5 +314,64 @@ describe('syncService - merge algorithms', () => {
     expect(merged.todos[0].id).toBe('todo-active-2');
     // Tombstone must be preserved in merged settings
     expect(merged.settings?.tombstones?.['todo-deleted-1']).toBe('2026-11-17T09:00:00.000Z');
+  });
+
+  it('merges finance transactions and honors tombstones for deleted transactions', () => {
+    const localVault = {
+      settings: {
+        tombstones: {
+          'tx-deleted': '2026-11-17T12:00:00.000Z',
+        },
+        finances: [
+          {
+            id: 'tx-active',
+            type: 'expense' as const,
+            amount: 45,
+            category: 'Food & Dining',
+            categoryIcon: '🍔',
+            date: '2026-11-17',
+            createdAt: '2026-11-17T11:00:00.000Z',
+            updatedAt: '2026-11-17T11:00:00.000Z',
+          },
+        ],
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        finances: [
+          {
+            id: 'tx-deleted',
+            type: 'expense' as const,
+            amount: 15,
+            category: 'Coffee & Drinks',
+            categoryIcon: '☕',
+            date: '2026-11-17',
+            createdAt: '2026-11-17T10:00:00.000Z',
+            updatedAt: '2026-11-17T10:00:00.000Z',
+          },
+          {
+            id: 'tx-remote',
+            type: 'income' as const,
+            amount: 500,
+            category: 'Salary & Wages',
+            categoryIcon: '💼',
+            date: '2026-11-17',
+            createdAt: '2026-11-17T09:00:00.000Z',
+            updatedAt: '2026-11-17T09:00:00.000Z',
+          },
+        ],
+      },
+    };
+
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
+    const finances = merged.settings?.finances || [];
+
+    // tx-deleted was tombstoned locally, so it must not resurrect
+    expect(finances.find((f: any) => f.id === 'tx-deleted')).toBeUndefined();
+    // Both active local and active remote transactions must be merged
+    expect(finances.length).toBe(2);
+    expect(finances.find((f: any) => f.id === 'tx-active')).toBeDefined();
+    expect(finances.find((f: any) => f.id === 'tx-remote')).toBeDefined();
   });
 });

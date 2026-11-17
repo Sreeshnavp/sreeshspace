@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw } from 'lucide-react';
+import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet } from 'lucide-react';
 
 import type { 
   LinkItem, 
@@ -12,7 +12,8 @@ import type {
   ActivityEvent, 
   StreakState, 
   DayLog, 
-  RoutineItem 
+  RoutineItem,
+  FinanceTransaction
 } from './types';
 import { 
   loadLinks, 
@@ -32,7 +33,9 @@ import {
   loadStreakState, 
   saveStreakState, 
   loadRoutines, 
-  saveRoutines, 
+  saveRoutines,
+  loadFinanceTransactions,
+  saveFinanceTransactions,
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
@@ -67,6 +70,8 @@ import { PwaPrompt } from './components/PwaPrompt';
 import { AttachmentViewerModal } from './components/AttachmentViewerModal';
 import { NotebookArea } from './components/NotebookArea';
 import { DesignGuideModal } from './components/DesignGuideModal';
+import { FinanceDashboard } from './components/finance/FinanceDashboard';
+import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 
 import { GoalModal } from './components/GoalModal';
 import { ExtendDeadlineModal } from './components/ExtendDeadlineModal';
@@ -107,6 +112,11 @@ export function App() {
     frozenDates: [],
   });
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
+
+  // Finance & Expense Tracking (Mibu)
+  const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
+  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
 
   // Search Query
   const [searchQuery, setSearchQuery] = useState('');
@@ -204,6 +214,7 @@ export function App() {
         loadedStreak,
         loadedRoutines,
         loadedBgData,
+        loadedFinances,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -214,6 +225,7 @@ export function App() {
         loadStreakState(),
         loadRoutines(),
         loadCustomBackground(),
+        loadFinanceTransactions(),
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
@@ -223,6 +235,7 @@ export function App() {
       setDayLogs(loadedDayLogs);
       if (loadedStreak) setStreakState(loadedStreak);
       setRoutines(loadedRoutines);
+      setTransactions(loadedFinances);
       if (loadedBgData) {
         setCustomBgImage(loadedBgData.imageUrl);
         setBgSettings(loadedBgData.settings);
@@ -302,6 +315,7 @@ export function App() {
           loadedStreak,
           loadedRoutines,
           loadedBgData,
+          loadedFinances,
         ] = await Promise.all([
           loadLinks(),
           loadCategories(),
@@ -312,6 +326,7 @@ export function App() {
           loadStreakState(),
           loadRoutines(),
           loadCustomBackground(),
+          loadFinanceTransactions(),
         ]);
         const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
         const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
@@ -331,6 +346,7 @@ export function App() {
         setDayLogs(loadedDayLogs);
         if (loadedStreak) setStreakState(loadedStreak);
         setRoutines(loadedRoutines);
+        setTransactions(loadedFinances);
         if (loadedBgData?.imageUrl) setCustomBgImage(loadedBgData.imageUrl);
         if (loadedBgData?.settings) setBgSettings(loadedBgData.settings);
 
@@ -1198,6 +1214,7 @@ export function App() {
       ...links.map((l) => l.id),
       ...todos.map((t) => t.id),
       ...notes.map((n) => n.id),
+      ...transactions.map((tx) => tx.id),
     ];
     await recordTombstones(allIds);
     setLinks([]);
@@ -1206,6 +1223,7 @@ export function App() {
     setNotes([]);
     setEvents([]);
     setDayLogs({});
+    setTransactions([]);
     const cleanStreak: StreakState = {
       currentStreak: 0,
       longestStreak: 0,
@@ -1221,6 +1239,7 @@ export function App() {
     await saveActivityEvents([]);
     await saveDayLogs({});
     await saveStreakState(cleanStreak);
+    await saveFinanceTransactions([]);
     syncWithCloud({ onMerged: refreshDataFromStorage });
     showToast('All sample data removed. Clean canvas ready! 🌿');
   };
@@ -1234,6 +1253,45 @@ export function App() {
     await saveTodos(updated);
     syncWithCloud({ onMerged: refreshDataFromStorage });
     showToast('Cleared all master goals 🎯');
+  };
+
+  // Finance Transactions Handlers (Mibu)
+  const handleSaveFinanceTransaction = async (
+    data: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    let updated: FinanceTransaction[];
+    const nowIso = new Date().toISOString();
+    if (editingTransaction) {
+      updated = transactions.map((tx) =>
+        tx.id === editingTransaction.id
+          ? { ...tx, ...data, updatedAt: nowIso }
+          : tx
+      );
+      showToast('Transaction updated');
+    } else {
+      const newTx: FinanceTransaction = {
+        ...data,
+        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      updated = [newTx, ...transactions];
+      showToast(data.type === 'income' ? 'Income recorded 🎉' : 'Expense recorded 💸');
+    }
+    setTransactions(updated);
+    await saveFinanceTransactions(updated);
+    triggerAutoSync();
+    setIsFinanceModalOpen(false);
+    setEditingTransaction(null);
+  };
+
+  const handleDeleteFinanceTransaction = async (id: string) => {
+    await recordTombstone(id);
+    const updated = transactions.filter((tx) => tx.id !== id);
+    setTransactions(updated);
+    await saveFinanceTransactions(updated);
+    triggerAutoSync();
+    showToast('Transaction deleted');
   };
 
   // Wallpaper handlers
@@ -1401,6 +1459,17 @@ export function App() {
                   <BookOpen size={13} className="stroke-[2.2]" />
                   <span>Habits & Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
                 </button>
+                <button
+                  onClick={() => setWorkspaceView('finance')}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                    workspaceView === 'finance'
+                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
+                  }`}
+                >
+                  <Wallet size={13} className="stroke-[2.2]" />
+                  <span>Finances ({transactions.length})</span>
+                </button>
               </div>
             </div>
             
@@ -1527,6 +1596,24 @@ export function App() {
               </div>
             )}
 
+            {/* 3. FINANCE & EXPENSES SECTION: Minimal Mibu Tracker */}
+            {workspaceView === 'finance' && (
+              <div className="pt-2">
+                <FinanceDashboard
+                  transactions={transactions}
+                  onOpenAddModal={() => {
+                    setEditingTransaction(null);
+                    setIsFinanceModalOpen(true);
+                  }}
+                  onEditTransaction={(tx) => {
+                    setEditingTransaction(tx);
+                    setIsFinanceModalOpen(true);
+                  }}
+                  onDeleteTransaction={handleDeleteFinanceTransaction}
+                />
+              </div>
+            )}
+
           </div>
         )}
 
@@ -1537,13 +1624,18 @@ export function App() {
       {/* Floating Action Button for Mobile */}
       <button
         onClick={() => {
-          setEditingLink(null);
-          setPrefilledUrl('');
-          setPrefilledCategory('Uncategorized');
-          setIsAddModalOpen(true);
+          if (workspaceView === 'finance') {
+            setEditingTransaction(null);
+            setIsFinanceModalOpen(true);
+          } else {
+            setEditingLink(null);
+            setPrefilledUrl('');
+            setPrefilledCategory('Uncategorized');
+            setIsAddModalOpen(true);
+          }
         }}
         className="fixed bottom-5 right-5 sm:hidden z-40 w-13 h-13 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
-        aria-label="Add Bookmark"
+        aria-label={workspaceView === 'finance' ? "Add Transaction" : "Add Bookmark"}
       >
         <Plus size={24} className="stroke-[2.5]" />
       </button>
@@ -1751,6 +1843,17 @@ export function App() {
         settings={bgSettings}
         onSaveImage={handleSaveCustomBgImage}
         onUpdateSettings={handleUpdateBgSettings}
+      />
+
+      {/* Finance Numpad Modal (Mibu Screen 3 Replica) */}
+      <FinanceNumpadModal
+        isOpen={isFinanceModalOpen}
+        onClose={() => {
+          setIsFinanceModalOpen(false);
+          setEditingTransaction(null);
+        }}
+        onSave={handleSaveFinanceTransaction}
+        initialData={editingTransaction}
       />
 
       {/* Supabase Cloud Sync & Mobile Pairing Modal */}
