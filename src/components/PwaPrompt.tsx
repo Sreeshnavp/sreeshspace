@@ -34,13 +34,14 @@ export const PwaPrompt: React.FC<PwaPromptProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-accent-soft text-accent-text flex items-center justify-center">
-              <Smartphone size={18} />
+            <div className="w-9 h-9 rounded-2xl overflow-hidden border border-subtle shadow-soft shrink-0 bg-surface">
+              <img src="./avatar.png" alt="Orbit App Icon" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-main">
+              <h2 className="text-base font-bold text-main leading-tight">
                 Install on Phone or PC
               </h2>
+              <p className="text-[11px] text-muted font-medium">Home screen icon with your custom avatar</p>
             </div>
           </div>
           <button

@@ -1,9 +1,18 @@
-const CACHE_NAME = 'orbit-v2';
+const CACHE_NAME = 'orbit-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon.svg'
+  './favicon.svg',
+  './favicon-32x32.png',
+  './favicon-16x16.png',
+  './favicon.ico',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-192-maskable.png',
+  './icon-512.png',
+  './icon-512-maskable.png',
+  './avatar.png'
 ];
 
 self.addEventListener('install', (event) => {

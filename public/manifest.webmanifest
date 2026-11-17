@@ -3,22 +3,40 @@
   "short_name": "Orbit",
   "description": "Personal link vault, daily habits, notebook, and goal tracker.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#151311",
+  "background_color": "#FAF8F4",
   "theme_color": "#3C6E57",
   "orientation": "any",
   "icons": [
     {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "./avatar.png",
-      "sizes": "1024x1024",
+      "src": "./icon-192-maskable.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ],
   "categories": ["productivity", "utilities"]
