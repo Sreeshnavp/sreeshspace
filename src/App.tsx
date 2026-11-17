@@ -132,8 +132,8 @@ export function App() {
   // Search Query
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Link Filter (All vs Starred)
-  const [linkFilter, setLinkFilter] = useState<'all' | 'starred'>('all');
+  // Link View Mode: 'folders' (categorized) | 'all' (all flat links) | 'starred' (pinned links)
+  const [linkView, setLinkView] = useState<'folders' | 'all' | 'starred'>('folders');
 
   // Active Dragging Link ID & Category Dragging State
   const [activeDraggingLinkId, setActiveDraggingLinkId] = useState<string | null>(null);
@@ -528,6 +528,16 @@ export function App() {
     return links
       .filter((l) => Boolean(l.pinned))
       .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
+  }, [links]);
+
+  // All Links Flattened & Sorted (starred first, then newest) - Shows all links as unbundled cards
+  const allSortedLinks = useMemo(() => {
+    return [...links].sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+        return a.pinned ? -1 : 1;
+      }
+      return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
+    });
   }, [links]);
 
   // Filtered links by search query
@@ -1602,7 +1612,7 @@ export function App() {
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'links' || workspaceView === 'both') && (
               <div className="space-y-3.5 sm:space-y-4">
-                {/* Toolbar Header with [All] & [⭐] Filter Buttons (matching user drawing) and "+ New Folder" Button */}
+                {/* Toolbar Header with [Folders], [All] & [⭐ Starred] View Switcher and "+ New Folder" Button */}
                 <div className="flex items-center justify-between px-1 gap-2 flex-wrap sm:flex-nowrap">
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <span className="text-base select-none">🔗</span>
@@ -1610,45 +1620,67 @@ export function App() {
                       Links
                     </h2>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
-                      {linkFilter === 'starred' ? starredLinks.length : links.length}
+                      {linkView === 'starred' ? starredLinks.length : links.length}
                     </span>
 
-                    {/* Filter Segmented Control: [All] and [⭐ Starred] */}
+                    {/* Filter Segmented Control: [Folders] (Categorized), [All] (Flat Cards), [⭐ Starred] */}
                     <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle ml-0.5 sm:ml-1.5">
                       <button
                         type="button"
                         onClick={() => {
-                          setLinkFilter('all');
+                          setLinkView('folders');
                           playPopSound();
                         }}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          linkFilter === 'all'
+                          linkView === 'folders'
                             ? 'bg-surface text-main shadow-2xs font-extrabold'
                             : 'text-muted hover:text-main'
                         }`}
-                        aria-label="Show All Links"
+                        aria-label="Show Categorized Folders"
+                        title="Categorized Folders View"
                       >
-                        <span>All</span>
+                        <span>Folders</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          setLinkFilter('starred');
+                          setLinkView('all');
+                          playPopSound();
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          linkView === 'all'
+                            ? 'bg-surface text-main shadow-2xs font-extrabold'
+                            : 'text-muted hover:text-main'
+                        }`}
+                        aria-label="Show All Links directly as cards"
+                        title="Show all links directly as individual cards"
+                      >
+                        <span>All</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                          linkView === 'all' ? 'bg-accent text-on-accent' : 'bg-surface text-muted'
+                        }`}>
+                          {links.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkView('starred');
                           playPopSound();
                         }}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          linkFilter === 'starred'
+                          linkView === 'starred'
                             ? 'bg-surface text-amber-500 shadow-2xs font-extrabold'
                             : 'text-muted hover:text-amber-500'
                         }`}
                         aria-label="Show Starred Links"
                         title="Show Starred Bookmarks"
                       >
-                        <Star size={13} className={linkFilter === 'starred' ? 'fill-amber-400 text-amber-500' : 'text-faint hover:text-amber-500'} />
+                        <Star size={13} className={linkView === 'starred' ? 'fill-amber-400 text-amber-500' : 'text-faint hover:text-amber-500'} />
                         <span className="hidden sm:inline">Starred</span>
                         {starredLinks.length > 0 && (
                           <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                            linkFilter === 'starred' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface text-muted'
+                            linkView === 'starred' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface text-muted'
                           }`}>
                             {starredLinks.length}
                           </span>
@@ -1679,8 +1711,8 @@ export function App() {
                   </div>
                 </div>
 
-                {/* CONTENT AREA: All (Folders + Canvas) vs Starred Grid */}
-                {linkFilter === 'starred' ? (
+                {/* CONTENT AREA: Folders vs All (Flat Unbundled) vs Starred */}
+                {linkView === 'starred' ? (
                   /* STARRED / FAVORITES VIEW */
                   starredLinks.length === 0 ? (
                     <div className="p-8 sm:p-12 text-center rounded-3xl bg-surface border border-subtle shadow-soft">
@@ -1691,12 +1723,12 @@ export function App() {
                         No Starred Bookmarks Yet
                       </h3>
                       <p className="text-xs text-muted max-w-sm mx-auto mb-4">
-                        Click the star icon ⭐ on any bookmark (on the canvas or inside folders) to pin your favorites here for instant access.
+                        Click the star icon ⭐ on any bookmark (in All or inside folders) to pin your favorites here for instant access.
                       </p>
                       <button
                         type="button"
                         onClick={() => {
-                          setLinkFilter('all');
+                          setLinkView('all');
                           playPopSound();
                         }}
                         className="px-4 py-2 rounded-xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover transition-all active:scale-95 cursor-pointer"
@@ -1725,8 +1757,40 @@ export function App() {
                       ))}
                     </div>
                   )
+                ) : linkView === 'all' ? (
+                  /* ALL LINKS DIRECTLY AS CARDS (FLAT / UNBUNDLED VIEW) */
+                  allSortedLinks.length === 0 ? (
+                    <div className="p-8 sm:p-12 text-center rounded-3xl bg-surface border border-subtle shadow-soft">
+                      <p className="text-sm sm:text-base font-extrabold text-main mb-1">
+                        No Bookmarks Saved Yet
+                      </p>
+                      <p className="text-xs text-muted max-w-sm mx-auto">
+                        Paste any link in the bar above or tap Add Item to save your first bookmark.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                      {allSortedLinks.map((link) => (
+                        <StandaloneLinkCard
+                          key={link.id}
+                          link={link}
+                          onSelect={(l) => setDetailLink(l)}
+                          onTogglePin={handleTogglePin}
+                          onVisit={handleVisitLink}
+                          onOpenAttachment={(att) => setActiveAttachment(att)}
+                          onDragStart={(e, id) => {
+                            setActiveDraggingLinkId(id);
+                            e.dataTransfer.setData('text/plain', id);
+                            e.dataTransfer.setData('application/link-id', id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onDragEnd={() => setActiveDraggingLinkId(null)}
+                        />
+                      ))}
+                    </div>
+                  )
                 ) : (
-                  /* UNIFIED SYMMETRICAL GRID: Category Squares AND Standalone Bookmarks all in one view! */
+                  /* CATEGORIZED FOLDERS VIEW (Default: Bundles + Canvas Bookmarks) */
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
                     
                     {/* Category Bundle Squares */}
