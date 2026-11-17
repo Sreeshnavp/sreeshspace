@@ -36,6 +36,7 @@ import {
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
+  isPreinstalledCategory,
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
@@ -77,6 +78,7 @@ import {
   syncWithCloud, 
   initRealtimeSync, 
   subscribeToSyncStatus, 
+  subscribeToWallpaper,
   type SyncStatusState 
 } from './services/syncService';
 
@@ -86,7 +88,7 @@ export function App() {
   const [categories, setCategories] = useState<CategoryInfo[]>(DEFAULT_CATEGORIES);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('both');
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('links');
   const [isLoading, setIsLoading] = useState(true);
 
   // Date, Streaks & Activity Log
@@ -185,6 +187,7 @@ export function App() {
         loadedDayLogs,
         loadedStreak,
         loadedRoutines,
+        loadedBgData,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -194,15 +197,20 @@ export function App() {
         loadDayLogs(),
         loadStreakState(),
         loadRoutines(),
+        loadCustomBackground(),
       ]);
       setLinks(loadedLinks);
-      setCategories(loadedCats);
+      setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
       setTodos(loadedTodos);
       setNotes(loadedNotes);
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
       if (loadedStreak) setStreakState(loadedStreak);
       setRoutines(loadedRoutines);
+      if (loadedBgData) {
+        setCustomBgImage(loadedBgData.imageUrl);
+        setBgSettings(loadedBgData.settings);
+      }
     } catch (err) {
       console.error('Failed to refresh data from storage:', err);
     }
@@ -227,6 +235,15 @@ export function App() {
       refreshDataFromStorage();
     });
 
+    const unsubWallpaper = subscribeToWallpaper((wp) => {
+      setCustomBgImage(wp.imageUrl);
+      setBgSettings({
+        opacity: wp.opacity ?? 0.25,
+        blur: wp.blur ?? 0,
+        enabled: wp.enabled ?? true,
+      });
+    });
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         syncWithCloud({ onMerged: refreshDataFromStorage });
@@ -237,6 +254,7 @@ export function App() {
     return () => {
       unsubStatus();
       unsubRealtime();
+      unsubWallpaper();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
@@ -245,9 +263,12 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        if (localStorage.getItem('orbit_clean_slate_v4') !== 'true') {
+        if (localStorage.getItem('orbit_clean_slate_v5') !== 'true') {
           await purgeAllSampleData();
-          localStorage.setItem('orbit_clean_slate_v4', 'true');
+          const rawCats = await loadCategories();
+          const cleanCats = rawCats.filter((c) => !isPreinstalledCategory(c));
+          await saveCategories(cleanCats);
+          localStorage.setItem('orbit_clean_slate_v5', 'true');
         }
         await runDataMigration();
         const [
@@ -323,23 +344,8 @@ export function App() {
     };
     document.addEventListener('visibilitychange', handleCheckDayRollover);
     const interval = setInterval(handleCheckDayRollover, 60000);
-    // Wallpaper handlers
-  const handleSaveCustomBgImage = async (dataUrl: string | null) => {
-    setCustomBgImage(dataUrl);
-    await saveCustomBackgroundImage(dataUrl);
-    if (dataUrl) {
-      showToast('Custom wallpaper updated! 🖼️');
-    } else {
-      showToast('Wallpaper removed. Restored cozy theme.');
-    }
-  };
 
-  const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
-    setBgSettings(newSettings);
-    saveBackgroundSettings(newSettings);
-  };
-
-  return () => {
+    return () => {
       document.removeEventListener('visibilitychange', handleCheckDayRollover);
       clearInterval(interval);
     };
@@ -370,23 +376,8 @@ export function App() {
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    // Wallpaper handlers
-  const handleSaveCustomBgImage = async (dataUrl: string | null) => {
-    setCustomBgImage(dataUrl);
-    await saveCustomBackgroundImage(dataUrl);
-    if (dataUrl) {
-      showToast('Custom wallpaper updated! 🖼️');
-    } else {
-      showToast('Wallpaper removed. Restored cozy theme.');
-    }
-  };
 
-  const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
-    setBgSettings(newSettings);
-    saveBackgroundSettings(newSettings);
-  };
-
-  return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
   // Listen to #/design hash navigation for Color Guide modal
@@ -1206,8 +1197,9 @@ export function App() {
   const handleSaveCustomBgImage = async (dataUrl: string | null) => {
     setCustomBgImage(dataUrl);
     await saveCustomBackgroundImage(dataUrl);
+    triggerAutoSync();
     if (dataUrl) {
-      showToast('Custom wallpaper updated! 🖼️');
+      showToast('Custom wallpaper updated and synced! 🖼️');
     } else {
       showToast('Wallpaper removed. Restored cozy theme.');
     }
@@ -1216,6 +1208,7 @@ export function App() {
   const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
     setBgSettings(newSettings);
     saveBackgroundSettings(newSettings);
+    triggerAutoSync();
   };
 
   return (
@@ -1251,8 +1244,6 @@ export function App() {
           onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
           onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
           onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
-          onOpenSync={() => setIsSyncModalOpen(true)}
-          syncState={syncState}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           totalCount={links.length}
@@ -1341,23 +1332,12 @@ export function App() {
           /* MAIN WORKSPACE CANVAS: VIEW SWITCHER + LINKS + NOTEBOOK & TASKS */
           <div className="space-y-5 sm:space-y-6">
 
-            {/* Workspace View Switcher: All-in-One vs Links vs Notebook */}
+            {/* Workspace View Switcher: Links vs Habits & Tasks */}
             <div className="flex items-center justify-between gap-2 p-1 sm:p-1.5 rounded-2xl bg-sunken border border-subtle">
               <div className="flex items-center gap-1 w-full sm:w-auto">
                 <button
-                  onClick={() => setWorkspaceView('both')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
-                    workspaceView === 'both'
-                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <LayoutGrid size={13} className="stroke-[2.2]" />
-                  <span>All-in-One</span>
-                </button>
-                <button
                   onClick={() => setWorkspaceView('links')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
                     workspaceView === 'links'
                       ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
                       : 'text-muted hover:text-main'
@@ -1368,7 +1348,7 @@ export function App() {
                 </button>
                 <button
                   onClick={() => setWorkspaceView('notebook')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
                     workspaceView === 'notebook'
                       ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
                       : 'text-muted hover:text-main'
@@ -1381,7 +1361,7 @@ export function App() {
             </div>
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
-            {(workspaceView === 'both' || workspaceView === 'links') && (
+            {(workspaceView === 'links' || workspaceView === 'both') && (
               <div className="space-y-3.5 sm:space-y-4">
                 {/* Toolbar Header with Small "+ New Folder" Button */}
                 <div className="flex items-center justify-between px-1">
@@ -1506,27 +1486,7 @@ export function App() {
           </div>
         )}
 
-        {/* Bottom Clear Data & System Info Bar */}
-        <footer className="mt-10 mb-6 w-full">
-          <div className="p-4 rounded-3xl bg-surface border border-subtle flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-soft">
-            <div className="flex items-center gap-2 text-muted">
-              <span className="font-bold text-main">🪐 Orbit</span>
-              <span>•</span>
-              <span>Local-First Personal Vault & Habit Hub</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleResetData}
-                className="px-3.5 py-2 rounded-xl bg-danger-soft text-danger border border-danger/20 hover:bg-danger hover:text-white transition font-bold text-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                title="Clear all data and start with a fresh clean canvas"
-              >
-                <Trash2 size={14} />
-                <span>Clear All Data</span>
-              </button>
-            </div>
-          </div>
-        </footer>
+
 
       </main>
 

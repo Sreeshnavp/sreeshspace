@@ -16,7 +16,11 @@ import {
   saveRoutines,
   loadStreakState,
   saveStreakState,
+  loadCustomBackground,
+  saveCustomBackgroundImage,
+  saveBackgroundSettings,
   isSampleItem,
+  isPreinstalledCategory,
 } from './storage';
 import type {
   LinkItem,
@@ -34,6 +38,14 @@ export const STORAGE_KEY_CLIENT_ID = 'orbit_client_id_v1';
 export const STORAGE_KEY_LAST_SYNCED = 'orbit_last_synced_v1';
 export const DEFAULT_SYNC_KEY = 'sreeshnav-vault';
 
+export interface SyncedWallpaperSettings {
+  imageUrl: string | null;
+  opacity: number;
+  blur: number;
+  enabled: boolean;
+  updatedAt?: string;
+}
+
 export interface VaultPayload {
   sync_key: string;
   links: LinkItem[];
@@ -44,6 +56,10 @@ export interface VaultPayload {
   daylogs: Record<string, DayLog>;
   routines: RoutineItem[];
   streak: StreakState;
+  settings?: {
+    wallpaper?: SyncedWallpaperSettings;
+    [key: string]: any;
+  };
   client_id: string;
   version?: number;
   updated_at?: string;
@@ -59,7 +75,25 @@ export interface SyncStatus {
 }
 
 let syncStatusListeners: Array<(status: SyncStatus) => void> = [];
+let wallpaperListeners: Array<(wp: SyncedWallpaperSettings) => void> = [];
 let realtimeChannel: any = null;
+
+export function notifyWallpaperChanged(wp: SyncedWallpaperSettings) {
+  for (const listener of wallpaperListeners) {
+    try {
+      listener(wp);
+    } catch (e) {
+      console.error('Error notifying wallpaper listener:', e);
+    }
+  }
+}
+
+export function subscribeToWallpaper(listener: (wp: SyncedWallpaperSettings) => void): () => void {
+  wallpaperListeners.push(listener);
+  return () => {
+    wallpaperListeners = wallpaperListeners.filter((l) => l !== listener);
+  };
+}
 
 export function getSyncKey(): string {
   try {
@@ -192,10 +226,10 @@ export function mergeVaultData(
     (l) => new Date(l.updatedAt || l.createdAt || 0).getTime()
   ).filter((l) => !isSampleItem(l));
 
-  // 2. Categories
+  // 2. Categories (filter out any preinstalled categories)
   const categories = mergeItemsById(
-    local.categories || [],
-    remote.categories || [],
+    (local.categories || []).filter((c) => !isPreinstalledCategory(c)),
+    (remote.categories || []).filter((c) => !isPreinstalledCategory(c)),
     () => 0
   );
 
@@ -260,6 +294,23 @@ export function mergeVaultData(
     frozenDates: mergedFrozen,
   };
 
+  // 9. Settings & Custom Background Wallpaper
+  const localWp = local.settings?.wallpaper;
+  const remoteWp = remote.settings?.wallpaper;
+  let mergedWp = localWp;
+  if (!localWp && remoteWp) {
+    mergedWp = remoteWp;
+  } else if (localWp && remoteWp) {
+    const lTime = new Date(localWp.updatedAt || 0).getTime();
+    const rTime = new Date(remoteWp.updatedAt || 0).getTime();
+    mergedWp = rTime >= lTime ? remoteWp : localWp;
+  }
+  const settings = {
+    ...(remote.settings || {}),
+    ...(local.settings || {}),
+    wallpaper: mergedWp,
+  };
+
   return {
     links,
     categories,
@@ -269,6 +320,7 @@ export function mergeVaultData(
     daylogs,
     routines,
     streak,
+    settings,
   };
 }
 
@@ -312,6 +364,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localDayLogs,
       localRoutines,
       localStreak,
+      localBg,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -321,6 +374,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadDayLogs(),
       loadRoutines(),
       loadStreakState(),
+      loadCustomBackground(),
     ]);
 
     const localData = {
@@ -332,6 +386,15 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       daylogs: localDayLogs,
       routines: localRoutines,
       streak: localStreak,
+      settings: {
+        wallpaper: {
+          imageUrl: localBg.imageUrl,
+          opacity: localBg.settings.opacity,
+          blur: localBg.settings.blur,
+          enabled: localBg.settings.enabled,
+          updatedAt: localBg.settings.updatedAt || new Date().toISOString(),
+        },
+      },
     };
 
     // 2. Fetch remote vault from Supabase
@@ -374,6 +437,25 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       saveStreakState(mergedPayload.streak),
     ]);
 
+    // Save and apply merged wallpaper if updated from cloud
+    if (mergedPayload.settings?.wallpaper) {
+      const wp = mergedPayload.settings.wallpaper;
+      const currentBg = await loadCustomBackground();
+      const localTime = new Date(currentBg.settings.updatedAt || 0).getTime();
+      const remoteTime = new Date(wp.updatedAt || 0).getTime();
+
+      if (remoteTime > localTime || (!currentBg.imageUrl && wp.imageUrl)) {
+        await saveCustomBackgroundImage(wp.imageUrl);
+        saveBackgroundSettings({
+          opacity: wp.opacity ?? 0.25,
+          blur: wp.blur ?? 0,
+          enabled: wp.enabled ?? true,
+          updatedAt: wp.updatedAt,
+        });
+        notifyWallpaperChanged(wp);
+      }
+    }
+
     // 4. Upsert merged data to Supabase
     const payloadToUpload = {
       sync_key: syncKey,
@@ -385,6 +467,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       daylogs: mergedPayload.daylogs,
       routines: mergedPayload.routines,
       streak: mergedPayload.streak,
+      settings: mergedPayload.settings || {},
       client_id: clientId,
       version: (remoteData?.version || 0) + 1,
       updated_at: new Date().toISOString(),

@@ -11,6 +11,7 @@ import {
   Layers
 } from 'lucide-react';
 import { playPopSound, triggerPartyPop } from '../utils/delight';
+import { compressImageToDataUrl } from '../utils/imageCompressor';
 
 export interface BackgroundSettings {
   opacity: number; // 0.05 to 1.0
@@ -70,33 +71,30 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({
     if (file) processFile(file);
   };
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     setErrorMsg(null);
     if (!file.type.startsWith('image/')) {
       setErrorMsg('Please select a valid image file (PNG, JPG, WEBP, GIF, SVG).');
       return;
     }
 
-    // Limit to 15MB
-    if (file.size > 15 * 1024 * 1024) {
-      setErrorMsg('Image is too large (max 15 MB). Please choose a smaller file.');
+    // Limit to 20MB
+    if (file.size > 20 * 1024 * 1024) {
+      setErrorMsg('Image is too large (max 20 MB). Please choose a smaller file.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    try {
+      const dataUrl = await compressImageToDataUrl(file);
       if (dataUrl) {
         onSaveImage(dataUrl);
         onUpdateSettings({ ...settings, enabled: true });
         triggerPartyPop('single');
         playPopSound();
       }
-    };
-    reader.onerror = () => {
-      setErrorMsg('Failed to read image file. Please try another one.');
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setErrorMsg('Failed to process image. Please try another one.');
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {

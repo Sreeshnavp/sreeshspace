@@ -23,14 +23,27 @@ export const STORAGE_KEY_STREAK = 'sreeshspace_streak_v1';
 export const STORAGE_KEY_BACKUP_PRE_V3 = 'sreeshspace_backup_pre_v3';
 export const STORAGE_KEY_SCHEMA_VERSION = 'sreeshspace_schema_version';
 
-export const DEFAULT_CATEGORIES: CategoryInfo[] = [
-  { id: 'work', name: 'Work & Projects', color: 'sage', icon: '🌿' },
-  { id: 'tools', name: 'Daily Tools', color: 'sky', icon: '🛠️' },
-  { id: 'design', name: 'Design & UI', color: 'clay', icon: '🎨' },
-  { id: 'study', name: 'Study & Docs', color: 'lavender', icon: '📚' },
-  { id: 'personal', name: 'Personal & Fun', color: 'honey', icon: '☕' },
-  { id: 'ideas', name: 'Inspiration', color: 'rose', icon: '💡' },
-];
+export const DEFAULT_CATEGORIES: CategoryInfo[] = [];
+
+export const PREINSTALLED_CATEGORY_IDS = new Set([
+  'work', 'tools', 'design', 'study', 'personal', 'ideas'
+]);
+
+export const PREINSTALLED_CATEGORY_NAMES = new Set([
+  'work & projects',
+  'daily tools',
+  'design & ui',
+  'study & docs',
+  'personal & fun',
+  'inspiration',
+]);
+
+export function isPreinstalledCategory(cat: any): boolean {
+  if (!cat) return false;
+  const id = String(cat.id || '').toLowerCase();
+  const name = String(cat.name || '').trim().toLowerCase();
+  return PREINSTALLED_CATEGORY_IDS.has(id) || PREINSTALLED_CATEGORY_NAMES.has(name);
+}
 
 export const INITIAL_TODOS: TodoItem[] = [];
 export const INITIAL_NOTES: NoteItem[] = [];
@@ -196,20 +209,19 @@ export async function saveLinks(links: LinkItem[]): Promise<void> {
 export async function loadCategories(): Promise<CategoryInfo[]> {
   try {
     const data = await get<CategoryInfo[]>(STORAGE_KEY_CATEGORIES);
-    if (data && Array.isArray(data) && data.length > 0) {
-      return data;
+    if (data && Array.isArray(data)) {
+      return data.filter((c) => !isPreinstalledCategory(c));
     }
     const local = localStorage.getItem(STORAGE_KEY_CATEGORIES);
     if (local) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c) => !isPreinstalledCategory(c));
       }
     }
-    await saveCategories(DEFAULT_CATEGORIES);
-    return DEFAULT_CATEGORIES;
+    return [];
   } catch (err) {
-    return DEFAULT_CATEGORIES;
+    return [];
   }
 }
 
@@ -673,6 +685,7 @@ export interface BackgroundSettings {
   opacity: number;
   blur: number;
   enabled: boolean;
+  updatedAt?: string;
 }
 
 export async function loadCustomBackground(): Promise<{
@@ -684,16 +697,21 @@ export async function loadCustomBackground(): Promise<{
     const settingsRaw = localStorage.getItem(STORAGE_KEY_BG_SETTINGS);
     const settings: BackgroundSettings = settingsRaw
       ? JSON.parse(settingsRaw)
-      : { opacity: 0.25, blur: 0, enabled: true };
+      : { opacity: 0.25, blur: 0, enabled: true, updatedAt: new Date().toISOString() };
     return { imageUrl, settings };
   } catch {
-    return { imageUrl: null, settings: { opacity: 0.25, blur: 0, enabled: true } };
+    return { imageUrl: null, settings: { opacity: 0.25, blur: 0, enabled: true, updatedAt: new Date().toISOString() } };
   }
 }
 
 export async function saveCustomBackgroundImage(dataUrl: string | null): Promise<void> {
   try {
     await set(STORAGE_KEY_CUSTOM_BG, dataUrl);
+    // Also record last modified timestamp
+    const currentRaw = localStorage.getItem(STORAGE_KEY_BG_SETTINGS);
+    const parsed = currentRaw ? JSON.parse(currentRaw) : { opacity: 0.25, blur: 0, enabled: true };
+    parsed.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY_BG_SETTINGS, JSON.stringify(parsed));
   } catch (err) {
     console.error('Error saving custom background:', err);
   }
@@ -701,7 +719,11 @@ export async function saveCustomBackgroundImage(dataUrl: string | null): Promise
 
 export function saveBackgroundSettings(settings: BackgroundSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY_BG_SETTINGS, JSON.stringify(settings));
+    const withTimestamp = {
+      ...settings,
+      updatedAt: settings.updatedAt || new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY_BG_SETTINGS, JSON.stringify(withTimestamp));
   } catch (err) {
     console.error('Error saving background settings:', err);
   }

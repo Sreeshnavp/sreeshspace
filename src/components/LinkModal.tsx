@@ -53,14 +53,14 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     if (initialData) {
       setUrl(initialData.url);
       setTitle(initialData.title);
-      setCategory(initialData.category || categories[0]?.name || 'Work & Projects');
+      setCategory(initialData.category || categories[0]?.name || 'Uncategorized');
       setNotes(initialData.notes || '');
       setPinned(initialData.pinned || false);
       setAttachments(initialData.attachments || []);
     } else {
       setUrl(defaultUrl || '');
       setTitle(defaultUrl ? generateSuggestedTitle(defaultUrl) : '');
-      setCategory(defaultCategory || categories[0]?.name || 'Work & Projects');
+      setCategory(defaultCategory || categories[0]?.name || 'Uncategorized');
       setNotes('');
       setPinned(false);
       setAttachments([]);
@@ -122,7 +122,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     onSave({
       url: normalized,
       title: finalTitle,
-      category: category || categories[0]?.name || 'Work & Projects',
+      category: category || categories[0]?.name || 'Uncategorized',
       notes: notes.trim(),
       pinned,
       attachments,

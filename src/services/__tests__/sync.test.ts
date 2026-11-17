@@ -139,4 +139,42 @@ describe('syncService - merge algorithms', () => {
     expect(mergedVault.streak.totalActiveDays).toBe(11);
     expect(mergedVault.streak.frozenDates).toContain('2026-11-10');
   });
+
+  it('merges wallpaper settings taking the newer timestamp', () => {
+    const mergedVault = mergeVaultData(
+      {
+        links: [],
+        categories: [],
+        todos: [],
+        notes: [],
+        events: [],
+        daylogs: {},
+        routines: [],
+        streak: { currentStreak: 0, longestStreak: 0, totalActiveDays: 0, freezesRemaining: 1, frozenDates: [] },
+        settings: {
+          wallpaper: {
+            imageUrl: 'data:image/png;base64,old',
+            opacity: 0.2,
+            blur: 0,
+            enabled: true,
+            updatedAt: '2026-11-16T10:00:00.000Z',
+          },
+        },
+      },
+      {
+        settings: {
+          wallpaper: {
+            imageUrl: 'data:image/png;base64,new',
+            opacity: 0.45,
+            blur: 2,
+            enabled: true,
+            updatedAt: '2026-11-16T12:00:00.000Z',
+          },
+        },
+      }
+    );
+
+    expect(mergedVault.settings?.wallpaper?.imageUrl).toBe('data:image/png;base64,new');
+    expect(mergedVault.settings?.wallpaper?.opacity).toBe(0.45);
+  });
 });
