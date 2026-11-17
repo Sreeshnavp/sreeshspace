@@ -19,6 +19,8 @@ import {
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
+  loadTombstones,
+  saveTombstones,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -183,20 +185,28 @@ export function subscribeToSyncStatus(listener: (status: SyncStatus) => void): (
 export function mergeItemsById<T extends { id: string }>(
   local: T[],
   remote: T[],
-  getTime: (item: T) => number
+  getTime: (item: T) => number,
+  tombstones?: Record<string, string>
 ): T[] {
   const map = new Map<string, T>();
 
-  // Add local items
+  const isTombstoned = (item: T): boolean => {
+    if (!tombstones || !tombstones[item.id]) return false;
+    const deletedTime = new Date(tombstones[item.id]).getTime();
+    const itemTime = getTime(item);
+    return deletedTime >= itemTime;
+  };
+
+  // Add local items (ignoring tombstoned deletions)
   for (const item of local || []) {
-    if (item && item.id) {
+    if (item && item.id && !isTombstoned(item)) {
       map.set(item.id, item);
     }
   }
 
   // Merge remote items
   for (const rItem of remote || []) {
-    if (!rItem || !rItem.id) continue;
+    if (!rItem || !rItem.id || isTombstoned(rItem)) continue;
     const lItem = map.get(rItem.id);
     if (!lItem) {
       map.set(rItem.id, rItem);
@@ -220,32 +230,41 @@ export function mergeVaultData(
   local: Omit<VaultPayload, 'sync_key' | 'client_id' | 'version' | 'updated_at'>,
   remote: Partial<VaultPayload>
 ): Omit<VaultPayload, 'sync_key' | 'client_id' | 'version' | 'updated_at'> {
+  // Merge tombstones across local and remote (deletion tracking)
+  const localTombstones: Record<string, string> = local.settings?.tombstones || {};
+  const remoteTombstones: Record<string, string> = remote.settings?.tombstones || {};
+  const mergedTombstones: Record<string, string> = { ...remoteTombstones, ...localTombstones };
+
   // 1. Links
   const links = mergeItemsById(
     local.links || [],
     remote.links || [],
-    (l) => new Date(l.updatedAt || l.createdAt || 0).getTime()
+    (l) => new Date(l.updatedAt || l.createdAt || 0).getTime(),
+    mergedTombstones
   ).filter((l) => !isSampleItem(l));
 
   // 2. Categories (filter out any preinstalled categories)
   const categories = mergeItemsById(
     (local.categories || []).filter((c) => !isPreinstalledCategory(c)),
     (remote.categories || []).filter((c) => !isPreinstalledCategory(c)),
-    () => 0
+    () => 0,
+    mergedTombstones
   );
 
   // 3. Todos
   const todos = mergeItemsById(
     local.todos || [],
     remote.todos || [],
-    (t) => new Date(t.completedAt || t.createdAt || 0).getTime()
+    (t) => new Date(t.completedAt || t.createdAt || 0).getTime(),
+    mergedTombstones
   ).filter((t) => !isSampleItem(t));
 
   // 4. Notes
   const notes = mergeItemsById(
     local.notes || [],
     remote.notes || [],
-    (n) => new Date(n.updatedAt || n.createdAt || 0).getTime()
+    (n) => new Date(n.updatedAt || n.createdAt || 0).getTime(),
+    mergedTombstones
   ).filter((n) => !isSampleItem(n));
 
   // 5. Events (append-only log, merge and sort by timestamp desc)
@@ -349,6 +368,7 @@ export function mergeVaultData(
     ...(remote.settings || {}),
     ...(local.settings || {}),
     wallpaper: mergedWp,
+    tombstones: mergedTombstones,
   };
 
   return {
@@ -405,6 +425,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localRoutines,
       localStreak,
       localBg,
+      localTombstones,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -415,6 +436,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadRoutines(),
       loadStreakState(),
       loadCustomBackground(),
+      loadTombstones(),
     ]);
 
     const localData = {
@@ -435,6 +457,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
           updatedAt: localBg.settings.updatedAt || (localBg.imageUrl ? new Date().toISOString() : '1970-01-01T00:00:00.000Z'),
           removedAt: localBg.settings.removedAt,
         },
+        tombstones: localTombstones,
       },
     };
 
@@ -476,6 +499,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       saveDayLogs(mergedPayload.daylogs),
       saveRoutines(mergedPayload.routines),
       saveStreakState(mergedPayload.streak),
+      mergedPayload.settings?.tombstones
+        ? saveTombstones(mergedPayload.settings.tombstones)
+        : Promise.resolve(),
     ]);
 
     // Save and apply merged wallpaper if updated from cloud

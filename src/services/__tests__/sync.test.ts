@@ -255,4 +255,64 @@ describe('syncService - merge algorithms', () => {
     const merged = mergeVaultData(userDeletedVault, remoteVault);
     expect(merged.settings?.wallpaper?.imageUrl).toBeNull();
   });
+
+  it('prevents deleted todos from being resurrected by remote cloud sync using tombstones', () => {
+    // User deleted 'todo-deleted-1' locally
+    const localVault = {
+      links: [],
+      categories: [],
+      todos: [
+        {
+          id: 'todo-active-2',
+          text: 'Still active task',
+          completed: false,
+          type: 'daily' as const,
+          priority: 'medium' as const,
+          createdAt: '2026-11-17T08:00:00.000Z',
+        },
+      ],
+      notes: [],
+      events: [],
+      daylogs: {},
+      routines: [],
+      streak: { currentStreak: 1, longestStreak: 1, totalActiveDays: 1, freezesRemaining: 1, frozenDates: [] },
+      settings: {
+        tombstones: {
+          'todo-deleted-1': '2026-11-17T09:00:00.000Z', // Deleted at 9:00 AM
+        },
+      },
+    };
+
+    // Remote database still has 'todo-deleted-1' from an earlier sync (created at 7:00 AM)
+    const remoteVault = {
+      todos: [
+        {
+          id: 'todo-deleted-1',
+          text: 'Old task that was deleted',
+          completed: false,
+          type: 'daily' as const,
+          priority: 'medium' as const,
+          createdAt: '2026-11-17T07:00:00.000Z',
+        },
+        {
+          id: 'todo-active-2',
+          text: 'Still active task',
+          completed: false,
+          type: 'daily' as const,
+          priority: 'medium' as const,
+          createdAt: '2026-11-17T08:00:00.000Z',
+        },
+      ],
+      settings: {},
+    };
+
+    const merged = mergeVaultData(localVault, remoteVault);
+
+    // The deleted todo MUST NOT be resurrected!
+    expect(merged.todos.length).toBe(1);
+    expect(merged.todos.find((t) => t.id === 'todo-deleted-1')).toBeUndefined();
+    expect(merged.todos[0].id).toBe('todo-active-2');
+    // Tombstone must be preserved in merged settings
+    expect(merged.settings?.tombstones?.['todo-deleted-1']).toBe('2026-11-17T09:00:00.000Z');
+  });
 });

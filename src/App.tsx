@@ -42,6 +42,8 @@ import {
   saveBackgroundSettings,
   STORAGE_KEY_CUSTOM_BG,
   STORAGE_KEY_BG_SETTINGS,
+  recordTombstone,
+  recordTombstones,
   type BackgroundSettings,
   DEFAULT_CATEGORIES, 
   INITIAL_LINKS, 
@@ -528,9 +530,10 @@ export function App() {
     const updated = links.filter((l) => l.id !== id);
     setLinks(updated);
     await saveLinks(updated);
+    await recordTombstone(id);
     if (detailLink && detailLink.id === id) setDetailLink(null);
     showToast('Bookmark deleted');
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
   const handleTogglePin = async (id: string) => {
@@ -629,11 +632,14 @@ export function App() {
     const catToDelete = categories.find((c) => c.id === catId);
     if (!catToDelete) return;
 
+    await recordTombstone(catId);
     const updatedCats = categories.filter((c) => c.id !== catId);
     setCategories(updatedCats);
     await saveCategories(updatedCats);
 
     if (deleteLinksInCat) {
+      const linksToDelete = links.filter((l) => l.category === catToDelete.name);
+      await recordTombstones(linksToDelete.map((l) => l.id));
       const updatedLinks = links.filter((l) => l.category !== catToDelete.name);
       setLinks(updatedLinks);
       await saveLinks(updatedLinks);
@@ -646,6 +652,7 @@ export function App() {
     }
 
     showToast(`Folder removed. Bookmarks moved to canvas.`);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
   // --- TO-DO, GOALS & HABITS HANDLERS ---
@@ -749,6 +756,7 @@ export function App() {
     const updated = todos.filter((t) => t.id !== id);
     setTodos(updated);
     await saveTodos(updated);
+    await recordTombstone(id);
 
     // Filter out activity events for the deleted task
     const freshEvents = await loadActivityEvents();
@@ -757,7 +765,7 @@ export function App() {
     setEvents(cleanEvents);
 
     showToast('Task removed');
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
   // Archive completed daily tasks with 10-second Undo toast
@@ -1128,8 +1136,9 @@ export function App() {
     const updated = notes.filter((n) => n.id !== id);
     setNotes(updated);
     await saveNotes(updated);
+    await recordTombstone(id);
     showToast('Note deleted');
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
   const handleReorderNotes = async (reordered: NoteItem[]) => {
@@ -1173,6 +1182,12 @@ export function App() {
 
   // Clear all data to fresh empty canvas
   const handleResetData = async () => {
+    const allIds = [
+      ...links.map((l) => l.id),
+      ...todos.map((t) => t.id),
+      ...notes.map((n) => n.id),
+    ];
+    await recordTombstones(allIds);
     setLinks([]);
     setCategories(DEFAULT_CATEGORIES);
     setTodos([]);
@@ -1194,16 +1209,18 @@ export function App() {
     await saveActivityEvents([]);
     await saveDayLogs({});
     await saveStreakState(cleanStreak);
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
     showToast('All sample data removed. Clean canvas ready! 🌿');
   };
 
   // Clear all master goals
   const handleClearAllGoals = async () => {
+    const goalsToDelete = todos.filter((t) => t.type === 'permanent');
+    await recordTombstones(goalsToDelete.map((g) => g.id));
     const updated = todos.filter((t) => t.type !== 'permanent');
     setTodos(updated);
     await saveTodos(updated);
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
     showToast('Cleared all master goals 🎯');
   };
 
@@ -1603,40 +1620,7 @@ export function App() {
         onLeaveBehind={handleLeaveBehindRollover}
       />
 
-      {/* Link Creation / Editing Modal */}
-      <LinkModal
-        isOpen={isAddModalOpen}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingLink(null);
-          setPrefilledUrl('');
-          setPrefilledCategory('');
-        }}
-        onSave={handleSaveLink}
-        initialData={editingLink}
-        categories={categories}
-        onAddCategory={handleAddCategory}
-        defaultUrl={prefilledUrl}
-        defaultCategory={prefilledCategory}
-      />
-
-      {/* Link Detail Reader Modal */}
-      <DetailModal
-        link={detailLink}
-        onClose={() => setDetailLink(null)}
-        onEdit={(l) => {
-          setDetailLink(null);
-          setEditingLink(l);
-          setIsAddModalOpen(true);
-        }}
-        onDelete={handleDeleteLink}
-        onTogglePin={handleTogglePin}
-        onVisit={handleVisitLink}
-        onOpenAttachment={(att) => setActiveAttachment(att)}
-        categories={categories}
-      />
-
-      {/* Category Square Folder POPUP */}
+      {/* Category Square Folder POPUP (z-50) */}
       <FolderGridPopup
         category={folderModalCategory}
         links={links}
@@ -1667,6 +1651,39 @@ export function App() {
             handleReorderLinksInCategory(reorderedLinks, folderModalCategory.name);
           }
         }}
+      />
+
+      {/* Link Detail Reader Modal (z-[60]) */}
+      <DetailModal
+        link={detailLink}
+        onClose={() => setDetailLink(null)}
+        onEdit={(l) => {
+          setDetailLink(null);
+          setEditingLink(l);
+          setIsAddModalOpen(true);
+        }}
+        onDelete={handleDeleteLink}
+        onTogglePin={handleTogglePin}
+        onVisit={handleVisitLink}
+        onOpenAttachment={(att) => setActiveAttachment(att)}
+        categories={categories}
+      />
+
+      {/* Link Creation / Editing Modal (z-[70] - Always in front of folder popup) */}
+      <LinkModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingLink(null);
+          setPrefilledUrl('');
+          setPrefilledCategory('');
+        }}
+        onSave={handleSaveLink}
+        initialData={editingLink}
+        categories={categories}
+        onAddCategory={handleAddCategory}
+        defaultUrl={prefilledUrl}
+        defaultCategory={prefilledCategory}
       />
 
       {/* Top-Level High-Z Attachment Viewer */}

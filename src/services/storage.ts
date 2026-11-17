@@ -759,6 +759,71 @@ export function saveBackgroundSettings(settings: BackgroundSettings): void {
 }
 
 // ==========================================
+// 🪦 DELETION TOMBSTONES (PREVENTS GHOST RESURRECTIONS)
+// ==========================================
+
+export const STORAGE_KEY_TOMBSTONES = 'orbit_tombstones_v1';
+
+export function pruneTombstones(
+  tombstones: Record<string, string>,
+  maxAgeDays = 30
+): Record<string, string> {
+  const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  const pruned: Record<string, string> = {};
+  for (const [id, dateStr] of Object.entries(tombstones || {})) {
+    const time = new Date(dateStr).getTime();
+    if (!isNaN(time) && time > cutoff) {
+      pruned[id] = dateStr;
+    }
+  }
+  return pruned;
+}
+
+export async function loadTombstones(): Promise<Record<string, string>> {
+  try {
+    const data = await get<Record<string, string>>(STORAGE_KEY_TOMBSTONES);
+    if (data && typeof data === 'object') {
+      return pruneTombstones(data);
+    }
+    const local = localStorage.getItem(STORAGE_KEY_TOMBSTONES);
+    if (local) {
+      return pruneTombstones(JSON.parse(local));
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export async function saveTombstones(tombstones: Record<string, string>): Promise<void> {
+  try {
+    const cleaned = pruneTombstones(tombstones);
+    await set(STORAGE_KEY_TOMBSTONES, cleaned);
+    localStorage.setItem(STORAGE_KEY_TOMBSTONES, JSON.stringify(cleaned));
+  } catch (err) {
+    console.error('Error saving tombstones:', err);
+  }
+}
+
+export async function recordTombstone(id: string): Promise<Record<string, string>> {
+  const current = await loadTombstones();
+  current[id] = new Date().toISOString();
+  await saveTombstones(current);
+  return current;
+}
+
+export async function recordTombstones(ids: string[]): Promise<Record<string, string>> {
+  if (!ids || ids.length === 0) return loadTombstones();
+  const current = await loadTombstones();
+  const nowIso = new Date().toISOString();
+  for (const id of ids) {
+    if (id) current[id] = nowIso;
+  }
+  await saveTombstones(current);
+  return current;
+}
+
+// ==========================================
 // 📤 EXPORT & IMPORT BACKUP (ENHANCED V4)
 // ==========================================
 
