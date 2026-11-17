@@ -63,10 +63,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1 sm:gap-1.5">
-                <span className="font-extrabold text-base sm:text-lg tracking-tight text-main group-hover:text-accent transition-colors">
+                <span className="font-head font-extrabold text-base sm:text-lg tracking-tight text-main group-hover:text-accent transition-colors">
                   Orbit
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-accent-soft text-accent-text">
+                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-accent-soft text-accent-text border border-accent/20">
                   Sreeshnav
                 </span>
               </div>

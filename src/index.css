@@ -3,19 +3,30 @@
 @tailwind utilities;
 
 @layer base {
-  /* LIGHT THEME (Oat & Sage Default) */
+  /* LIGHT THEME (Warm Cream & Radiant Yellow — inspired by zerotoinfinitywithai.com) */
   :root {
-    --page: 250 248 244;
-    --surface: 255 255 255;
+    --cream: 255 250 240;
+    --cream-2: 255 243 214;
+    --white: 255 255 255;
+    --ink: 28 25 23;
+    --ink-soft: 68 64 60;
+    --muted: 120 113 108;
+    --yellow: 253 224 71;
+    --yellow-soft: 254 249 195;
+    --yellow-deep: 250 204 21;
+    --violet: 124 58 237;
+
+    --page: 255 250 240;       /* #fffaf0 signature cream */
+    --surface: 255 255 255;    /* pure white cards */
     --raised: 255 255 255;
-    --sunken: 243 239 232;
-    --border-subtle: 230 223 211;
-    --border-strong: 207 197 180;
-    --border-input: 146 136 119;
-    --text-main: 37 33 28;
-    --text-muted: 94 86 75;
-    --text-faint: 116 107 93;
-    --ring: 46 107 150;
+    --sunken: 255 243 214;     /* #fff3d6 cream-2 sunken */
+    --border-subtle: 231 223 205; /* subtle warm border */
+    --border-strong: 28 25 23;    /* #1c1917 ink border */
+    --border-input: 120 113 108;  /* #78716c input border */
+    --text-main: 28 25 23;     /* #1c1917 ink text */
+    --text-muted: 68 64 60;    /* #44403c ink-soft */
+    --text-faint: 120 113 108; /* #78716c muted */
+    --ring: 250 204 21;        /* #facc15 */
     --success: 47 125 79;
     --success-soft: 231 243 235;
     --success-text: 33 90 56;
@@ -28,16 +39,16 @@
     --info: 47 111 159;
     --info-soft: 230 240 247;
     --info-text: 30 77 113;
-    --accent: 60 110 87;
-    --accent-hover: 49 88 70;
-    --accent-soft: 225 237 230;
-    --accent-text: 43 85 67;
-    --on-accent: 255 255 255;
-    --heatmap-0: 243 239 232;
-    --heatmap-1: 206 219 213;
-    --heatmap-2: 158 183 171;
-    --heatmap-3: 109 146 129;
-    --heatmap-4: 60 110 87;
+    --accent: 250 204 21;       /* #facc15 radiant gold */
+    --accent-hover: 234 179 8;
+    --accent-soft: 254 249 195; /* #fef9c3 soft yellow */
+    --accent-text: 28 25 23;    /* #1c1917 */
+    --on-accent: 28 25 23;      /* #1c1917 */
+    --heatmap-0: 255 243 214;
+    --heatmap-1: 254 240 138;
+    --heatmap-2: 253 224 71;
+    --heatmap-3: 250 204 21;
+    --heatmap-4: 202 138 4;
     --cat-sage-solid: 72 122 100;
     --cat-sage-soft: 231 240 235;
     --cat-sage-text: 42 82 64;
@@ -66,17 +77,17 @@
 
   /* Explicit light theme */
   [data-theme="light"] {
-    --page: 250 248 244;
-    --surface: 255 255 255;
+    --page: 255 250 240;       /* #fffaf0 signature cream */
+    --surface: 255 255 255;    /* pure white cards */
     --raised: 255 255 255;
-    --sunken: 243 239 232;
-    --border-subtle: 230 223 211;
-    --border-strong: 207 197 180;
-    --border-input: 146 136 119;
-    --text-main: 37 33 28;
-    --text-muted: 94 86 75;
-    --text-faint: 116 107 93;
-    --ring: 46 107 150;
+    --sunken: 255 243 214;     /* #fff3d6 cream-2 sunken */
+    --border-subtle: 231 223 205; /* subtle warm border */
+    --border-strong: 28 25 23;    /* #1c1917 ink border */
+    --border-input: 120 113 108;  /* #78716c input border */
+    --text-main: 28 25 23;     /* #1c1917 ink text */
+    --text-muted: 68 64 60;    /* #44403c ink-soft */
+    --text-faint: 120 113 108; /* #78716c muted */
+    --ring: 250 204 21;        /* #facc15 */
     --success: 47 125 79;
     --success-soft: 231 243 235;
     --success-text: 33 90 56;
@@ -89,6 +100,11 @@
     --info: 47 111 159;
     --info-soft: 230 240 247;
     --info-text: 30 77 113;
+    --accent: 250 204 21;       /* #facc15 radiant gold */
+    --accent-hover: 234 179 8;
+    --accent-soft: 254 249 195; /* #fef9c3 soft yellow */
+    --accent-text: 28 25 23;    /* #1c1917 */
+    --on-accent: 28 25 23;      /* #1c1917 */
     --cat-sage-solid: 72 122 100;
     --cat-sage-soft: 231 240 235;
     --cat-sage-text: 42 82 64;
@@ -115,43 +131,43 @@
     --cat-stone-text: 67 63 56;
   }
 
-  /* DARK THEME (Warm Charcoal) */
+  /* DARK THEME (Warm Ink & Radiant Gold — inspired by zerotoinfinitywithai.com) */
   :root[data-theme="dark"],
   .dark:not([data-theme="light"]),
   [data-theme="dark"] {
-    --page: 21 19 17;
-    --surface: 30 27 24;
-    --raised: 39 35 31;
-    --sunken: 16 15 13;
-    --border-subtle: 51 46 40;
-    --border-strong: 70 63 55;
-    --border-input: 122 113 100;
-    --text-main: 241 236 228;
-    --text-muted: 181 172 160;
-    --text-faint: 143 134 122;
-    --ring: 143 196 238;
+    --page: 20 18 16;         /* #141210 deep warm ink */
+    --surface: 28 25 23;      /* #1c1917 */
+    --raised: 38 34 30;       /* #26221e */
+    --sunken: 15 13 12;       /* #0f0d0c */
+    --border-subtle: 52 47 42;
+    --border-strong: 78 71 64;
+    --border-input: 120 113 108;
+    --text-main: 255 250 240; /* #fffaf0 warm cream text */
+    --text-muted: 168 162 158;
+    --text-faint: 120 113 108;
+    --ring: 250 204 21;
     --success: 108 196 141;
     --success-soft: 22 43 31;
     --success-text: 141 214 168;
-    --warning: 232 176 74;
+    --warning: 250 204 21;
     --warning-soft: 46 35 15;
-    --warning-text: 240 199 120;
+    --warning-text: 254 240 138;
     --danger: 240 135 122;
     --danger-soft: 48 25 22;
     --danger-text: 245 169 160;
     --info: 125 180 224;
     --info-soft: 24 37 48;
     --info-text: 161 203 235;
-    --accent: 125 184 157;
-    --accent-hover: 147 199 175;
-    --accent-soft: 31 45 38;
-    --accent-text: 159 208 184;
-    --on-accent: 15 31 24;
-    --heatmap-0: 16 15 13;
-    --heatmap-1: 54 66 57;
-    --heatmap-2: 78 106 91;
-    --heatmap-3: 101 145 124;
-    --heatmap-4: 125 184 157;
+    --accent: 250 204 21;     /* #facc15 radiant gold */
+    --accent-hover: 253 224 71;
+    --accent-soft: 45 38 15;
+    --accent-text: 254 240 138;
+    --on-accent: 20 18 16;
+    --heatmap-0: 15 13 12;
+    --heatmap-1: 60 48 18;
+    --heatmap-2: 110 88 28;
+    --heatmap-3: 180 144 38;
+    --heatmap-4: 250 204 21;
     --cat-sage-solid: 123 183 155;
     --cat-sage-soft: 29 45 36;
     --cat-sage-text: 156 210 183;
@@ -164,9 +180,9 @@
     --cat-sky-solid: 127 180 214;
     --cat-sky-soft: 25 39 50;
     --cat-sky-text: 164 208 236;
-    --cat-honey-solid: 217 178 95;
+    --cat-honey-solid: 250 204 21;
     --cat-honey-soft: 48 39 23;
-    --cat-honey-text: 236 201 126;
+    --cat-honey-text: 254 240 138;
     --cat-rose-solid: 212 141 165;
     --cat-rose-soft: 51 31 39;
     --cat-rose-text: 232 172 192;
@@ -181,37 +197,39 @@
   /* System dark mode preference */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]):not([data-theme="dark"]) {
-      --page: 21 19 17;
-      --surface: 30 27 24;
-      --raised: 39 35 31;
-      --sunken: 16 15 13;
-      --border-subtle: 51 46 40;
-      --border-strong: 70 63 55;
-      --border-input: 122 113 100;
-      --text-main: 241 236 228;
-      --text-muted: 181 172 160;
-      --text-faint: 143 134 122;
-      --ring: 143 196 238;
+      --page: 20 18 16;
+      --surface: 28 25 23;
+      --raised: 38 34 30;
+      --sunken: 15 13 12;
+      --border-subtle: 52 47 42;
+      --border-strong: 78 71 64;
+      --border-input: 120 113 108;
+      --text-main: 255 250 240;
+      --text-muted: 168 162 158;
+      --text-faint: 120 113 108;
+      --ring: 250 204 21;
       --success: 108 196 141;
       --success-soft: 22 43 31;
       --success-text: 141 214 168;
-      --warning: 232 176 74;
+      --warning: 250 204 21;
       --warning-soft: 46 35 15;
-      --warning-text: 240 199 120;
+      --warning-text: 254 240 138;
       --danger: 240 135 122;
       --danger-soft: 48 25 22;
       --danger-text: 245 169 160;
       --info: 125 180 224;
       --info-soft: 24 37 48;
       --info-text: 161 203 235;
-      --accent: 125 184 157;
-      --accent-hover: 147 199 175;
-      --accent-soft: 31 45 38;
-      --accent-text: 159 208 184;
-      --on-accent: 15 31 24;
-      --heatmap-0: 16 15 13;
-      --heatmap-1: 54 66 57;
-      --heatmap-2: 78 106 91;
+      --accent: 250 204 21;
+      --accent-hover: 253 224 71;
+      --accent-soft: 45 38 15;
+      --accent-text: 254 240 138;
+      --on-accent: 20 18 16;
+      --heatmap-0: 15 13 12;
+      --heatmap-1: 60 48 18;
+      --heatmap-2: 110 88 28;
+      --heatmap-3: 180 144 38;
+      --heatmap-4: 250 204 21;
       --heatmap-3: 101 145 124;
       --heatmap-4: 125 184 157;
       --cat-sage-solid: 123 183 155;
@@ -443,9 +461,19 @@
   body {
     background-color: rgb(var(--page));
     color: rgb(var(--text-main));
+    font-family: "Public Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, .font-head {
+    font-family: "Fraunces", Georgia, serif;
+    letter-spacing: -0.015em;
+  }
+
+  .font-hand {
+    font-family: "Caveat", cursive;
   }
 
   /* Universal high-contrast accessible focus ring */

@@ -126,9 +126,9 @@ export function App() {
     return false; // Calm Oat & Sage light default
   });
 
-  // Accent Theme (sage, peach, wisteria, sky, honey)
+  // Accent Theme (honey, sage, peach, wisteria, sky)
   const [accentTheme, setAccentTheme] = useState<string>(() => {
-    return localStorage.getItem('sreeshspace_accent') || 'sage';
+    return localStorage.getItem('sreeshspace_accent') || 'honey';
   });
 
   // Modals & Viewers
@@ -730,18 +730,18 @@ export function App() {
     triggerAutoSync();
   };
 
-  // Delete Todo (Leaves snapshot in immutable ActivityEvent history)
+  // Delete Todo (removes task and cleans up any related activity events)
   const handleDeleteTodo = async (id: string) => {
-    const target = todos.find((t) => t.id === id);
     const updated = todos.filter((t) => t.id !== id);
     setTodos(updated);
     await saveTodos(updated);
 
-    if (target) {
-      await logActivity('task_deleted', target.id, target.text);
-      const freshEvents = await loadActivityEvents();
-      setEvents(freshEvents);
-    }
+    // Filter out activity events for the deleted task
+    const freshEvents = await loadActivityEvents();
+    const cleanEvents = freshEvents.filter((e) => e.refId !== id && !e.type.includes('deleted'));
+    await saveActivityEvents(cleanEvents);
+    setEvents(cleanEvents);
+
     showToast('Task removed');
     triggerAutoSync();
   };

@@ -37,7 +37,16 @@ export const DayInspectionDrawer: React.FC<DayInspectionDrawerProps> = ({
   if (!isOpen || !dateKey) return null;
 
   const dateInfo = formatNavigatorDate(dateKey);
-  const dayEvents = events.filter((e) => e.date === dateKey);
+  // Exclude deleted tasks or deletion events from Day Activity Log
+  const dayEvents = events.filter((e) => {
+    if (e.date !== dateKey) return false;
+    if (e.type.includes('deleted')) return false;
+    if (e.type.startsWith('task_') && e.refId) {
+      const taskExists = dayTodos.some((t: TodoItem) => t.id === e.refId);
+      if (!taskExists) return false;
+    }
+    return true;
+  });
   const completedTasks = dayTodos.filter((t) => t.completed);
   const unfinishedTasks = dayTodos.filter((t) => !t.completed);
 
