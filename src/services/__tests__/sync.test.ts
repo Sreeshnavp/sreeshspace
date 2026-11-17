@@ -140,6 +140,44 @@ describe('syncService - merge algorithms', () => {
     expect(mergedVault.streak.frozenDates).toContain('2026-11-10');
   });
 
+  it('resets streak to 0 and drops pre-reset events when streakResetAt is present in settings', () => {
+    const cutoff = '2026-11-17T16:20:00.000Z';
+    const cutoffTs = new Date(cutoff).getTime();
+    const merged = mergeVaultData(
+      {
+        links: [],
+        categories: [],
+        todos: [
+          {
+            id: 't-1',
+            text: 'Live task',
+            completed: false,
+            type: 'daily',
+            date: '2026-11-17',
+            priority: 'medium',
+            createdAt: '2026-11-17T08:00:00.000Z',
+          },
+        ],
+        notes: [],
+        events: [
+          { id: 'ev-old', ts: cutoffTs - 10000, date: '2026-11-17', type: 'task_completed', refId: 't1', title: 'Old task' },
+        ],
+        daylogs: {},
+        routines: [],
+        streak: { currentStreak: 7, longestStreak: 7, totalActiveDays: 7, freezesRemaining: 0, frozenDates: ['2026-11-16'] },
+        settings: { streakResetAt: cutoff },
+      },
+      {
+        streak: { currentStreak: 7, longestStreak: 7, totalActiveDays: 7, freezesRemaining: 0, frozenDates: ['2026-11-16'] },
+      }
+    );
+
+    expect(merged.streak.currentStreak).toBe(0);
+    expect(merged.streak.longestStreak).toBe(0);
+    expect(merged.streak.totalActiveDays).toBe(0);
+    expect(merged.events.length).toBe(0);
+  });
+
   it('merges wallpaper settings taking the newer timestamp', () => {
     const mergedVault = mergeVaultData(
       {

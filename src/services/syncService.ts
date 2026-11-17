@@ -273,9 +273,14 @@ export function mergeVaultData(
     mergedTombstones
   ).filter((n) => !isSampleItem(n));
 
-  // 5. Events (append-only log, merge and sort by timestamp desc, filter out deleted and sample events)
+  // 5. Events (append-only log, merge and sort by timestamp desc, filter out deleted, uncompleted, sample, and pre-reset events)
+  const localResetAt = local.settings?.streakResetAt ? new Date(local.settings.streakResetAt).getTime() : 0;
+  const remoteResetAt = remote.settings?.streakResetAt ? new Date(remote.settings.streakResetAt).getTime() : 0;
+  const streakResetAt = Math.max(localResetAt, remoteResetAt);
+
   const eventMap = new Map<string, ActivityEvent>();
   for (const e of [...(local.events || []), ...(remote.events || [])]) {
+    const eTs = typeof e.ts === 'number' ? e.ts : new Date(e.date || 0).getTime();
     if (
       e && 
       e.id && 
@@ -283,6 +288,7 @@ export function mergeVaultData(
       !e.type.includes('deleted') && 
       !e.type.includes('uncompleted') &&
       (!mergedTombstones || !e.refId || !mergedTombstones[e.refId]) &&
+      (!streakResetAt || eTs >= streakResetAt) &&
       !eventMap.has(e.id)
     ) {
       eventMap.set(e.id, e);
@@ -322,7 +328,12 @@ export function mergeVaultData(
   
   const isVaultEmpty = links.length === 0 && todos.length === 0 && notes.length === 0;
 
-  const streak: StreakState = isVaultEmpty
+  // Real completions logged since streak reset
+  const hasValidCompletions = events.some((ev) =>
+    ['task_completed', 'goal_completed', 'focus_session'].includes(ev.type)
+  );
+
+  const streak: StreakState = isVaultEmpty || (streakResetAt > 0 && !hasValidCompletions)
     ? {
         currentStreak: 0,
         longestStreak: 0,
@@ -418,6 +429,7 @@ export function mergeVaultData(
     tombstones: mergedTombstones,
     finances,
     financeCategories,
+    ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
   return {
@@ -513,6 +525,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         tombstones: localTombstones,
         finances: localFinances,
         financeCategories: localFinanceCats,
+        streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
 

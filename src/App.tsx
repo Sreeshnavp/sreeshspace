@@ -246,7 +246,20 @@ export function App() {
       setNotes(loadedNotes);
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
-      if (loadedStreak) setStreakState(loadedStreak);
+      const hasValidCompletions = loadedEvents.some((e) =>
+        ['task_completed', 'goal_completed', 'focus_session'].includes(e.type)
+      );
+      if (!hasValidCompletions) {
+        setStreakState({
+          currentStreak: 0,
+          longestStreak: 0,
+          totalActiveDays: 0,
+          freezesRemaining: 1,
+          frozenDates: [],
+        });
+      } else if (loadedStreak) {
+        setStreakState(loadedStreak);
+      }
       setRoutines(loadedRoutines);
       setTransactions(loadedFinances);
       if (loadedFinanceCats && loadedFinanceCats.length > 0) {
@@ -320,6 +333,19 @@ export function App() {
           await saveActivityEvents(validOnly);
           localStorage.setItem('orbit_clean_slate_v6', 'true');
         }
+        if (localStorage.getItem('orbit_streak_zero_v10') !== 'true') {
+          const zeroStreak: StreakState = {
+            currentStreak: 0,
+            longestStreak: 0,
+            totalActiveDays: 0,
+            freezesRemaining: 1,
+            frozenDates: [],
+            lastActiveDate: undefined,
+          };
+          await saveStreakState(zeroStreak);
+          await saveActivityEvents([]);
+          localStorage.setItem('orbit_streak_zero_v10', 'true');
+        }
         await runDataMigration();
         const [
           loadedLinks,
@@ -362,7 +388,20 @@ export function App() {
         setNotes(cleanNotes);
         setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
-        if (loadedStreak) setStreakState(loadedStreak);
+        const hasValidCompletions = cleanEvents.some((e) =>
+          ['task_completed', 'goal_completed', 'focus_session'].includes(e.type)
+        );
+        if (!hasValidCompletions) {
+          setStreakState({
+            currentStreak: 0,
+            longestStreak: 0,
+            totalActiveDays: 0,
+            freezesRemaining: 1,
+            frozenDates: [],
+          });
+        } else if (loadedStreak) {
+          setStreakState(loadedStreak);
+        }
         setRoutines(loadedRoutines);
         setTransactions(loadedFinances);
         if (loadedFinanceCats && loadedFinanceCats.length > 0) {

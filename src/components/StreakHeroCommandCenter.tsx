@@ -61,37 +61,19 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       activityMap[key].details.push(text);
     };
 
-    // 1. Only count real, productive events (exclude deleted, uncompleted, and sample events)
+    // 1. Only count real, productive habit/task completion events (exclude deleted, uncompleted, and sample events)
     const validEvents = (events || []).filter(
       (ev) =>
         ev &&
         !ev.type.includes('deleted') &&
         !ev.type.includes('uncompleted') &&
-        !isSampleItem(ev)
+        !isSampleItem(ev) &&
+        ['task_completed', 'goal_completed', 'focus_session'].includes(ev.type)
     );
 
-    if (validEvents.length > 0) {
-      validEvents.forEach((ev) => {
-        record(ev.date, `${ev.type.replace(/_/g, ' ')}: "${ev.title}"`);
-      });
-    } else {
-      // Fallback from active items
-      links.forEach((l) => {
-        if (!isSampleItem(l)) record(l.createdAt, `Saved "${l.title || l.url}"`);
-      });
-      todos.forEach((t) => {
-        if (!isSampleItem(t)) {
-          if (t.completed && t.completedAt) {
-            record(t.completedAt, `Completed "${t.text}"`);
-          } else if (t.createdAt) {
-            record(t.createdAt, `Added "${t.text}"`);
-          }
-        }
-      });
-      notes.forEach((n) => {
-        if (!isSampleItem(n)) record(n.createdAt, `Wrote note "${n.title}"`);
-      });
-    }
+    validEvents.forEach((ev) => {
+      record(ev.date, `${ev.type.replace(/_/g, ' ')}: "${ev.title}"`);
+    });
 
     const totalWeeks = 18;
     const totalDays = totalWeeks * 7;
