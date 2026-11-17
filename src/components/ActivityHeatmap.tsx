@@ -156,8 +156,8 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       weeks: weekChunks,
       monthLabels: months,
       stats: {
-        currentStreak: Math.max(currentStreak, 1),
-        longestStreak: Math.max(longestStreak, currentStreak, 3),
+        currentStreak: totalActiveDays > 0 ? currentStreak : 0,
+        longestStreak: totalActiveDays > 0 ? longestStreak : 0,
         totalActiveDays,
         totalActions,
         completedTasksCount,

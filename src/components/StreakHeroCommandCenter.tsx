@@ -14,6 +14,7 @@ import {
 import type { LinkItem, TodoItem, NoteItem, ActivityDay, ActivityEvent, StreakState } from '../types';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
 import { todayKey, addDays, parseLocalDateKey } from '../utils/dates';
+import { isSampleItem } from '../services/storage';
 
 interface StreakHeroCommandCenterProps {
   links: LinkItem[];
@@ -60,21 +61,36 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       activityMap[key].details.push(text);
     };
 
-    // 1. If persistent events exist, read from the append-only event log (IMMUTABLE HISTORY)
-    if (events.length > 0) {
-      events.forEach((ev) => {
+    // 1. Only count real, productive events (exclude deleted, uncompleted, and sample events)
+    const validEvents = (events || []).filter(
+      (ev) =>
+        ev &&
+        !ev.type.includes('deleted') &&
+        !ev.type.includes('uncompleted') &&
+        !isSampleItem(ev)
+    );
+
+    if (validEvents.length > 0) {
+      validEvents.forEach((ev) => {
         record(ev.date, `${ev.type.replace(/_/g, ' ')}: "${ev.title}"`);
       });
     } else {
-      // Fallback if events haven't loaded yet
-      links.forEach((l) => record(l.createdAt, `Saved "${l.title || l.url}"`));
+      // Fallback from active items
+      links.forEach((l) => {
+        if (!isSampleItem(l)) record(l.createdAt, `Saved "${l.title || l.url}"`);
+      });
       todos.forEach((t) => {
-        record(t.createdAt, `Added "${t.text}"`);
-        if (t.completed && t.completedAt) {
-          record(t.completedAt, `Completed "${t.text}"`);
+        if (!isSampleItem(t)) {
+          if (t.completed && t.completedAt) {
+            record(t.completedAt, `Completed "${t.text}"`);
+          } else if (t.createdAt) {
+            record(t.createdAt, `Added "${t.text}"`);
+          }
         }
       });
-      notes.forEach((n) => record(n.createdAt, `Wrote note "${n.title}"`));
+      notes.forEach((n) => {
+        if (!isSampleItem(n)) record(n.createdAt, `Wrote note "${n.title}"`);
+      });
     }
 
     const totalWeeks = 18;
@@ -158,12 +174,19 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
       }
     });
 
+    // If there are zero active days, streaks must be 0
+    if (totalActiveDays === 0) {
+      currentStreak = 0;
+      longestStreak = 0;
+    }
+
     // Today's focus strictly for active selected date
     const selectedDateTasks = todos.filter(
       (t) => (t.type || 'permanent') === 'daily' && (t.date === activeDate || (!t.date && activeDate === today))
     );
     const selectedCompleted = selectedDateTasks.filter((t) => t.completed).length;
-    const selectedProgress = selectedDateTasks.length > 0 ? Math.round((selectedCompleted / selectedDateTasks.length) * 100) : 100;
+    const dailyTotal = selectedDateTasks.length;
+    const selectedProgress = dailyTotal > 0 ? Math.round((selectedCompleted / dailyTotal) * 100) : 0;
 
     // Weekly consistency (last 7 days active count)
     let activeDaysInLast7 = 0;
@@ -173,36 +196,35 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
         activeDaysInLast7++;
       }
     }
-    const weeklyConsistency = Math.round((activeDaysInLast7 / 7) * 100);
+    const weeklyConsistency = totalActiveDays > 0 ? Math.round((activeDaysInLast7 / 7) * 100) : 0;
+
+    const streakVal = totalActiveDays > 0 ? (streakState?.currentStreak ?? currentStreak) : 0;
+    const longestStreakVal = totalActiveDays > 0 ? Math.max(streakState?.longestStreak || 0, streakVal, longestStreak) : 0;
 
     return {
       weeks: weekChunks,
       monthLabels: months,
       stats: {
-        currentStreak: Math.max(currentStreak, streakState?.currentStreak || 3),
-        longestStreak: Math.max(longestStreak, streakState?.longestStreak || currentStreak, 5),
-        todayCount: activityMap[today]?.count || 4,
+        currentStreak: streakVal,
+        longestStreak: longestStreakVal,
+        todayCount: activityMap[today]?.count || 0,
         todayProgress: selectedProgress,
         dailyCompleted: selectedCompleted,
-        dailyTotal: selectedDateTasks.length,
-        weeklyConsistency: Math.max(weeklyConsistency, 43),
+        dailyTotal,
+        weeklyConsistency,
         activeDaysInLast7,
-        totalActivities: Math.max(totalActivities, 24),
-        totalActiveDays: Math.max(totalActiveDays, 5),
+        totalActivities,
+        totalActiveDays,
       },
     };
   }, [links, todos, notes, events, streakState, today, activeDate]);
 
   // Milestone progression (Early Spark -> Rising Momentum -> Habit Builder -> Flow Master -> Legendary)
   const streakDays = stats.currentStreak;
-  let milestoneTitle = 'Rising Momentum';
-  let prevMilestone = 3;
-  let nextMilestone = 7;
-  if (streakDays < 3) {
-    milestoneTitle = 'Early Spark';
-    prevMilestone = 1;
-    nextMilestone = 3;
-  } else if (streakDays >= 30) {
+  let milestoneTitle = 'First Step';
+  let prevMilestone = 0;
+  let nextMilestone = 3;
+  if (streakDays >= 30) {
     milestoneTitle = 'Legendary Flow';
     prevMilestone = 30;
     nextMilestone = 50;
@@ -214,14 +236,22 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
     milestoneTitle = 'Habit Builder';
     prevMilestone = 7;
     nextMilestone = 14;
-  } else {
+  } else if (streakDays >= 3) {
     milestoneTitle = 'Rising Momentum';
     prevMilestone = 3;
     nextMilestone = 7;
+  } else if (streakDays >= 1) {
+    milestoneTitle = 'Early Spark';
+    prevMilestone = 1;
+    nextMilestone = 3;
+  } else {
+    milestoneTitle = 'First Step';
+    prevMilestone = 0;
+    nextMilestone = 3;
   }
-  const milestonePct = Math.min(
+  const milestonePct = streakDays === 0 ? 0 : Math.min(
     100,
-    Math.max(15, Math.round(((streakDays - prevMilestone) / Math.max(1, nextMilestone - prevMilestone)) * 100))
+    Math.max(10, Math.round(((streakDays - prevMilestone) / Math.max(1, nextMilestone - prevMilestone)) * 100))
   );
 
   // Auto-scroll the 18-week heatmap to today on mobile
@@ -281,7 +311,9 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
                 </button>
               </div>
               <p className="text-[11px] sm:text-xs text-muted font-medium mt-0.5 truncate">
-                Sreeshnav is in daily flow state • {stats.todayCount} actions logged today
+                {stats.todayCount > 0
+                  ? `Sreeshnav is in daily flow state • ${stats.todayCount} action${stats.todayCount === 1 ? '' : 's'} logged today`
+                  : 'Ready for your daily focus • 0 actions logged today'}
               </p>
             </div>
           </div>
@@ -377,7 +409,7 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
             </span>
           </div>
           <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
-            {stats.currentStreak}d <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">Active</span>
+            {stats.currentStreak}d <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">{stats.currentStreak > 0 ? 'Active' : 'Ready'}</span>
           </div>
         </div>
 
@@ -407,7 +439,11 @@ export const StreakHeroCommandCenter: React.FC<StreakHeroCommandCenterProps> = (
             </span>
           </div>
           <div className="text-base sm:text-lg font-black text-main font-mono leading-none">
-            {stats.todayProgress}% <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">{stats.todayProgress === 100 ? 'Done' : 'Pacing'}</span>
+            {stats.dailyTotal === 0 ? (
+              <>0% <span className="text-[10px] sm:text-[11px] font-bold text-muted font-sans">Ready</span></>
+            ) : (
+              <>{stats.todayProgress}% <span className="text-[10px] sm:text-[11px] font-bold text-accent font-sans">{stats.todayProgress === 100 ? 'Done' : `${stats.dailyCompleted}/${stats.dailyTotal}`}</span></>
+            )}
           </div>
         </div>
 

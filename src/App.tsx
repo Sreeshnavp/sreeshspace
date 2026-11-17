@@ -279,12 +279,17 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        if (localStorage.getItem('orbit_clean_slate_v5') !== 'true') {
+        if (localStorage.getItem('orbit_clean_slate_v6') !== 'true') {
           await purgeAllSampleData();
           const rawCats = await loadCategories();
           const cleanCats = rawCats.filter((c) => !isPreinstalledCategory(c));
           await saveCategories(cleanCats);
-          localStorage.setItem('orbit_clean_slate_v5', 'true');
+          const freshEvents = await loadActivityEvents();
+          const validOnly = freshEvents.filter(
+            (e) => e && !e.type.includes('deleted') && !e.type.includes('uncompleted') && !isSampleItem(e)
+          );
+          await saveActivityEvents(validOnly);
+          localStorage.setItem('orbit_clean_slate_v6', 'true');
         }
         await runDataMigration();
         const [
@@ -720,11 +725,18 @@ export function App() {
     await saveTodos(updated);
 
     const isDaily = (target.type || 'permanent') === 'daily';
-    const eventType = nextCompleted 
-      ? (isDaily ? 'task_completed' : 'goal_completed')
-      : 'task_uncompleted';
+    const eventType = isDaily ? 'task_completed' : 'goal_completed';
 
-    await logActivity(eventType, target.id, target.text);
+    if (nextCompleted) {
+      await logActivity(eventType, target.id, target.text);
+    } else {
+      // Uncompleted: remove completion event so it does not falsely bloat actions count
+      const currentEvents = await loadActivityEvents();
+      const filtered = currentEvents.filter(
+        (e) => !(e.refId === target.id && (e.type === 'task_completed' || e.type === 'goal_completed'))
+      );
+      await saveActivityEvents(filtered);
+    }
     const freshEvents = await loadActivityEvents();
     setEvents(freshEvents);
 

@@ -267,10 +267,18 @@ export function mergeVaultData(
     mergedTombstones
   ).filter((n) => !isSampleItem(n));
 
-  // 5. Events (append-only log, merge and sort by timestamp desc)
+  // 5. Events (append-only log, merge and sort by timestamp desc, filter out deleted and sample events)
   const eventMap = new Map<string, ActivityEvent>();
   for (const e of [...(local.events || []), ...(remote.events || [])]) {
-    if (e && e.id && !isSampleItem(e) && !eventMap.has(e.id)) {
+    if (
+      e && 
+      e.id && 
+      !isSampleItem(e) && 
+      !e.type.includes('deleted') && 
+      !e.type.includes('uncompleted') &&
+      (!mergedTombstones || !e.refId || !mergedTombstones[e.refId]) &&
+      !eventMap.has(e.id)
+    ) {
       eventMap.set(e.id, e);
     }
   }
@@ -306,13 +314,23 @@ export function mergeVaultData(
   const rStreak = remote.streak || { currentStreak: 0, longestStreak: 0, totalActiveDays: 0, freezesRemaining: 1, frozenDates: [] };
   const mergedFrozen = Array.from(new Set([...(lStreak.frozenDates || []), ...(rStreak.frozenDates || [])]));
   
-  const streak: StreakState = {
-    currentStreak: Math.max(lStreak.currentStreak || 0, rStreak.currentStreak || 0),
-    longestStreak: Math.max(lStreak.longestStreak || 0, rStreak.longestStreak || 0),
-    totalActiveDays: Math.max(lStreak.totalActiveDays || 0, rStreak.totalActiveDays || 0),
-    freezesRemaining: Math.min(lStreak.freezesRemaining ?? 1, rStreak.freezesRemaining ?? 1),
-    frozenDates: mergedFrozen,
-  };
+  const isVaultEmpty = links.length === 0 && todos.length === 0 && notes.length === 0;
+
+  const streak: StreakState = isVaultEmpty
+    ? {
+        currentStreak: 0,
+        longestStreak: 0,
+        totalActiveDays: 0,
+        freezesRemaining: 1,
+        frozenDates: [],
+      }
+    : {
+        currentStreak: Math.max(lStreak.currentStreak || 0, rStreak.currentStreak || 0),
+        longestStreak: Math.max(lStreak.longestStreak || 0, rStreak.longestStreak || 0),
+        totalActiveDays: Math.max(lStreak.totalActiveDays || 0, rStreak.totalActiveDays || 0),
+        freezesRemaining: Math.min(lStreak.freezesRemaining ?? 1, rStreak.freezesRemaining ?? 1),
+        frozenDates: mergedFrozen,
+      };
 
   // 9. Settings & Custom Background Wallpaper (Resilient against uninitialized / incognito tabs)
   const localWp = local.settings?.wallpaper;
