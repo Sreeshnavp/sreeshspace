@@ -13,6 +13,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { isSoundEnabled, toggleSound, triggerPartyPop } from '../utils/delight';
+import avatarImg from '../assets/avatar.png';
 
 interface HeaderProps {
   searchQuery: string;
@@ -58,8 +59,15 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 sm:gap-2.5 shrink-0 cursor-pointer group select-none"
             title="Click for celebratory stars ✨"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform">
-              <span className="text-sm sm:text-base select-none">🪐</span>
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-soft group-hover:scale-110 active:scale-95 transition-all">
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-surface relative flex items-center justify-center">
+                <img 
+                  src={avatarImg} 
+                  alt="Sreeshnav" 
+                  className="w-full h-full object-cover rounded-[14px] group-hover:rotate-6 transition-transform duration-300" 
+                />
+                <span className="absolute -top-1 -right-1 text-[9px] animate-pulse select-none">✨</span>
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-1 sm:gap-1.5">
