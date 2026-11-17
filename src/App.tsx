@@ -132,6 +132,9 @@ export function App() {
   // Search Query
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Link Filter (All vs Starred)
+  const [linkFilter, setLinkFilter] = useState<'all' | 'starred'>('all');
+
   // Active Dragging Link ID & Category Dragging State
   const [activeDraggingLinkId, setActiveDraggingLinkId] = useState<string | null>(null);
   const [isDraggingAnyCategory, setIsDraggingAnyCategory] = useState(false);
@@ -509,9 +512,22 @@ export function App() {
 
   // Standalone Links Filtered
   const standaloneLinks = useMemo(() => {
-    return links.filter(
+    const loose = links.filter(
       (l) => !l.category || l.category === 'Uncategorized' || l.category === ''
     );
+    return [...loose].sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+        return a.pinned ? -1 : 1;
+      }
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+  }, [links]);
+
+  // Starred / Favorite Links across all folders and canvas
+  const starredLinks = useMemo(() => {
+    return links
+      .filter((l) => Boolean(l.pinned))
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
   }, [links]);
 
   // Filtered links by search query
@@ -1586,78 +1602,172 @@ export function App() {
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'links' || workspaceView === 'both') && (
               <div className="space-y-3.5 sm:space-y-4">
-                {/* Toolbar Header with Small "+ New Folder" Button */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
+                {/* Toolbar Header with [All] & [⭐] Filter Buttons (matching user drawing) and "+ New Folder" Button */}
+                <div className="flex items-center justify-between px-1 gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <span className="text-base select-none">🔗</span>
                     <h2 className="font-extrabold text-base sm:text-lg text-main">
                       Links
                     </h2>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
-                      {links.length}
+                      {linkFilter === 'starred' ? starredLinks.length : links.length}
                     </span>
+
+                    {/* Filter Segmented Control: [All] and [⭐ Starred] */}
+                    <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle ml-0.5 sm:ml-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkFilter('all');
+                          playPopSound();
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          linkFilter === 'all'
+                            ? 'bg-surface text-main shadow-2xs font-extrabold'
+                            : 'text-muted hover:text-main'
+                        }`}
+                        aria-label="Show All Links"
+                      >
+                        <span>All</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkFilter('starred');
+                          playPopSound();
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          linkFilter === 'starred'
+                            ? 'bg-surface text-amber-500 shadow-2xs font-extrabold'
+                            : 'text-muted hover:text-amber-500'
+                        }`}
+                        aria-label="Show Starred Links"
+                        title="Show Starred Bookmarks"
+                      >
+                        <Star size={13} className={linkFilter === 'starred' ? 'fill-amber-400 text-amber-500' : 'text-faint hover:text-amber-500'} />
+                        <span className="hidden sm:inline">Starred</span>
+                        {starredLinks.length > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                            linkFilter === 'starred' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface text-muted'
+                          }`}>
+                            {starredLinks.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Small cute button on the side to create a category */}
-                  <button
-                    onClick={() => {
-                      const name = prompt('Enter a name for the new folder:');
-                      if (name && name.trim()) {
-                        handleAddCategory({
-                          name: name.trim(),
-                          color: 'sage',
-                          icon: '📁',
-                        });
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-accent shadow-2xs transition-all active:scale-95 cursor-pointer min-h-[38px]"
-                  >
-                    <Plus size={13} className="stroke-[2.5]" />
-                    <span>New Folder</span>
-                  </button>
-                </div>
-
-                {/* UNIFIED SYMMETRICAL GRID: Category Squares AND Standalone Bookmarks all in one view! */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
-                  
-                  {/* Category Bundle Squares */}
-                  {categories.map((category, index) => (
-                    <CategoryBundleSquare
-                      key={category.id || category.name}
-                      category={category}
-                      links={links}
-                      index={index}
-                      activeDraggingLinkId={activeDraggingLinkId}
-                      onOpenFolder={(cat) => setFolderModalCategory(cat)}
-                      onEditCategory={(cat) => setEditingCategory(cat)}
-                      onDropLink={handleDropLinkOnCategory}
-                      onReorderCategory={handleReorderCategory}
-                      onStartDragCategory={() => setIsDraggingAnyCategory(true)}
-                      onEndDragCategory={() => setIsDraggingAnyCategory(false)}
-                      isDraggingAnyCategory={isDraggingAnyCategory}
-                    />
-                  ))}
-
-                  {/* Standalone Bookmarks sitting right in the same canvas */}
-                  {standaloneLinks.map((link) => (
-                    <StandaloneLinkCard
-                      key={link.id}
-                      link={link}
-                      onSelect={(l) => setDetailLink(l)}
-                      onTogglePin={handleTogglePin}
-                      onVisit={handleVisitLink}
-                      onOpenAttachment={(att) => setActiveAttachment(att)}
-                      onDragStart={(e, id) => {
-                        setActiveDraggingLinkId(id);
-                        e.dataTransfer.setData('text/plain', id);
-                        e.dataTransfer.setData('application/link-id', id);
-                        e.dataTransfer.effectAllowed = 'move';
+                  {/* Actions on right */}
+                  <div className="flex items-center gap-2">
+                    {/* Small cute button on the side to create a category */}
+                    <button
+                      onClick={() => {
+                        const name = prompt('Enter a name for the new folder:');
+                        if (name && name.trim()) {
+                          handleAddCategory({
+                            name: name.trim(),
+                            color: 'sage',
+                            icon: '📁',
+                          });
+                        }
                       }}
-                      onDragEnd={() => setActiveDraggingLinkId(null)}
-                    />
-                  ))}
-
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-accent shadow-2xs transition-all active:scale-95 cursor-pointer min-h-[38px]"
+                    >
+                      <Plus size={13} className="stroke-[2.5]" />
+                      <span>New Folder</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* CONTENT AREA: All (Folders + Canvas) vs Starred Grid */}
+                {linkFilter === 'starred' ? (
+                  /* STARRED / FAVORITES VIEW */
+                  starredLinks.length === 0 ? (
+                    <div className="p-8 sm:p-12 text-center rounded-3xl bg-surface border border-subtle shadow-soft">
+                      <div className="w-14 h-14 rounded-3xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 mx-auto flex items-center justify-center mb-3 border border-amber-200 dark:border-amber-900">
+                        <Star size={26} className="fill-amber-400 text-amber-500 animate-pulse" />
+                      </div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-main mb-1">
+                        No Starred Bookmarks Yet
+                      </h3>
+                      <p className="text-xs text-muted max-w-sm mx-auto mb-4">
+                        Click the star icon ⭐ on any bookmark (on the canvas or inside folders) to pin your favorites here for instant access.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkFilter('all');
+                          playPopSound();
+                        }}
+                        className="px-4 py-2 rounded-xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover transition-all active:scale-95 cursor-pointer"
+                      >
+                        View All Bookmarks
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                      {starredLinks.map((link) => (
+                        <StandaloneLinkCard
+                          key={link.id}
+                          link={link}
+                          onSelect={(l) => setDetailLink(l)}
+                          onTogglePin={handleTogglePin}
+                          onVisit={handleVisitLink}
+                          onOpenAttachment={(att) => setActiveAttachment(att)}
+                          onDragStart={(e, id) => {
+                            setActiveDraggingLinkId(id);
+                            e.dataTransfer.setData('text/plain', id);
+                            e.dataTransfer.setData('application/link-id', id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onDragEnd={() => setActiveDraggingLinkId(null)}
+                        />
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  /* UNIFIED SYMMETRICAL GRID: Category Squares AND Standalone Bookmarks all in one view! */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                    
+                    {/* Category Bundle Squares */}
+                    {categories.map((category, index) => (
+                      <CategoryBundleSquare
+                        key={category.id || category.name}
+                        category={category}
+                        links={links}
+                        index={index}
+                        activeDraggingLinkId={activeDraggingLinkId}
+                        onOpenFolder={(cat) => setFolderModalCategory(cat)}
+                        onEditCategory={(cat) => setEditingCategory(cat)}
+                        onDropLink={handleDropLinkOnCategory}
+                        onReorderCategory={handleReorderCategory}
+                        onStartDragCategory={() => setIsDraggingAnyCategory(true)}
+                        onEndDragCategory={() => setIsDraggingAnyCategory(false)}
+                        isDraggingAnyCategory={isDraggingAnyCategory}
+                      />
+                    ))}
+
+                    {/* Standalone Bookmarks sitting right in the same canvas */}
+                    {standaloneLinks.map((link) => (
+                      <StandaloneLinkCard
+                        key={link.id}
+                        link={link}
+                        onSelect={(l) => setDetailLink(l)}
+                        onTogglePin={handleTogglePin}
+                        onVisit={handleVisitLink}
+                        onOpenAttachment={(att) => setActiveAttachment(att)}
+                        onDragStart={(e, id) => {
+                          setActiveDraggingLinkId(id);
+                          e.dataTransfer.setData('text/plain', id);
+                          e.dataTransfer.setData('application/link-id', id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => setActiveDraggingLinkId(null)}
+                      />
+                    ))}
+
+                  </div>
+                )}
               </div>
             )}
 
