@@ -399,15 +399,17 @@ export function mergeVaultData(
     mergedTombstones
   );
 
-  // 11. Finance Categories
-  const localFinanceCats: FinanceCategory[] = (local.settings?.financeCategories as FinanceCategory[]) || [];
-  const remoteFinanceCats: FinanceCategory[] = (remote.settings?.financeCategories as FinanceCategory[]) || [];
+  // 11. Finance Categories (Only user-created categories)
+  const localFinanceCats: FinanceCategory[] = ((local.settings?.financeCategories as FinanceCategory[]) || [])
+    .filter((c) => !c.isDefault && !c.id.startsWith('cat-'));
+  const remoteFinanceCats: FinanceCategory[] = ((remote.settings?.financeCategories as FinanceCategory[]) || [])
+    .filter((c) => !c.isDefault && !c.id.startsWith('cat-'));
   const financeCategories = mergeItemsById(
     localFinanceCats,
     remoteFinanceCats,
     () => 0,
     mergedTombstones
-  );
+  ).filter((c) => !c.isDefault && !c.id.startsWith('cat-'));
 
   const settings = {
     ...(remote.settings || {}),
@@ -415,7 +417,7 @@ export function mergeVaultData(
     wallpaper: mergedWp,
     tombstones: mergedTombstones,
     finances,
-    financeCategories: financeCategories.length > 0 ? financeCategories : localFinanceCats,
+    financeCategories,
   };
 
   return {

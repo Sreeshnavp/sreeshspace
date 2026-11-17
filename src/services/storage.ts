@@ -904,19 +904,19 @@ export const STORAGE_KEY_FINANCE_CURRENCY = 'orbit_finance_currency_v1';
 export async function loadFinanceCategories(): Promise<FinanceCategory[]> {
   try {
     const data = await get<FinanceCategory[]>(STORAGE_KEY_FINANCE_CATEGORIES);
-    if (data && Array.isArray(data) && data.length > 0) {
-      return data;
+    if (data && Array.isArray(data)) {
+      return data.filter((c) => !c.isDefault && !c.id.startsWith('cat-'));
     }
     const local = localStorage.getItem(STORAGE_KEY_FINANCE_CATEGORIES);
     if (local) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c: any) => !c.isDefault && !c.id?.startsWith('cat-'));
       }
     }
-    return DEFAULT_FINANCE_CATEGORIES;
+    return [];
   } catch {
-    return DEFAULT_FINANCE_CATEGORIES;
+    return [];
   }
 }
 

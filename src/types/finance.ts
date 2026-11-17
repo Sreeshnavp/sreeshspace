@@ -24,27 +24,7 @@ export interface FinanceCategory {
 
 export type FinanceCategoryPreset = FinanceCategory;
 
-export const DEFAULT_FINANCE_CATEGORIES: FinanceCategory[] = [
-  // Expenses
-  { id: 'cat-food', name: 'Food & Dining', icon: '🍔', type: 'expense', isDefault: true },
-  { id: 'cat-coffee', name: 'Coffee & Drinks', icon: '☕', type: 'expense', isDefault: true },
-  { id: 'cat-groceries', name: 'Groceries', icon: '🛒', type: 'expense', isDefault: true },
-  { id: 'cat-pet', name: 'Pet Care', icon: '🐶', type: 'expense', isDefault: true },
-  { id: 'cat-commute', name: 'Commute & Travel', icon: '🚕', type: 'expense', isDefault: true },
-  { id: 'cat-house', name: 'House & Repairs', icon: '🛠️', type: 'expense', isDefault: true },
-  { id: 'cat-fun', name: 'Fun & Leisure', icon: '🎬', type: 'expense', isDefault: true },
-  { id: 'cat-shopping', name: 'Shopping', icon: '🛍️', type: 'expense', isDefault: true },
-  { id: 'cat-bills', name: 'Bills & Utilities', icon: '⚡', type: 'expense', isDefault: true },
-  { id: 'cat-health', name: 'Health & Fitness', icon: '💊', type: 'expense', isDefault: true },
-  { id: 'cat-other-exp', name: 'Other Expense', icon: '🏷️', type: 'expense', isDefault: true },
-
-  // Income
-  { id: 'cat-salary', name: 'Salary & Wages', icon: '💼', type: 'income', isDefault: true },
-  { id: 'cat-freelance', name: 'Freelance & Side Gig', icon: '💻', type: 'income', isDefault: true },
-  { id: 'cat-invest', name: 'Investments & Returns', icon: '📈', type: 'income', isDefault: true },
-  { id: 'cat-gift', name: 'Gifts & Rewards', icon: '🎁', type: 'income', isDefault: true },
-  { id: 'cat-other-inc', name: 'Other Income', icon: '💰', type: 'income', isDefault: true },
-];
+export const DEFAULT_FINANCE_CATEGORIES: FinanceCategory[] = [];
 
 export const CUTE_CATEGORY_ICONS = [
   '🍔', '☕', '🧋', '🍕', '🍰', '🥑', '🛒', '🚕', '🚌', '✈️',

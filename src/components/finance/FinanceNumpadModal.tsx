@@ -45,11 +45,19 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
   onSaveCategory,
   onDeleteCategory,
 }) => {
+  const fallbackCat = (t: TransactionType): FinanceCategory => ({
+    id: 'general',
+    name: 'General',
+    icon: t === 'income' ? '💰' : '🏷️',
+    type: t,
+  });
+
   const [type, setType] = useState<TransactionType>(defaultType || 'expense');
   const [amountStr, setAmountStr] = useState<string>('0');
-  const [selectedCategory, setSelectedCategory] = useState<FinanceCategory>(
-    defaultCategory || categories[0] || DEFAULT_FINANCE_CATEGORIES[0]
-  );
+  const [selectedCategory, setSelectedCategory] = useState<FinanceCategory>(() => {
+    const initType = defaultType || 'expense';
+    return defaultCategory || categories.find((c) => c.type === initType) || categories[0] || fallbackCat(initType);
+  });
   const [merchant, setMerchant] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(todayKey());
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
@@ -101,7 +109,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
       const initType = defaultType || 'expense';
       setType(initType);
       setAmountStr('0');
-      const firstCat = defaultCategory || categories.find((c) => c.type === initType) || categories[0] || DEFAULT_FINANCE_CATEGORIES[0];
+      const firstCat = defaultCategory || categories.find((c) => c.type === initType) || categories[0] || fallbackCat(initType);
       setSelectedCategory(firstCat);
       setMerchant('');
       setSelectedDate(todayKey());
@@ -117,6 +125,8 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     const matching = categories.find((c) => c.type === newType);
     if (matching) {
       setSelectedCategory(matching);
+    } else {
+      setSelectedCategory(fallbackCat(newType));
     }
   };
 
@@ -495,40 +505,53 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {currentModeCategories.map((cat) => {
-                const isSelected = cat.id === selectedCategory.id;
-                return (
-                  <div
-                    key={cat.id}
-                    onClick={() => {
-                      playPopSound();
-                      setSelectedCategory(cat);
-                      setIsCategoryPickerOpen(false);
-                    }}
-                    className={`flex items-center justify-between p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all group ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white border-transparent font-bold shadow-2xs'
-                        : 'bg-surface hover:bg-surface/90 text-main border-subtle'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="text-base select-none">{cat.icon}</span>
-                      <span className="truncate">{cat.name}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleOpenEditCategory(cat, e)}
-                      className="opacity-60 group-hover:opacity-100 p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-opacity"
-                      title="Edit Category"
+            {currentModeCategories.length === 0 ? (
+              <div className="p-4 text-center space-y-2 bg-surface rounded-2xl border border-subtle">
+                <p className="text-xs text-muted">No {type} categories created yet.</p>
+                <button
+                  type="button"
+                  onClick={handleOpenNewCategory}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
+                >
+                  + Create First {type === 'expense' ? 'Expense' : 'Income'} Category
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {currentModeCategories.map((cat) => {
+                  const isSelected = cat.id === selectedCategory.id;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => {
+                        playPopSound();
+                        setSelectedCategory(cat);
+                        setIsCategoryPickerOpen(false);
+                      }}
+                      className={`flex items-center justify-between p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all group ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white border-transparent font-bold shadow-2xs'
+                          : 'bg-surface hover:bg-surface/90 text-main border-subtle'
+                      }`}
                     >
-                      <Edit3 size={11} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-base select-none">{cat.icon}</span>
+                        <span className="truncate">{cat.name}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditCategory(cat, e)}
+                        className="opacity-60 group-hover:opacity-100 p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-opacity"
+                        title="Edit Category"
+                      >
+                        <Edit3 size={11} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

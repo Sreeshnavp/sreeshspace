@@ -594,58 +594,74 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
 
         {/* Circular Avatar Badges */}
-        <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
-          <button
-            onClick={() => {
-              playPopSound();
-              setCategoryFilter('all');
-            }}
-            className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-          >
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-transform group-hover:scale-110 shadow-sm ${
-              categoryFilter === 'all' ? 'bg-white text-[#6E3BFF] ring-2 ring-white' : 'bg-white/20 text-white'
-            }`}>
-              All
-            </div>
-            <span className="text-[10px] font-bold text-white/90">All</span>
-          </button>
+        {categories.length === 0 ? (
+          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-white/10 backdrop-blur-sm">
+            <span className="text-xs text-white/90 font-medium">No categories created yet</span>
+            <button
+              onClick={() => {
+                playPopSound();
+                setIsCategoryManagerOpen(true);
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-[#6E3BFF] font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              <Plus size={13} className="stroke-[3]" />
+              <span>Create Category</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
+            <button
+              onClick={() => {
+                playPopSound();
+                setCategoryFilter('all');
+              }}
+              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-transform group-hover:scale-110 shadow-sm ${
+                categoryFilter === 'all' ? 'bg-white text-[#6E3BFF] ring-2 ring-white' : 'bg-white/20 text-white'
+              }`}>
+                All
+              </div>
+              <span className="text-[10px] font-bold text-white/90">All</span>
+            </button>
 
-          {categories.map((cat) => {
-            const isSelected = categoryFilter === cat.name;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  playPopSound();
-                  setCategoryFilter(isSelected ? 'all' : cat.name);
-                }}
-                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-              >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform group-hover:scale-110 shadow-sm ${
-                  isSelected ? 'bg-white text-main ring-2 ring-white scale-105' : 'bg-white/20 text-white'
-                }`}>
-                  {cat.icon}
-                </div>
-                <span className="text-[10px] font-bold text-white/90 truncate max-w-[55px]">
-                  {cat.name.split(' ')[0]}
-                </span>
-              </button>
-            );
-          })}
+            {categories.map((cat) => {
+              const isSelected = categoryFilter === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    playPopSound();
+                    setCategoryFilter(isSelected ? 'all' : cat.name);
+                  }}
+                  className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+                >
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform group-hover:scale-110 shadow-sm ${
+                    isSelected ? 'bg-white text-main ring-2 ring-white scale-105' : 'bg-white/20 text-white'
+                  }`}>
+                    {cat.icon}
+                  </div>
+                  <span className="text-[10px] font-bold text-white/90 truncate max-w-[55px]">
+                    {cat.name.split(' ')[0]}
+                  </span>
+                </button>
+              );
+            })}
 
-          <button
-            onClick={() => {
-              playPopSound();
-              setIsCategoryManagerOpen(true);
-            }}
-            className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-          >
-            <div className="w-12 h-12 rounded-full border border-dashed border-white/50 flex items-center justify-center text-white/80 transition-transform group-hover:scale-110">
-              <Plus size={18} />
-            </div>
-            <span className="text-[10px] font-bold text-white/80">Add</span>
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                playPopSound();
+                setIsCategoryManagerOpen(true);
+              }}
+              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-full border border-dashed border-white/50 flex items-center justify-center text-white/80 transition-transform group-hover:scale-110">
+                <Plus size={18} />
+              </div>
+              <span className="text-[10px] font-bold text-white/80">Add</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 6. TOP SPENDING BREAKDOWN METERS (If expenses exist) */}
