@@ -23,6 +23,8 @@ import {
   saveTombstones,
   loadFinanceTransactions,
   saveFinanceTransactions,
+  loadFinanceCategories,
+  saveFinanceCategories,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -36,6 +38,7 @@ import type {
   RoutineItem,
   StreakState,
   FinanceTransaction,
+  FinanceCategory,
 } from '../types';
 
 export const STORAGE_KEY_SYNC_KEY = 'orbit_sync_key_v1';
@@ -396,12 +399,23 @@ export function mergeVaultData(
     mergedTombstones
   );
 
+  // 11. Finance Categories
+  const localFinanceCats: FinanceCategory[] = (local.settings?.financeCategories as FinanceCategory[]) || [];
+  const remoteFinanceCats: FinanceCategory[] = (remote.settings?.financeCategories as FinanceCategory[]) || [];
+  const financeCategories = mergeItemsById(
+    localFinanceCats,
+    remoteFinanceCats,
+    () => 0,
+    mergedTombstones
+  );
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
     wallpaper: mergedWp,
     tombstones: mergedTombstones,
     finances,
+    financeCategories: financeCategories.length > 0 ? financeCategories : localFinanceCats,
   };
 
   return {
@@ -460,6 +474,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localBg,
       localTombstones,
       localFinances,
+      localFinanceCats,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -472,6 +487,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadCustomBackground(),
       loadTombstones(),
       loadFinanceTransactions(),
+      loadFinanceCategories(),
     ]);
 
     const localData = {
@@ -494,6 +510,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         },
         tombstones: localTombstones,
         finances: localFinances,
+        financeCategories: localFinanceCats,
       },
     };
 
@@ -540,6 +557,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         : Promise.resolve(),
       mergedPayload.settings?.finances
         ? saveFinanceTransactions(mergedPayload.settings.finances)
+        : Promise.resolve(),
+      mergedPayload.settings?.financeCategories
+        ? saveFinanceCategories(mergedPayload.settings.financeCategories)
         : Promise.resolve(),
     ]);
 

@@ -13,8 +13,10 @@ import type {
   StreakState, 
   DayLog, 
   RoutineItem,
-  FinanceTransaction
+  FinanceTransaction,
+  FinanceCategory
 } from './types';
+import { DEFAULT_FINANCE_CATEGORIES } from './types/finance';
 import { 
   loadLinks, 
   saveLinks, 
@@ -36,6 +38,10 @@ import {
   saveRoutines,
   loadFinanceTransactions,
   saveFinanceTransactions,
+  loadFinanceCategories,
+  saveFinanceCategories,
+  loadFinanceCurrency,
+  saveFinanceCurrency,
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
@@ -115,6 +121,8 @@ export function App() {
 
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
+  const [financeCategories, setFinanceCategories] = useState<FinanceCategory[]>(DEFAULT_FINANCE_CATEGORIES);
+  const [financeCurrency, setFinanceCurrency] = useState<string>(() => loadFinanceCurrency());
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
 
@@ -215,6 +223,7 @@ export function App() {
         loadedRoutines,
         loadedBgData,
         loadedFinances,
+        loadedFinanceCats,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -226,6 +235,7 @@ export function App() {
         loadRoutines(),
         loadCustomBackground(),
         loadFinanceTransactions(),
+        loadFinanceCategories(),
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
@@ -236,6 +246,9 @@ export function App() {
       if (loadedStreak) setStreakState(loadedStreak);
       setRoutines(loadedRoutines);
       setTransactions(loadedFinances);
+      if (loadedFinanceCats && loadedFinanceCats.length > 0) {
+        setFinanceCategories(loadedFinanceCats);
+      }
       if (loadedBgData) {
         setCustomBgImage(loadedBgData.imageUrl);
         setBgSettings(loadedBgData.settings);
@@ -316,6 +329,7 @@ export function App() {
           loadedRoutines,
           loadedBgData,
           loadedFinances,
+          loadedFinanceCats,
         ] = await Promise.all([
           loadLinks(),
           loadCategories(),
@@ -327,6 +341,7 @@ export function App() {
           loadRoutines(),
           loadCustomBackground(),
           loadFinanceTransactions(),
+          loadFinanceCategories(),
         ]);
         const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
         const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
@@ -347,6 +362,9 @@ export function App() {
         if (loadedStreak) setStreakState(loadedStreak);
         setRoutines(loadedRoutines);
         setTransactions(loadedFinances);
+        if (loadedFinanceCats && loadedFinanceCats.length > 0) {
+          setFinanceCategories(loadedFinanceCats);
+        }
         if (loadedBgData?.imageUrl) setCustomBgImage(loadedBgData.imageUrl);
         if (loadedBgData?.settings) setBgSettings(loadedBgData.settings);
 
@@ -1294,6 +1312,38 @@ export function App() {
     showToast('Transaction deleted');
   };
 
+  const handleSaveFinanceCategory = async (cat: FinanceCategory) => {
+    const existingIndex = financeCategories.findIndex((c) => c.id === cat.id);
+    let updated: FinanceCategory[];
+    if (existingIndex >= 0) {
+      updated = [...financeCategories];
+      updated[existingIndex] = cat;
+      showToast(`Updated "${cat.name}" category! ✨`);
+    } else {
+      updated = [...financeCategories, cat];
+      showToast(`Created "${cat.name}" category! 🎉`);
+    }
+    setFinanceCategories(updated);
+    await saveFinanceCategories(updated);
+    triggerAutoSync();
+  };
+
+  const handleDeleteFinanceCategory = async (id: string) => {
+    await recordTombstone(id);
+    const cat = financeCategories.find((c) => c.id === id);
+    const updated = financeCategories.filter((c) => c.id !== id);
+    setFinanceCategories(updated);
+    await saveFinanceCategories(updated);
+    triggerAutoSync();
+    showToast(cat ? `Deleted "${cat.name}" category` : 'Category deleted');
+  };
+
+  const handleChangeFinanceCurrency = (symbol: string) => {
+    setFinanceCurrency(symbol);
+    saveFinanceCurrency(symbol);
+    showToast(`Currency changed to ${symbol} 🪙`);
+  };
+
   // Wallpaper handlers
   const handleSaveCustomBgImage = async (dataUrl: string | null) => {
     setCustomBgImage(dataUrl);
@@ -1601,6 +1651,9 @@ export function App() {
               <div className="pt-2">
                 <FinanceDashboard
                   transactions={transactions}
+                  categories={financeCategories}
+                  currency={financeCurrency}
+                  onChangeCurrency={handleChangeFinanceCurrency}
                   onOpenAddModal={() => {
                     setEditingTransaction(null);
                     setIsFinanceModalOpen(true);
@@ -1610,6 +1663,8 @@ export function App() {
                     setIsFinanceModalOpen(true);
                   }}
                   onDeleteTransaction={handleDeleteFinanceTransaction}
+                  onSaveCategory={handleSaveFinanceCategory}
+                  onDeleteCategory={handleDeleteFinanceCategory}
                 />
               </div>
             )}
@@ -1854,6 +1909,10 @@ export function App() {
         }}
         onSave={handleSaveFinanceTransaction}
         initialData={editingTransaction}
+        categories={financeCategories}
+        currency={financeCurrency}
+        onSaveCategory={handleSaveFinanceCategory}
+        onDeleteCategory={handleDeleteFinanceCategory}
       />
 
       {/* Supabase Cloud Sync & Mobile Pairing Modal */}

@@ -17,25 +17,41 @@ import {
   Lightbulb,
   CheckCircle2,
   AlertTriangle,
-  Info
+  Info,
+  Tag,
+  DollarSign,
+  Layers
 } from 'lucide-react';
-import type { FinanceTransaction, FinancialInsights } from '../../types/finance';
+import type { FinanceTransaction, FinancialInsights, FinanceCategory, TransactionType } from '../../types/finance';
+import { CUTE_CATEGORY_ICONS } from '../../types/finance';
 import { calculateFinanceInsights } from '../../utils/financeInsights';
 import { todayKey, diffInDays } from '../../utils/dates';
 import { playPopSound } from '../../utils/delight';
 
 interface FinanceDashboardProps {
   transactions: FinanceTransaction[];
+  categories: FinanceCategory[];
+  currency?: string;
+  onChangeCurrency?: (symbol: string) => void;
   onOpenAddModal: () => void;
   onEditTransaction: (tx: FinanceTransaction) => void;
   onDeleteTransaction: (id: string) => void;
+  onSaveCategory: (cat: FinanceCategory) => void;
+  onDeleteCategory: (id: string) => void;
 }
+
+const CURRENCY_OPTIONS = ['$', '₹', '€', '£', '¥', '₩'];
 
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions,
+  categories,
+  currency = '$',
+  onChangeCurrency,
   onOpenAddModal,
   onEditTransaction,
   onDeleteTransaction,
+  onSaveCategory,
+  onDeleteCategory,
 }) => {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -44,7 +60,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
+
+  // Category Manager Modal state
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<FinanceCategory | null>(null);
+  const [catNameInput, setCatNameInput] = useState('');
+  const [catIconInput, setCatIconInput] = useState('🏷️');
+  const [catTypeInput, setCatTypeInput] = useState<TransactionType>('expense');
 
   // Month selector options (past 12 months)
   const monthOptions = useMemo(() => {
@@ -65,6 +89,30 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return calculateFinanceInsights(transactions, selectedMonthKey);
   }, [transactions, selectedMonthKey]);
 
+  // Breakdown of expenses by category for the visual category distribution bar
+  const categoryBreakdown = useMemo(() => {
+    const monthExpenses = transactions.filter(
+      (tx) => tx.type === 'expense' && tx.date && tx.date.startsWith(selectedMonthKey)
+    );
+    const map: Record<string, { name: string; icon: string; amount: number }> = {};
+    let totalExp = 0;
+    monthExpenses.forEach((tx) => {
+      const val = Number(tx.amount) || 0;
+      totalExp += val;
+      if (!map[tx.category]) {
+        map[tx.category] = { name: tx.category, icon: tx.categoryIcon || '💸', amount: 0 };
+      }
+      map[tx.category].amount += val;
+    });
+
+    return Object.values(map)
+      .map((item) => ({
+        ...item,
+        pct: totalExp > 0 ? Math.round((item.amount / totalExp) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, selectedMonthKey]);
+
   // Filtered transactions for the list
   const filteredTransactions = useMemo(() => {
     return transactions
@@ -75,6 +123,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         }
         // Type filter
         if (typeFilter !== 'all' && tx.type !== typeFilter) {
+          return false;
+        }
+        // Category filter
+        if (categoryFilter !== 'all' && tx.category !== categoryFilter) {
           return false;
         }
         // Search filter
@@ -89,13 +141,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         return true;
       })
       .sort((a, b) => {
-        // Sort descending by date, then by createdAt
         if (a.date !== b.date) {
           return b.date.localeCompare(a.date);
         }
         return b.createdAt.localeCompare(a.createdAt);
       });
-  }, [transactions, selectedMonthKey, typeFilter, searchQuery]);
+  }, [transactions, selectedMonthKey, typeFilter, categoryFilter, searchQuery]);
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
@@ -131,7 +182,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       dateMap[d].items.push(tx);
     });
 
-    // Update subtotals in groups
     groups.forEach((g) => {
       g.subtotal = dateMap[g.dateStr].subtotal;
     });
@@ -158,9 +208,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
     return data.map((item, idx) => {
       const x = padX + (idx / (data.length - 1)) * innerW;
-      // Invert Y: higher expense/amount is higher on the curve
       const normalized = (item.expense - minVal) / range;
-      // Clamped Y
       const y = padY + innerH - normalized * innerH;
       return {
         ...item,
@@ -193,7 +241,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return path;
   }, [trendPoints]);
 
-  // Area under curve for soft gradient
   const trendAreaPath = useMemo(() => {
     if (trendPoints.length === 0 || !trendPath) return '';
     const last = trendPoints[trendPoints.length - 1];
@@ -203,32 +250,115 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
   const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
 
+  // Income vs Expense Percentages for visual comparison bar
+  const totalFlow = insights.totalIncome + insights.totalExpenses;
+  const incomePct = totalFlow > 0 ? Math.round((insights.totalIncome / totalFlow) * 100) : 50;
+  const expensePct = totalFlow > 0 ? 100 - incomePct : 50;
+
+  // Category Manager Handlers
+  const handleOpenCategoryManager = () => {
+    playPopSound();
+    setIsCategoryManagerOpen(true);
+    setEditingCategory(null);
+  };
+
+  const handleStartCreateCategory = () => {
+    playPopSound();
+    setEditingCategory(null);
+    setCatNameInput('');
+    setCatIconInput('🏷️');
+    setCatTypeInput('expense');
+  };
+
+  const handleStartEditCategory = (cat: FinanceCategory) => {
+    playPopSound();
+    setEditingCategory(cat);
+    setCatNameInput(cat.name);
+    setCatIconInput(cat.icon);
+    setCatTypeInput(cat.type);
+  };
+
+  const handleSaveCategorySubmit = () => {
+    if (!catNameInput.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+    playPopSound();
+    const updatedCat: FinanceCategory = {
+      id: editingCategory ? editingCategory.id : `fcat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: catNameInput.trim(),
+      icon: catIconInput.trim() || '🏷️',
+      type: catTypeInput,
+    };
+    onSaveCategory(updatedCat);
+    setEditingCategory(null);
+    setCatNameInput('');
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 max-w-2xl mx-auto pb-16">
       
       {/* 1. MIBU MINIMAL HEADER BAR */}
-      <div className="flex items-center justify-between gap-3 px-1">
-        {/* Month Dropdown Pill */}
-        <div className="relative inline-block">
-          <select
-            value={selectedMonthKey}
-            onChange={(e) => setSelectedMonthKey(e.target.value)}
-            className="appearance-none bg-surface/90 hover:bg-surface border border-subtle/80 text-main font-semibold text-xs sm:text-sm pl-3.5 pr-8 py-1.5 rounded-full shadow-2xs cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-accent/30"
-          >
-            {monthOptions.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={13}
-            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted"
-          />
+      <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+        {/* Month Dropdown Pill & Currency Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative inline-block">
+            <select
+              value={selectedMonthKey}
+              onChange={(e) => setSelectedMonthKey(e.target.value)}
+              className="appearance-none bg-surface/90 hover:bg-surface border border-subtle/80 text-main font-semibold text-xs sm:text-sm pl-3.5 pr-8 py-1.5 rounded-full shadow-2xs cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-accent/30"
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={13}
+              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+            />
+          </div>
+
+          {/* Quick Currency Selector */}
+          {onChangeCurrency && (
+            <div className="relative inline-block">
+              <select
+                value={currency}
+                onChange={(e) => {
+                  playPopSound();
+                  onChangeCurrency(e.target.value);
+                }}
+                className="appearance-none bg-surface/90 hover:bg-surface border border-subtle/80 text-main font-mono font-bold text-xs pl-2.5 pr-5 py-1.5 rounded-full shadow-2xs cursor-pointer focus:outline-none"
+                title="Change Currency"
+              >
+                {CURRENCY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={10}
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Action Controls: Search Toggle + Add Button */}
+        {/* Action Controls: Categories Manager, Search, Record */}
         <div className="flex items-center gap-2">
+          {/* Categories Manager Button */}
+          <button
+            onClick={handleOpenCategoryManager}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/90 hover:bg-sunken border border-subtle/70 text-xs font-bold text-main shadow-2xs transition-all cursor-pointer min-h-[38px]"
+            title="Manage Categories"
+          >
+            <Tag size={13} className="text-accent" />
+            <span className="hidden sm:inline">Categories</span>
+          </button>
+
+          {/* Search Toggle */}
           <button
             onClick={() => {
               playPopSound();
@@ -246,6 +376,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <Search size={14} className="stroke-[2.2]" />
           </button>
 
+          {/* Record Button */}
           <button
             onClick={() => {
               playPopSound();
@@ -259,7 +390,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       </div>
 
-      {/* SEARCH BAR INPUT (Collapsible) */}
+      {/* SEARCH BAR (Collapsible) */}
       {isSearchOpen && (
         <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
@@ -284,37 +415,70 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
       {/* 2. MIBU HERO BALANCE CARD & WAVE CHART */}
       <div className="bg-surface/90 backdrop-blur-md rounded-3xl p-5 sm:p-7 border border-subtle/80 shadow-xs relative overflow-hidden transition-all">
-        {/* Soft Background Radial */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
-        {/* Big Balance Amount */}
+        {/* Cute Financial Health Status Badge */}
         <div className="text-center space-y-1 py-1">
-          <p className="text-[11px] font-bold tracking-wider text-muted uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sunken/80 border border-subtle/80 text-[11px] font-bold text-muted">
+            {filteredTransactions.length === 0 ? (
+              <span>🌸 Fresh Canvas • Ready for records</span>
+            ) : insights.savingsRate >= 30 ? (
+              <span className="text-emerald-600 dark:text-emerald-400">🟢 Stellar Savings ({insights.savingsRate}%)</span>
+            ) : insights.netSavings >= 0 ? (
+              <span className="text-accent">✨ Balanced Cash Flow</span>
+            ) : (
+              <span className="text-rose-600 dark:text-rose-400">⚠️ Spending higher than Income</span>
+            )}
+          </div>
+
+          <p className="text-[11px] font-bold tracking-wider text-muted uppercase pt-1">
             Net Cash Flow ({selectedMonthOption.label})
           </p>
+
+          {/* Big Balance Amount */}
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-main font-mono">
-              {insights.netSavings >= 0 ? '+' : '-'}${Math.abs(insights.netSavings).toLocaleString('en-US', {
+              {insights.netSavings >= 0 ? '+' : '-'}{currency}{Math.abs(insights.netSavings).toLocaleString('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </h1>
           </div>
 
+          {/* Visual Income vs Expense Ratio Split Bar */}
+          {totalFlow > 0 && (
+            <div className="pt-2 max-w-xs mx-auto space-y-1">
+              <div className="h-2 w-full bg-sunken rounded-full overflow-hidden flex">
+                <div
+                  className="bg-emerald-500 h-full transition-all duration-500"
+                  style={{ width: `${incomePct}%` }}
+                />
+                <div
+                  className="bg-rose-500 h-full transition-all duration-500"
+                  style={{ width: `${expensePct}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-mono font-bold text-muted px-1">
+                <span className="text-emerald-600 dark:text-emerald-400">{incomePct}% in</span>
+                <span className="text-rose-600 dark:text-rose-400">{expensePct}% out</span>
+              </div>
+            </div>
+          )}
+
           {/* Income vs Expenses Mini Pills */}
           <div className="flex items-center justify-center gap-3 pt-2 text-xs">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/20">
               <ArrowDownLeft size={12} className="stroke-[2.5]" />
-              <span>+${insights.totalIncome.toFixed(2)}</span>
+              <span>+{currency}{insights.totalIncome.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold border border-rose-500/20">
               <ArrowUpRight size={12} className="stroke-[2.5]" />
-              <span>-${insights.totalExpenses.toFixed(2)}</span>
+              <span>-{currency}{insights.totalExpenses.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
-        {/* 3. SMOOTH WAVE TREND CHART (Matching Screen 2 of Mibu Mockup) */}
+        {/* 3. SMOOTH WAVE TREND CHART */}
         <div className="pt-6 sm:pt-8 pb-1">
           <div className="relative w-full h-[130px] sm:h-[140px]">
             <svg
@@ -329,7 +493,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 </linearGradient>
               </defs>
 
-              {/* Area Under Wave */}
               {trendAreaPath && (
                 <path
                   d={trendAreaPath}
@@ -338,7 +501,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 />
               )}
 
-              {/* Smooth Cubic Spline Wave */}
               {trendPath && (
                 <path
                   d={trendPath}
@@ -351,7 +513,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 />
               )}
 
-              {/* Trend Points & Active Dots */}
               {trendPoints.map((pt, idx) => {
                 const isSelected = pt.monthKey === selectedMonthKey;
                 const isHovered = hoveredTrendIndex === idx;
@@ -367,7 +528,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       setSelectedMonthKey(pt.monthKey);
                     }}
                   >
-                    {/* Active Halo Ring for Selected Month (like Oct in mibu mockup) */}
                     {isSelected && (
                       <circle
                         cx={pt.x}
@@ -377,11 +537,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                         className="text-surface"
                         stroke="currentColor"
                         strokeWidth="2.5"
-                        strokeDasharray="none"
                       />
                     )}
-
-                    {/* Outer Circle Dot */}
                     <circle
                       cx={pt.x}
                       cy={pt.y}
@@ -396,18 +553,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               })}
             </svg>
 
-            {/* Hover Tooltip */}
             {hoveredTrendIndex !== null && trendPoints[hoveredTrendIndex] && (
               <div
                 className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-lg bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
                 style={{ left: `${(trendPoints[hoveredTrendIndex].x / 500) * 100}%` }}
               >
-                ${trendPoints[hoveredTrendIndex].expense.toFixed(0)} spent
+                {currency}{trendPoints[hoveredTrendIndex].expense.toFixed(0)} spent
               </div>
             )}
           </div>
 
-          {/* Month Labels along bottom: jul aug sep oct nov dec */}
           <div className="flex justify-between px-3 text-[11px] font-mono font-semibold text-muted select-none">
             {trendPoints.map((pt) => {
               const isSelected = pt.monthKey === selectedMonthKey;
@@ -432,7 +587,43 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       </div>
 
-      {/* 4. SMART FINANCIAL INSIGHTS & SUGGESTIONS */}
+      {/* 4. CUTE CATEGORY BREAKDOWN METERS (If expenses exist) */}
+      {categoryBreakdown.length > 0 && (
+        <div className="bg-sunken/60 rounded-3xl p-4 sm:p-5 border border-subtle/80 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs sm:text-sm font-extrabold text-main uppercase tracking-wider flex items-center gap-1.5">
+              <span>Spending Breakdown</span>
+            </h3>
+            <span className="text-[11px] font-mono text-muted">
+              {categoryBreakdown.length} categories
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {categoryBreakdown.slice(0, 4).map((cat) => (
+              <div key={cat.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span>{cat.icon}</span>
+                    <span className="truncate">{cat.name}</span>
+                  </span>
+                  <span className="font-mono text-muted">
+                    {currency}{cat.amount.toFixed(2)} ({cat.pct}%)
+                  </span>
+                </div>
+                <div className="w-full bg-surface rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-accent h-full rounded-full transition-all duration-500"
+                    style={{ width: `${cat.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. SMART FINANCIAL INSIGHTS & SUGGESTIONS */}
       <div className="bg-sunken/60 rounded-3xl p-4 sm:p-5 border border-subtle/80 space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
@@ -446,62 +637,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               {insights.savingsRate}% saved
             </span>
           )}
-        </div>
-
-        {/* Quick Highlights Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-          {/* Top Category */}
-          <div className="p-3 rounded-2xl bg-surface/80 border border-subtle/70 space-y-1">
-            <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
-              Top Category
-            </span>
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="text-sm select-none">
-                {insights.topExpenseCategory ? insights.topExpenseCategory.icon : '🏷️'}
-              </span>
-              <span className="text-xs font-bold text-main truncate">
-                {insights.topExpenseCategory ? insights.topExpenseCategory.name : 'None yet'}
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-muted">
-              {insights.topExpenseCategory ? `$${insights.topExpenseCategory.amount.toFixed(2)} (${insights.topExpenseCategory.pct}%)` : '$0.00'}
-            </p>
-          </div>
-
-          {/* Daily Pace */}
-          <div className="p-3 rounded-2xl bg-surface/80 border border-subtle/70 space-y-1">
-            <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
-              Daily Pace
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-mono font-extrabold text-main">
-                ${insights.avgDailySpend.toFixed(2)}
-              </span>
-              <span className="text-[10px] text-muted">/ day</span>
-            </div>
-            <p className="text-[10px] text-muted">
-              Projected: ${(insights.avgDailySpend * 30).toFixed(0)} / mo
-            </p>
-          </div>
-
-          {/* Savings Cushion */}
-          <div className="col-span-2 sm:col-span-1 p-3 rounded-2xl bg-surface/80 border border-subtle/70 space-y-1">
-            <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
-              Savings Cushion
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className={`text-xs font-mono font-extrabold ${insights.netSavings >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                {insights.savingsRate}%
-              </span>
-              <span className="text-[10px] text-muted">retained</span>
-            </div>
-            <div className="w-full bg-sunken rounded-full h-1.5 overflow-hidden">
-              <div
-                className="bg-accent h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(0, insights.savingsRate))}%` }}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Actionable Suggestion Cards */}
@@ -537,64 +672,105 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         )}
       </div>
 
-      {/* 5. FILTER TABS: ALL | EXPENSES | INCOME */}
-      <div className="flex items-center justify-between gap-2 px-1 pt-2">
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
+      {/* 6. FILTER CONTROLS (Type + Category Pills) */}
+      <div className="space-y-2 px-1 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Segmented Type Filter */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('all');
+              }}
+              className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
+                typeFilter === 'all'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              All ({filteredTransactions.length})
+            </button>
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('expense');
+              }}
+              className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
+                typeFilter === 'expense'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              Expenses
+            </button>
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('income');
+              }}
+              className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
+                typeFilter === 'income'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              Income
+            </button>
+          </div>
+
           <button
             onClick={() => {
               playPopSound();
-              setTypeFilter('all');
+              onOpenAddModal();
             }}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-              typeFilter === 'all'
-                ? 'bg-surface text-main font-bold shadow-2xs'
-                : 'text-muted hover:text-main'
-            }`}
+            className="flex items-center gap-1 text-xs font-bold text-accent hover:underline cursor-pointer px-2 py-1"
           >
-            All ({filteredTransactions.length})
-          </button>
-          <button
-            onClick={() => {
-              playPopSound();
-              setTypeFilter('expense');
-            }}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-              typeFilter === 'expense'
-                ? 'bg-surface text-main font-bold shadow-2xs'
-                : 'text-muted hover:text-main'
-            }`}
-          >
-            Expenses
-          </button>
-          <button
-            onClick={() => {
-              playPopSound();
-              setTypeFilter('income');
-            }}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-              typeFilter === 'income'
-                ? 'bg-surface text-main font-bold shadow-2xs'
-                : 'text-muted hover:text-main'
-            }`}
-          >
-            Income
+            <Plus size={13} className="stroke-[2.5]" />
+            <span>New Entry</span>
           </button>
         </div>
 
-        {/* Quick Log Button */}
-        <button
-          onClick={() => {
-            playPopSound();
-            onOpenAddModal();
-          }}
-          className="flex items-center gap-1 text-xs font-bold text-accent hover:underline cursor-pointer px-2 py-1"
-        >
-          <Plus size={13} className="stroke-[2.5]" />
-          <span>New Entry</span>
-        </button>
+        {/* Scrollable Category Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+          <button
+            onClick={() => {
+              playPopSound();
+              setCategoryFilter('all');
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              categoryFilter === 'all'
+                ? 'bg-main text-surface shadow-2xs font-bold'
+                : 'bg-surface hover:bg-sunken text-muted border border-subtle'
+            }`}
+          >
+            All Categories
+          </button>
+          {categories
+            .filter((c) => typeFilter === 'all' || c.type === typeFilter)
+            .map((cat) => {
+              const isSelected = categoryFilter === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    playPopSound();
+                    setCategoryFilter(isSelected ? 'all' : cat.name);
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    isSelected
+                      ? 'bg-main text-surface shadow-2xs font-bold'
+                      : 'bg-surface hover:bg-sunken text-muted border border-subtle'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
+        </div>
       </div>
 
-      {/* 6. TRANSACTIONS FEED (Grouped by Date, matching Screen 2 of Mibu mockup) */}
+      {/* 7. TRANSACTIONS FEED (Grouped by Date) */}
       <div className="space-y-4">
         {groupedTransactions.length === 0 ? (
           <div className="bg-surface/60 rounded-3xl p-8 border border-subtle/80 text-center space-y-3">
@@ -603,12 +779,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-main">
-                {searchQuery ? 'No transactions found matching your search' : 'No transactions for this month'}
+                {searchQuery ? 'No transactions found matching your search' : 'No transactions recorded yet'}
               </h4>
               <p className="text-xs text-muted max-w-sm mx-auto">
                 {searchQuery
                   ? 'Try searching with a different keyword or amount.'
-                  : 'Track your daily expenses and income in seconds with the clean numpad.'}
+                  : 'Start logging daily expenses and income in seconds with your cute custom categories.'}
               </p>
             </div>
             {!searchQuery && (
@@ -627,24 +803,21 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         ) : (
           groupedTransactions.map((group) => (
             <div key={group.dateStr} className="space-y-2">
-              {/* Date Group Header: e.g. "today" and subtotal "-$308.89" */}
               <div className="flex items-center justify-between px-2 text-xs font-mono">
                 <span className="font-bold text-muted capitalize tracking-tight">
                   {group.label}
                 </span>
                 <span className="font-semibold text-muted/80">
-                  {group.subtotal >= 0 ? '+' : '-'}${Math.abs(group.subtotal).toFixed(2)}
+                  {group.subtotal >= 0 ? '+' : '-'}{currency}{Math.abs(group.subtotal).toFixed(2)}
                 </span>
               </div>
 
-              {/* Transactions in Date Group */}
               <div className="bg-surface/90 rounded-2xl border border-subtle/80 divide-y divide-subtle/50 shadow-2xs overflow-hidden">
                 {group.items.map((tx) => (
                   <div
                     key={tx.id}
                     className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-sunken/50 transition-colors group"
                   >
-                    {/* Left: Category Icon + Category & Merchant */}
                     <div className="flex items-center gap-3 min-w-0 pr-2">
                       <div className="w-10 h-10 rounded-2xl bg-sunken/80 border border-subtle/60 flex items-center justify-center text-lg shrink-0 select-none shadow-2xs">
                         {tx.categoryIcon || (tx.type === 'income' ? '💰' : '🏷️')}
@@ -661,7 +834,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       </div>
                     </div>
 
-                    {/* Right: Amount & Actions */}
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span
                         className={`text-xs sm:text-sm font-extrabold font-mono ${
@@ -670,10 +842,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                             : 'text-main dark:text-cream/90'
                         }`}
                       >
-                        {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toFixed(2)}
+                        {tx.type === 'income' ? '+' : '-'}{currency}{Number(tx.amount).toFixed(2)}
                       </span>
 
-                      {/* Quick Action Buttons (Edit / Delete) */}
                       <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => {
@@ -689,7 +860,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                         <button
                           onClick={() => {
                             playPopSound();
-                            if (window.confirm(`Delete ${tx.category} transaction of $${tx.amount.toFixed(2)}?`)) {
+                            if (window.confirm(`Delete ${tx.category} transaction of ${currency}${tx.amount.toFixed(2)}?`)) {
                               onDeleteTransaction(tx.id);
                             }
                           }}
@@ -708,6 +879,146 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           ))
         )}
       </div>
+
+      {/* 8. CATEGORY MANAGER MODAL */}
+      {isCategoryManagerOpen && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-surface text-main rounded-3xl border border-subtle shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-subtle pb-3">
+              <div className="flex items-center gap-2">
+                <Tag size={16} className="text-accent" />
+                <h3 className="font-extrabold text-sm sm:text-base text-main">
+                  Customize Categories
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCategoryManagerOpen(false)}
+                className="p-1 rounded-full hover:bg-sunken text-muted hover:text-main"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Category Form: Edit or Create */}
+            <div className="p-3 bg-sunken rounded-2xl border border-subtle space-y-3">
+              <p className="text-xs font-bold text-main">
+                {editingCategory ? `Edit "${editingCategory.name}"` : 'Create New Category'}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-surface border border-subtle flex items-center justify-center text-xl shrink-0">
+                  {catIconInput}
+                </div>
+                <input
+                  type="text"
+                  value={catNameInput}
+                  onChange={(e) => setCatNameInput(e.target.value)}
+                  placeholder="Category Name..."
+                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCatTypeInput(catTypeInput === 'expense' ? 'income' : 'expense')}
+                  className="px-2.5 py-2 rounded-xl bg-surface border border-subtle text-[11px] font-bold text-muted hover:text-main uppercase"
+                >
+                  {catTypeInput}
+                </button>
+              </div>
+
+              {/* Emoji selector grid */}
+              <div className="grid grid-cols-8 gap-1 max-h-24 overflow-y-auto p-1 bg-surface rounded-xl border border-subtle/50">
+                {CUTE_CATEGORY_ICONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setCatIconInput(emoji);
+                    }}
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm transition-transform ${
+                      catIconInput === emoji ? 'bg-accent text-accent-fg scale-110' : 'hover:bg-sunken'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                {editingCategory && (
+                  <button
+                    type="button"
+                    onClick={handleStartCreateCategory}
+                    className="px-3 py-1.5 rounded-xl bg-surface hover:bg-subtle text-xs font-semibold text-muted"
+                  >
+                    Clear Form
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveCategorySubmit}
+                  className="px-4 py-1.5 rounded-xl bg-accent hover:bg-accent-hover text-accent-fg text-xs font-bold shadow-xs"
+                >
+                  {editingCategory ? 'Update Category' : '+ Add Category'}
+                </button>
+              </div>
+            </div>
+
+            {/* List of Existing Categories */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-60">
+              <span className="text-[11px] font-bold text-muted uppercase tracking-wider block px-1">
+                Existing Categories ({categories.length})
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {categories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-2 rounded-xl bg-surface border border-subtle text-xs font-semibold group"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-base">{cat.icon}</span>
+                      <div className="min-w-0">
+                        <p className="truncate text-main font-bold">{cat.name}</p>
+                        <p className="text-[10px] text-muted capitalize">{cat.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartEditCategory(cat)}
+                        className="p-1 rounded-md hover:bg-sunken text-muted hover:text-main"
+                        title="Edit"
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete "${cat.name}" category?`)) {
+                            playPopSound();
+                            onDeleteCategory(cat.id);
+                          }
+                        }}
+                        className="p-1 rounded-md hover:bg-rose-500/10 text-muted hover:text-rose-600"
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-subtle flex justify-end">
+              <button
+                onClick={() => setIsCategoryManagerOpen(false)}
+                className="px-4 py-2 rounded-2xl bg-sunken hover:bg-subtle text-xs font-bold text-main cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

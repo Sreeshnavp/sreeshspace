@@ -8,8 +8,10 @@ import type {
   DayLog, 
   RoutineItem, 
   StreakState,
-  FinanceTransaction
+  FinanceTransaction,
+  FinanceCategory
 } from '../types';
+import { DEFAULT_FINANCE_CATEGORIES } from '../types/finance';
 import { toLocalDateKey, todayKey, addDays } from '../utils/dates';
 
 export const STORAGE_KEY_LINKS = 'sreeshspace_links_v2';
@@ -893,5 +895,52 @@ export async function saveFinanceTransactions(transactions: FinanceTransaction[]
     localStorage.setItem(STORAGE_KEY_FINANCE, JSON.stringify(transactions));
   } catch (err) {
     console.error('Error saving finance transactions:', err);
+  }
+}
+
+export const STORAGE_KEY_FINANCE_CATEGORIES = 'orbit_finance_categories_v1';
+export const STORAGE_KEY_FINANCE_CURRENCY = 'orbit_finance_currency_v1';
+
+export async function loadFinanceCategories(): Promise<FinanceCategory[]> {
+  try {
+    const data = await get<FinanceCategory[]>(STORAGE_KEY_FINANCE_CATEGORIES);
+    if (data && Array.isArray(data) && data.length > 0) {
+      return data;
+    }
+    const local = localStorage.getItem(STORAGE_KEY_FINANCE_CATEGORIES);
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    return DEFAULT_FINANCE_CATEGORIES;
+  } catch {
+    return DEFAULT_FINANCE_CATEGORIES;
+  }
+}
+
+export async function saveFinanceCategories(categories: FinanceCategory[]): Promise<void> {
+  try {
+    await set(STORAGE_KEY_FINANCE_CATEGORIES, categories);
+    localStorage.setItem(STORAGE_KEY_FINANCE_CATEGORIES, JSON.stringify(categories));
+  } catch (err) {
+    console.error('Error saving finance categories:', err);
+  }
+}
+
+export function loadFinanceCurrency(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_FINANCE_CURRENCY) || '$';
+  } catch {
+    return '$';
+  }
+}
+
+export function saveFinanceCurrency(currency: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_FINANCE_CURRENCY, currency);
+  } catch (err) {
+    console.error('Error saving finance currency:', err);
   }
 }

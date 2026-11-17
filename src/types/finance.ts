@@ -13,34 +13,62 @@ export interface FinanceTransaction {
   updatedAt: string;
 }
 
-export interface FinanceCategoryPreset {
+export interface FinanceCategory {
   id: string;
   name: string;
   icon: string;
   type: TransactionType;
+  color?: string;
+  isDefault?: boolean;
 }
 
-export const DEFAULT_FINANCE_CATEGORIES: FinanceCategoryPreset[] = [
+export type FinanceCategoryPreset = FinanceCategory;
+
+export const DEFAULT_FINANCE_CATEGORIES: FinanceCategory[] = [
   // Expenses
-  { id: 'cat-food', name: 'Food & Dining', icon: '🍔', type: 'expense' },
-  { id: 'cat-coffee', name: 'Coffee & Drinks', icon: '☕', type: 'expense' },
-  { id: 'cat-groceries', name: 'Groceries', icon: '🛒', type: 'expense' },
-  { id: 'cat-pet', name: 'Pet Care', icon: '🐶', type: 'expense' },
-  { id: 'cat-commute', name: 'Commute & Travel', icon: '🚕', type: 'expense' },
-  { id: 'cat-house', name: 'House & Repairs', icon: '🛠️', type: 'expense' },
-  { id: 'cat-fun', name: 'Fun & Leisure', icon: '🎬', type: 'expense' },
-  { id: 'cat-shopping', name: 'Shopping', icon: '🛍️', type: 'expense' },
-  { id: 'cat-bills', name: 'Bills & Utilities', icon: '⚡', type: 'expense' },
-  { id: 'cat-health', name: 'Health & Fitness', icon: '💊', type: 'expense' },
-  { id: 'cat-other-exp', name: 'Other Expense', icon: '🏷️', type: 'expense' },
+  { id: 'cat-food', name: 'Food & Dining', icon: '🍔', type: 'expense', isDefault: true },
+  { id: 'cat-coffee', name: 'Coffee & Drinks', icon: '☕', type: 'expense', isDefault: true },
+  { id: 'cat-groceries', name: 'Groceries', icon: '🛒', type: 'expense', isDefault: true },
+  { id: 'cat-pet', name: 'Pet Care', icon: '🐶', type: 'expense', isDefault: true },
+  { id: 'cat-commute', name: 'Commute & Travel', icon: '🚕', type: 'expense', isDefault: true },
+  { id: 'cat-house', name: 'House & Repairs', icon: '🛠️', type: 'expense', isDefault: true },
+  { id: 'cat-fun', name: 'Fun & Leisure', icon: '🎬', type: 'expense', isDefault: true },
+  { id: 'cat-shopping', name: 'Shopping', icon: '🛍️', type: 'expense', isDefault: true },
+  { id: 'cat-bills', name: 'Bills & Utilities', icon: '⚡', type: 'expense', isDefault: true },
+  { id: 'cat-health', name: 'Health & Fitness', icon: '💊', type: 'expense', isDefault: true },
+  { id: 'cat-other-exp', name: 'Other Expense', icon: '🏷️', type: 'expense', isDefault: true },
 
   // Income
-  { id: 'cat-salary', name: 'Salary & Wages', icon: '💼', type: 'income' },
-  { id: 'cat-freelance', name: 'Freelance & Side Gig', icon: '💻', type: 'income' },
-  { id: 'cat-invest', name: 'Investments & Returns', icon: '📈', type: 'income' },
-  { id: 'cat-gift', name: 'Gifts & Rewards', icon: '🎁', type: 'income' },
-  { id: 'cat-other-inc', name: 'Other Income', icon: '💰', type: 'income' },
+  { id: 'cat-salary', name: 'Salary & Wages', icon: '💼', type: 'income', isDefault: true },
+  { id: 'cat-freelance', name: 'Freelance & Side Gig', icon: '💻', type: 'income', isDefault: true },
+  { id: 'cat-invest', name: 'Investments & Returns', icon: '📈', type: 'income', isDefault: true },
+  { id: 'cat-gift', name: 'Gifts & Rewards', icon: '🎁', type: 'income', isDefault: true },
+  { id: 'cat-other-inc', name: 'Other Income', icon: '💰', type: 'income', isDefault: true },
 ];
+
+export const CUTE_CATEGORY_ICONS = [
+  '🍔', '☕', '🧋', '🍕', '🍰', '🥑', '🛒', '🚕', '🚌', '✈️',
+  '⛽', '🛍️', '👗', '🎮', '🎧', '📚', '💊', '🏋️', '💇', '🐾',
+  '🏠', '⚡', '💻', '💼', '📈', '🎁', '💰', '🍿', '🍣', '🌱',
+  '🎨', '🏖️', '🎟️', '🚲', '🩺', '💡', '✨', '💎', '🧾', '🪙'
+];
+
+export const CATEGORY_QUICK_NOTES: Record<string, string[]> = {
+  'Food & Dining': ['Lunch', 'Dinner', 'Breakfast', 'Snacks', 'Restaurant', 'Takeout'],
+  'Coffee & Drinks': ['Starbucks', 'Boba / Tea', 'Latte', 'Café', 'Juice Bar'],
+  'Groceries': ['Supermarket', 'Costco', 'Trader Joe\'s', 'Fruits & Veggies', 'Snacks'],
+  'Pet Care': ['Vet visit', 'Pet food', 'Toys', 'Grooming', 'Supplements'],
+  'Commute & Travel': ['Uber / Lyft', 'Gas / Fuel', 'Metro / Subway', 'Parking', 'Flight / Train'],
+  'House & Repairs': ['Rent', 'Plumber', 'Hardware store', 'Furniture', 'Maintenance'],
+  'Fun & Leisure': ['Movies / Cinema', 'Video Games', 'Concert', 'Books', 'Outing with friends'],
+  'Shopping': ['Amazon', 'Clothing', 'Electronics', 'Skincare', 'Gifts'],
+  'Bills & Utilities': ['Electricity', 'Water', 'Internet / Wi-Fi', 'Phone bill', 'Subscription'],
+  'Health & Fitness': ['Gym membership', 'Pharmacy / Meds', 'Doctor consultation', 'Supplements'],
+  'Salary & Wages': ['Monthly salary', 'Bonus', 'Overtime', 'Biweekly paycheck'],
+  'Freelance & Side Gig': ['Client project', 'Consulting', 'Design work', 'Coding gig'],
+  'Investments & Returns': ['Dividends', 'Stock sale', 'Crypto', 'Interest payout'],
+  'Gifts & Rewards': ['Birthday gift', 'Cashback', 'Holiday bonus', 'Reward voucher'],
+};
 
 export interface FinancialInsights {
   totalIncome: number;
