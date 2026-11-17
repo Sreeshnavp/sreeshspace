@@ -177,4 +177,82 @@ describe('syncService - merge algorithms', () => {
     expect(mergedVault.settings?.wallpaper?.imageUrl).toBe('data:image/png;base64,new');
     expect(mergedVault.settings?.wallpaper?.opacity).toBe(0.45);
   });
+
+  it('prevents uninitialized or incognito client with null imageUrl from erasing remote wallpaper', () => {
+    // Simulates an incognito tab or newly opened tab where local cache is completely empty
+    const incognitoVault = {
+      links: [],
+      categories: [],
+      todos: [],
+      notes: [],
+      events: [],
+      daylogs: {},
+      routines: [],
+      streak: { currentStreak: 0, longestStreak: 0, totalActiveDays: 0, freezesRemaining: 1, frozenDates: [] },
+      settings: {
+        wallpaper: {
+          imageUrl: null,
+          opacity: 0.25,
+          blur: 0,
+          enabled: true,
+          updatedAt: '1970-01-01T00:00:00.000Z',
+        },
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        wallpaper: {
+          imageUrl: 'data:image/webp;base64,validWallpaperData',
+          opacity: 0.35,
+          blur: 4,
+          enabled: true,
+          updatedAt: '2026-11-17T05:00:00.000Z',
+        },
+      },
+    };
+
+    const merged = mergeVaultData(incognitoVault, remoteVault);
+    expect(merged.settings?.wallpaper?.imageUrl).toBe('data:image/webp;base64,validWallpaperData');
+    expect(merged.settings?.wallpaper?.opacity).toBe(0.35);
+    expect(merged.settings?.wallpaper?.blur).toBe(4);
+  });
+
+  it('allows explicit user deletion with removedAt to delete remote wallpaper', () => {
+    const userDeletedVault = {
+      links: [],
+      categories: [],
+      todos: [],
+      notes: [],
+      events: [],
+      daylogs: {},
+      routines: [],
+      streak: { currentStreak: 0, longestStreak: 0, totalActiveDays: 0, freezesRemaining: 1, frozenDates: [] },
+      settings: {
+        wallpaper: {
+          imageUrl: null,
+          opacity: 0.25,
+          blur: 0,
+          enabled: false,
+          updatedAt: '2026-11-17T06:00:00.000Z',
+          removedAt: '2026-11-17T06:00:00.000Z',
+        },
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        wallpaper: {
+          imageUrl: 'data:image/webp;base64,oldWallpaper',
+          opacity: 0.3,
+          blur: 0,
+          enabled: true,
+          updatedAt: '2026-11-17T05:00:00.000Z', // older than removedAt
+        },
+      },
+    };
+
+    const merged = mergeVaultData(userDeletedVault, remoteVault);
+    expect(merged.settings?.wallpaper?.imageUrl).toBeNull();
+  });
 });

@@ -686,6 +686,7 @@ export interface BackgroundSettings {
   blur: number;
   enabled: boolean;
   updatedAt?: string;
+  removedAt?: string;
 }
 
 export async function loadCustomBackground(): Promise<{
@@ -693,24 +694,52 @@ export async function loadCustomBackground(): Promise<{
   settings: BackgroundSettings;
 }> {
   try {
-    const imageUrl = (await get<string>(STORAGE_KEY_CUSTOM_BG)) || null;
+    let imageUrl = (await get<string>(STORAGE_KEY_CUSTOM_BG)) || null;
+    if (!imageUrl) {
+      try {
+        imageUrl = localStorage.getItem(STORAGE_KEY_CUSTOM_BG) || null;
+        if (imageUrl) {
+          // Restore to IndexedDB
+          set(STORAGE_KEY_CUSTOM_BG, imageUrl).catch(() => {});
+        }
+      } catch {}
+    }
     const settingsRaw = localStorage.getItem(STORAGE_KEY_BG_SETTINGS);
     const settings: BackgroundSettings = settingsRaw
       ? JSON.parse(settingsRaw)
-      : { opacity: 0.25, blur: 0, enabled: true, updatedAt: new Date().toISOString() };
+      : { opacity: 0.25, blur: 0, enabled: true };
     return { imageUrl, settings };
   } catch {
-    return { imageUrl: null, settings: { opacity: 0.25, blur: 0, enabled: true, updatedAt: new Date().toISOString() } };
+    return { imageUrl: null, settings: { opacity: 0.25, blur: 0, enabled: true } };
   }
 }
 
 export async function saveCustomBackgroundImage(dataUrl: string | null): Promise<void> {
   try {
     await set(STORAGE_KEY_CUSTOM_BG, dataUrl);
-    // Also record last modified timestamp
+    if (dataUrl) {
+      try {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_BG, dataUrl);
+      } catch (e) {
+        console.warn('Could not cache wallpaper in localStorage:', e);
+      }
+    } else {
+      try {
+        localStorage.removeItem(STORAGE_KEY_CUSTOM_BG);
+      } catch {}
+    }
+    // Also record last modified timestamp and removal flag
     const currentRaw = localStorage.getItem(STORAGE_KEY_BG_SETTINGS);
-    const parsed = currentRaw ? JSON.parse(currentRaw) : { opacity: 0.25, blur: 0, enabled: true };
-    parsed.updatedAt = new Date().toISOString();
+    const parsed: BackgroundSettings = currentRaw
+      ? JSON.parse(currentRaw)
+      : { opacity: 0.25, blur: 0, enabled: true };
+    const nowIso = new Date().toISOString();
+    parsed.updatedAt = nowIso;
+    if (dataUrl === null) {
+      parsed.removedAt = nowIso;
+    } else {
+      delete parsed.removedAt;
+    }
     localStorage.setItem(STORAGE_KEY_BG_SETTINGS, JSON.stringify(parsed));
   } catch (err) {
     console.error('Error saving custom background:', err);
@@ -719,7 +748,7 @@ export async function saveCustomBackgroundImage(dataUrl: string | null): Promise
 
 export function saveBackgroundSettings(settings: BackgroundSettings): void {
   try {
-    const withTimestamp = {
+    const withTimestamp: BackgroundSettings = {
       ...settings,
       updatedAt: settings.updatedAt || new Date().toISOString(),
     };

@@ -44,6 +44,7 @@ export interface SyncedWallpaperSettings {
   blur: number;
   enabled: boolean;
   updatedAt?: string;
+  removedAt?: string;
 }
 
 export interface VaultPayload {
@@ -294,16 +295,55 @@ export function mergeVaultData(
     frozenDates: mergedFrozen,
   };
 
-  // 9. Settings & Custom Background Wallpaper
+  // 9. Settings & Custom Background Wallpaper (Resilient against uninitialized / incognito tabs)
   const localWp = local.settings?.wallpaper;
   const remoteWp = remote.settings?.wallpaper;
-  let mergedWp = localWp;
-  if (!localWp && remoteWp) {
+  let mergedWp: SyncedWallpaperSettings | undefined = remoteWp || localWp;
+
+  if (localWp && remoteWp) {
+    const localRemovedAt = localWp.removedAt
+      ? new Date(localWp.removedAt).getTime()
+      : 0;
+    const remoteUpdatedAt = remoteWp.updatedAt
+      ? new Date(remoteWp.updatedAt).getTime()
+      : 0;
+    const localUpdatedAt = localWp.updatedAt
+      ? new Date(localWp.updatedAt).getTime()
+      : 0;
+
+    if (localRemovedAt > remoteUpdatedAt) {
+      // User explicitly deleted the wallpaper on this device after remote was updated
+      mergedWp = {
+        ...localWp,
+        imageUrl: null,
+        updatedAt: localWp.removedAt,
+        removedAt: localWp.removedAt,
+      };
+    } else if (!localWp.imageUrl && remoteWp.imageUrl) {
+      // Local client is uninitialized, fresh browser or incognito tab without cached image.
+      // INVARIANT: An empty local cache MUST NEVER overwrite or erase remote wallpaper!
+      mergedWp = {
+        ...remoteWp,
+        imageUrl: remoteWp.imageUrl,
+        opacity: remoteWp.opacity ?? localWp.opacity ?? 0.25,
+        blur: remoteWp.blur ?? localWp.blur ?? 0,
+        enabled: remoteWp.enabled ?? localWp.enabled ?? true,
+        updatedAt: remoteWp.updatedAt || new Date().toISOString(),
+      };
+    } else if (localWp.imageUrl && !remoteWp.imageUrl) {
+      // Local has an uploaded image, remote currently has none -> keep local
+      mergedWp = localWp;
+    } else if (localWp.imageUrl && remoteWp.imageUrl) {
+      // Both have an image -> keep the more recently updated
+      mergedWp = remoteUpdatedAt >= localUpdatedAt ? remoteWp : localWp;
+    } else {
+      // Neither has an image -> keep newer settings
+      mergedWp = remoteUpdatedAt >= localUpdatedAt ? remoteWp : localWp;
+    }
+  } else if (remoteWp) {
     mergedWp = remoteWp;
-  } else if (localWp && remoteWp) {
-    const lTime = new Date(localWp.updatedAt || 0).getTime();
-    const rTime = new Date(remoteWp.updatedAt || 0).getTime();
-    mergedWp = rTime >= lTime ? remoteWp : localWp;
+  } else {
+    mergedWp = localWp;
   }
   const settings = {
     ...(remote.settings || {}),
@@ -392,7 +432,8 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
           opacity: localBg.settings.opacity,
           blur: localBg.settings.blur,
           enabled: localBg.settings.enabled,
-          updatedAt: localBg.settings.updatedAt || new Date().toISOString(),
+          updatedAt: localBg.settings.updatedAt || (localBg.imageUrl ? new Date().toISOString() : '1970-01-01T00:00:00.000Z'),
+          removedAt: localBg.settings.removedAt,
         },
       },
     };
@@ -444,7 +485,12 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       const localTime = new Date(currentBg.settings.updatedAt || 0).getTime();
       const remoteTime = new Date(wp.updatedAt || 0).getTime();
 
-      if (remoteTime > localTime || (!currentBg.imageUrl && wp.imageUrl)) {
+      const shouldApply =
+        (wp.imageUrl && !currentBg.imageUrl) ||
+        remoteTime > localTime ||
+        (wp.imageUrl !== currentBg.imageUrl);
+
+      if (shouldApply) {
         await saveCustomBackgroundImage(wp.imageUrl);
         saveBackgroundSettings({
           opacity: wp.opacity ?? 0.25,

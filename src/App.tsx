@@ -40,6 +40,8 @@ import {
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
+  STORAGE_KEY_CUSTOM_BG,
+  STORAGE_KEY_BG_SETTINGS,
   type BackgroundSettings,
   DEFAULT_CATEGORIES, 
   INITIAL_LINKS, 
@@ -157,12 +159,24 @@ export function App() {
   const [isRolloverOpen, setIsRolloverOpen] = useState(false);
   const [rolloverCandidateTasks, setRolloverCandidateTasks] = useState<TodoItem[]>([]);
 
-  // Custom Wallpaper & Opacity
-  const [customBgImage, setCustomBgImage] = useState<string | null>(null);
-  const [bgSettings, setBgSettings] = useState<BackgroundSettings>({
-    opacity: 0.25,
-    blur: 0,
-    enabled: true,
+  // Custom Wallpaper & Opacity (Synchronous zero-latency hydration from local cache)
+  const [customBgImage, setCustomBgImage] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_CUSTOM_BG) || null;
+    } catch {
+      return null;
+    }
+  });
+  const [bgSettings, setBgSettings] = useState<BackgroundSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_BG_SETTINGS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      opacity: 0.25,
+      blur: 0,
+      enabled: true,
+    };
   });
   const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
 
@@ -1197,7 +1211,8 @@ export function App() {
   const handleSaveCustomBgImage = async (dataUrl: string | null) => {
     setCustomBgImage(dataUrl);
     await saveCustomBackgroundImage(dataUrl);
-    triggerAutoSync();
+    // Immediate bidirectional cloud sync so incognito, other tabs and refreshes get it at once
+    syncWithCloud({ onMerged: refreshDataFromStorage });
     if (dataUrl) {
       showToast('Custom wallpaper updated and synced! 🖼️');
     } else {
@@ -1208,7 +1223,7 @@ export function App() {
   const handleUpdateBgSettings = (newSettings: BackgroundSettings) => {
     setBgSettings(newSettings);
     saveBackgroundSettings(newSettings);
-    triggerAutoSync();
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
   return (
