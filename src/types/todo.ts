@@ -28,6 +28,7 @@ export interface TodoItem {
   type: TodoType;
   priority: PriorityLevel;
   createdAt: string; // ISO string
+  updatedAt?: string; // ISO string
   completedAt?: string; // ISO string
   notes?: string;
   tags?: string[];

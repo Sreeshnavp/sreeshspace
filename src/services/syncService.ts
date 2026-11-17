@@ -261,7 +261,7 @@ export function mergeVaultData(
   const todos = mergeItemsById(
     local.todos || [],
     remote.todos || [],
-    (t) => new Date(t.completedAt || t.createdAt || 0).getTime(),
+    (t) => new Date(t.updatedAt || t.completedAt || t.createdAt || 0).getTime(),
     mergedTombstones
   ).filter((t) => !isSampleItem(t));
 
@@ -278,6 +278,11 @@ export function mergeVaultData(
   const remoteResetAt = remote.settings?.streakResetAt ? new Date(remote.settings.streakResetAt).getTime() : 0;
   const streakResetAt = Math.max(localResetAt, remoteResetAt);
 
+  // Set of uncompleted todo IDs - ensure lingering completion events from remote are dropped when a task was unclicked
+  const uncompletedTodoIds = new Set(
+    todos.filter((t) => !t.completed).map((t) => t.id)
+  );
+
   const eventMap = new Map<string, ActivityEvent>();
   for (const e of [...(local.events || []), ...(remote.events || [])]) {
     const eTs = typeof e.ts === 'number' ? e.ts : new Date(e.date || 0).getTime();
@@ -288,6 +293,7 @@ export function mergeVaultData(
       !e.type.includes('deleted') && 
       !e.type.includes('uncompleted') &&
       (!mergedTombstones || !e.refId || !mergedTombstones[e.refId]) &&
+      (!e.refId || !uncompletedTodoIds.has(e.refId) || !['task_completed', 'goal_completed'].includes(e.type)) &&
       (!streakResetAt || eTs >= streakResetAt) &&
       !eventMap.has(e.id)
     ) {

@@ -747,6 +747,7 @@ export function App() {
     tags?: string[]
   ) => {
     const date = type === 'daily' ? (dateKey || selectedDate) : undefined;
+    const nowIso = new Date().toISOString();
     const newTodo: TodoItem = {
       id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       text,
@@ -761,7 +762,8 @@ export function App() {
       completed: false,
       priority,
       tags: tags || [],
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
 
     const updated = [newTodo, ...todos];
@@ -792,6 +794,7 @@ export function App() {
         ...t,
         completed: nextCompleted,
         completedAt: nextCompleted ? nowIso : undefined,
+        updatedAt: nowIso,
         status: (nextCompleted ? 'completed' : 'active') as any,
         progress: t.type === 'permanent' ? (nextCompleted ? 100 : t.progress) : t.progress,
       };
@@ -864,7 +867,8 @@ export function App() {
     if (toArchive.length === 0) return;
 
     const toArchiveIds = new Set(toArchive.map((t) => t.id));
-    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const } : t));
+    const nowIso = new Date().toISOString();
+    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const, updatedAt: nowIso } : t));
     setTodos(updated);
     await saveTodos(updated);
 
@@ -884,7 +888,8 @@ export function App() {
     if (toArchive.length === 0) return;
 
     const toArchiveIds = new Set(toArchive.map((t) => t.id));
-    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const } : t));
+    const nowIso = new Date().toISOString();
+    const updated = todos.map((t) => (toArchiveIds.has(t.id) ? { ...t, status: 'archived' as const, updatedAt: nowIso } : t));
     setTodos(updated);
     await saveTodos(updated);
 
@@ -902,7 +907,8 @@ export function App() {
   const handleUndoArchive = async () => {
     if (!undoArchive) return;
     const ids = new Set(undoArchive.archivedIds);
-    const restored = todos.map((t) => (ids.has(t.id) ? { ...t, status: 'completed' as const } : t));
+    const nowIso = new Date().toISOString();
+    const restored = todos.map((t) => (ids.has(t.id) ? { ...t, status: 'completed' as const, updatedAt: nowIso } : t));
     setTodos(restored);
     await saveTodos(restored);
     if (undoArchive.timeoutId) clearTimeout(undoArchive.timeoutId);
@@ -937,6 +943,7 @@ export function App() {
     const progress = totalSub > 0 ? Math.round((doneSub / totalSub) * 100) : goal.progress || 0;
     const isCompleted = totalSub > 0 && doneSub === totalSub;
 
+    const nowIso = new Date().toISOString();
     const updated = todos.map((t) =>
       t.id === goalId
         ? {
@@ -945,7 +952,8 @@ export function App() {
             progress,
             completed: isCompleted,
             status: (isCompleted ? 'completed' : 'active') as any,
-            completedAt: isCompleted ? new Date().toISOString() : undefined,
+            completedAt: isCompleted ? nowIso : undefined,
+            updatedAt: nowIso,
           }
         : t
     );
@@ -964,6 +972,7 @@ export function App() {
 
   // Create or update Master Goal
   const handleSaveGoal = async (goalData: Partial<TodoItem>) => {
+    const nowIso = new Date().toISOString();
     if (activeGoalForModal) {
       // Editing existing goal
       const updated = todos.map((t) =>
@@ -971,6 +980,7 @@ export function App() {
           ? {
               ...t,
               ...goalData,
+              updatedAt: nowIso,
             }
           : t
       );
@@ -994,7 +1004,8 @@ export function App() {
         tags: goalData.tags || [],
         notes: goalData.notes,
         completed: false,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
       };
 
       const updated = [newGoal, ...todos];
@@ -1030,6 +1041,7 @@ export function App() {
             ...t,
             endDate: newEndDate,
             extensions: [...(t.extensions || []), extension],
+            updatedAt: extension.at,
           }
         : t
     );
@@ -1095,6 +1107,7 @@ export function App() {
     const today = todayKey();
     const selSet = new Set(selectedIds);
 
+    const nowIso = new Date().toISOString();
     const updated = todos.map((t) => {
       if (!selSet.has(t.id)) return t;
       return {
@@ -1102,6 +1115,7 @@ export function App() {
         date: today,
         carriedFrom: t.date || addDays(today, -1),
         carryCount: (t.carryCount || 0) + 1,
+        updatedAt: nowIso,
       };
     });
 
@@ -1127,6 +1141,7 @@ export function App() {
     }
 
     const today = todayKey();
+    const nowIso = new Date().toISOString();
     const copiedTasks: TodoItem[] = yesterdayTasks.map((t) => ({
       id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       text: t.text,
@@ -1139,7 +1154,8 @@ export function App() {
       originId: t.id,
       carryCount: (t.carryCount || 0) + 1,
       subtasks: (t.subtasks || []).map((s) => ({ ...s, done: false, doneAt: undefined })),
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
     }));
 
     const updated = [...copiedTasks, ...todos];
@@ -1160,6 +1176,7 @@ export function App() {
   // Sunday Weekly Review save priorities
   const handleSaveNextWeekPriorities = async (priorities: string[]) => {
     const nextMon = addDays(todayKey(), 1);
+    const nowIso = new Date().toISOString();
     const newItems: TodoItem[] = priorities.map((p) => ({
       id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       text: p,
@@ -1168,7 +1185,8 @@ export function App() {
       date: nextMon,
       completed: false,
       status: 'active',
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
     }));
 
     const updated = [...newItems, ...todos];

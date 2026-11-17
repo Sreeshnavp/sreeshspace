@@ -178,6 +178,64 @@ describe('syncService - merge algorithms', () => {
     expect(merged.events.length).toBe(0);
   });
 
+  it('preserves uncompleted status when unclicking a previously completed task', () => {
+    const uncompletedAt = '2026-11-17T11:10:00.000Z';
+    const completedEarlierAt = '2026-11-17T11:08:00.000Z';
+
+    const merged = mergeVaultData(
+      {
+        links: [],
+        categories: [],
+        todos: [
+          {
+            id: 't-unclicked',
+            text: 'My daily task',
+            completed: false,
+            type: 'daily',
+            date: '2026-11-17',
+            priority: 'medium',
+            createdAt: '2026-11-17T11:00:00.000Z',
+            updatedAt: uncompletedAt, // User unclicked task at 11:10
+          },
+        ],
+        notes: [],
+        events: [],
+        daylogs: {},
+        routines: [],
+        streak: { currentStreak: 0, longestStreak: 0, totalActiveDays: 0, freezesRemaining: 1, frozenDates: [] },
+      },
+      {
+        todos: [
+          {
+            id: 't-unclicked',
+            text: 'My daily task',
+            completed: true,
+            completedAt: completedEarlierAt, // Remote had it completed at 11:08
+            type: 'daily',
+            date: '2026-11-17',
+            priority: 'medium',
+            createdAt: '2026-11-17T11:00:00.000Z',
+          },
+        ],
+        events: [
+          {
+            id: 'ev-done',
+            ts: new Date(completedEarlierAt).getTime(),
+            date: '2026-11-17',
+            type: 'task_completed',
+            refId: 't-unclicked',
+            title: 'My daily task',
+          },
+        ],
+      }
+    );
+
+    const task = merged.todos.find((t) => t.id === 't-unclicked');
+    expect(task).toBeDefined();
+    expect(task?.completed).toBe(false);
+    expect(merged.events.filter((e) => e.refId === 't-unclicked')).toHaveLength(0);
+  });
+
   it('merges wallpaper settings taking the newer timestamp', () => {
     const mergedVault = mergeVaultData(
       {
