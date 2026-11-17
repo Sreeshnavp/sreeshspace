@@ -12,27 +12,17 @@ import {
   ChevronDown,
   X,
   Calendar,
-  Wallet,
-  PieChart,
-  BarChart2,
-  Lightbulb,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
+  CreditCard,
   Tag,
   Eye,
   EyeOff,
-  Bell,
-  ArrowRight,
-  Check,
-  Send,
-  CreditCard,
-  Zap,
-  Film,
-  ShoppingBag,
-  Activity,
-  History as HistoryIcon,
-  Home
+  CheckCircle2,
+  AlertTriangle,
+  Lightbulb,
+  PieChart,
+  BarChart2,
+  Sliders,
+  DollarSign
 } from 'lucide-react';
 import type { FinanceTransaction, FinancialInsights, FinanceCategory, TransactionType } from '../../types/finance';
 import { CUTE_CATEGORY_ICONS } from '../../types/finance';
@@ -52,8 +42,6 @@ interface FinanceDashboardProps {
   onDeleteCategory: (id: string) => void;
 }
 
-type FinanceTab = 'wallet' | 'history' | 'statistics';
-
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions,
   categories,
@@ -67,7 +55,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   
-  const [activeTab, setActiveTab] = useState<FinanceTab>('wallet');
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -209,32 +196,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return groups;
   }, [filteredTransactions]);
 
-  // 8 Quick Service Tiles for Screen 1 (Wallet)
-  const quickServiceTiles = [
-    { id: 'srv-bills', name: 'Bill Payment', icon: '🧾', bg: 'bg-rose-50 dark:bg-rose-950/40 text-rose-600', catName: 'Bills & Utilities', type: 'expense' as const },
-    { id: 'srv-salary', name: 'Invoice / Work', icon: '💼', bg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600', catName: 'Salary & Wages', type: 'income' as const },
-    { id: 'srv-electricity', name: 'Electricity', icon: '⚡', bg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600', catName: 'Bills & Utilities', type: 'expense' as const },
-    { id: 'srv-health', name: 'Health Care', icon: '💊', bg: 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600', catName: 'Health & Fitness', type: 'expense' as const },
-    { id: 'srv-movies', name: 'Movies & Fun', icon: '🎬', bg: 'bg-sky-50 dark:bg-sky-950/40 text-sky-600', catName: 'Fun & Leisure', type: 'expense' as const },
-    { id: 'srv-shopping', name: 'Shopping', icon: '🛍️', bg: 'bg-pink-50 dark:bg-pink-950/40 text-pink-600', catName: 'Shopping', type: 'expense' as const },
-    { id: 'srv-travel', name: 'Travel & Cab', icon: '🚕', bg: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600', catName: 'Commute & Travel', type: 'expense' as const },
-    { id: 'srv-food', name: 'Food & Dining', icon: '🍔', bg: 'bg-orange-50 dark:bg-orange-950/40 text-orange-600', catName: 'Food & Dining', type: 'expense' as const },
-  ];
-
-  // Frequent Categories for Screen 2 (History)
-  const frequentCategories = useMemo(() => {
-    return categories.slice(0, 5);
-  }, [categories]);
-
-  // Dual Wave Curves Generator for Screen 3 (Statistic Activity)
+  // Dual Wave Spline Curves Generator for Overview Chart
   const dualTrendData = useMemo(() => {
     const data = insights.monthlyTrend;
     if (!data || data.length === 0) return { incomePoints: [], expensePoints: [], incomePath: '', expensePath: '', incomeArea: '', expenseArea: '' };
 
     const width = 500;
-    const height = 140;
-    const padX = 40;
-    const padY = 24;
+    const height = 135;
+    const padX = 35;
+    const padY = 20;
     const innerW = width - padX * 2;
     const innerH = height - padY * 2;
 
@@ -279,8 +249,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const incPath = makeSpline(incPts);
     const expPath = makeSpline(expPts);
 
-    const incArea = incPts.length > 0 ? `${incPath} L ${incPts[incPts.length - 1].x} 140 L ${incPts[0].x} 140 Z` : '';
-    const expArea = expPts.length > 0 ? `${expPath} L ${expPts[expPts.length - 1].x} 140 L ${expPts[0].x} 140 Z` : '';
+    const incArea = incPts.length > 0 ? `${incPath} L ${incPts[incPts.length - 1].x} 135 L ${incPts[0].x} 135 Z` : '';
+    const expArea = expPts.length > 0 ? `${expPath} L ${expPts[expPts.length - 1].x} 135 L ${expPts[0].x} 135 Z` : '';
 
     return {
       incomePoints: incPts,
@@ -292,7 +262,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     };
   }, [insights.monthlyTrend]);
 
-  // Format Indian Rupee currency with commas
+  // Format Indian Rupee currency with commas: ₹489,300.60
   const formatRupees = (val: number) => {
     return val.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
@@ -303,34 +273,27 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-2xl mx-auto pb-16">
+    <div className="space-y-4 sm:space-y-5 max-w-2xl mx-auto pb-16">
       
-      {/* 1. TOP HEADER & GREETING */}
-      <div className="flex items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#6228FF] to-[#9955FF] flex items-center justify-center text-white text-base font-extrabold shadow-sm select-none">
-            S
-          </div>
-          <div>
-            <h2 className="font-extrabold text-sm sm:text-base text-main leading-tight">
-              Hello, Sreeshnav
-            </h2>
-            <p className="text-[11px] text-muted flex items-center gap-1 font-medium">
-              <span>📍 Personal Vault</span>
-              <span>•</span>
-              <span className="capitalize">{selectedMonthOption.label}</span>
-            </p>
-          </div>
+      {/* 1. TOP HEADER BAR */}
+      <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+        <div>
+          <h2 className="font-extrabold text-base sm:text-lg text-main leading-tight flex items-center gap-1.5">
+            <span>Finance & Expense Tracker</span>
+          </h2>
+          <p className="text-[11px] text-muted font-medium">
+            Personal income & spend flow in Indian Rupees ({currency})
+          </p>
         </div>
 
-        {/* Header Right Actions */}
+        {/* Right Action Controls: Month Dropdown + Search + Record */}
         <div className="flex items-center gap-2">
-          {/* Month selector dropdown */}
+          {/* Month selector */}
           <div className="relative inline-block">
             <select
               value={selectedMonthKey}
               onChange={(e) => setSelectedMonthKey(e.target.value)}
-              className="appearance-none bg-surface/90 hover:bg-surface border border-subtle text-main font-semibold text-xs pl-3 pr-7 py-1.5 rounded-full shadow-2xs cursor-pointer focus:outline-none"
+              className="appearance-none bg-surface hover:bg-sunken border border-subtle text-main font-semibold text-xs pl-3 pr-7 py-1.5 rounded-full shadow-2xs cursor-pointer focus:outline-none"
             >
               {monthOptions.map((opt) => (
                 <option key={opt.key} value={opt.key}>
@@ -341,6 +304,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
           </div>
 
+          {/* Search Toggle */}
           <button
             onClick={() => {
               playPopSound();
@@ -349,12 +313,24 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             }}
             className={`p-2 rounded-full border border-subtle transition-all cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center ${
               isSearchOpen || searchQuery
-                ? 'bg-[#6228FF] text-white border-[#6228FF]'
+                ? 'bg-[#6E3BFF] text-white border-[#6E3BFF]'
                 : 'bg-surface hover:bg-sunken text-muted hover:text-main shadow-2xs'
             }`}
             title="Search"
           >
             <Search size={14} />
+          </button>
+
+          {/* Add Transaction Button */}
+          <button
+            onClick={() => {
+              playPopSound();
+              onOpenAddModal();
+            }}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] hover:opacity-95 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer min-h-[36px]"
+          >
+            <Plus size={14} className="stroke-[2.5]" />
+            <span>Add Entry</span>
           </button>
         </div>
       </div>
@@ -367,9 +343,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search payments by category, merchant, note..."
+            placeholder="Search payments by category, merchant, note, or amount..."
             autoFocus
-            className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-9 py-2 text-xs sm:text-sm text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#6228FF]/30 shadow-2xs"
+            className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-9 py-2 text-xs sm:text-sm text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#6E3BFF]/30 shadow-2xs"
           />
           {searchQuery && (
             <button
@@ -382,713 +358,485 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       )}
 
-      {/* 2. THREE-TAB FINTECH DOCK (Wallet • History • Statistics) */}
-      <div className="flex items-center justify-between p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
-        <button
-          onClick={() => {
-            playPopSound();
-            setActiveTab('wallet');
-          }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl transition-all cursor-pointer min-h-[40px] ${
-            activeTab === 'wallet'
-              ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-xs font-bold'
-              : 'text-muted hover:text-main'
-          }`}
-        >
-          <Wallet size={13} />
-          <span>Wallet</span>
-        </button>
-
-        <button
-          onClick={() => {
-            playPopSound();
-            setActiveTab('history');
-          }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl transition-all cursor-pointer min-h-[40px] ${
-            activeTab === 'history'
-              ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-xs font-bold'
-              : 'text-muted hover:text-main'
-          }`}
-        >
-          <HistoryIcon size={13} />
-          <span>History ({filteredTransactions.length})</span>
-        </button>
-
-        <button
-          onClick={() => {
-            playPopSound();
-            setActiveTab('statistics');
-          }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl transition-all cursor-pointer min-h-[40px] ${
-            activeTab === 'statistics'
-              ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-xs font-bold'
-              : 'text-muted hover:text-main'
-          }`}
-        >
-          <Activity size={13} />
-          <span>Statistics</span>
-        </button>
-      </div>
-
-      {/* ======================================================== */}
-      {/* SCREEN 1: WALLET / HOME VIEW                             */}
-      {/* ======================================================== */}
-      {activeTab === 'wallet' && (
-        <div className="space-y-5 animate-in fade-in duration-200">
-          
-          {/* ROYAL PURPLE GRADIENT HERO CARD (Matching Screen 1 of uploaded mockup) */}
-          <div className="bg-gradient-to-br from-[#6228FF] via-[#7839EE] to-[#9955FF] text-white rounded-3xl p-5 sm:p-6 shadow-lg shadow-purple-500/20 relative overflow-hidden">
-            {/* Glowing decorative circles */}
-            <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none -mr-12 -mt-12" />
-            <div className="absolute bottom-0 left-0 w-36 h-36 bg-black/10 rounded-full blur-xl pointer-events-none -ml-8 -mb-8" />
-
-            {/* Total Balance Header Row with Privacy Eye Toggle */}
-            <div className="flex items-center justify-between text-white/80 text-xs font-medium">
-              <div className="flex items-center gap-1.5">
-                <CreditCard size={14} />
-                <span>Total Balance</span>
-              </div>
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setShowBalance(!showBalance);
-                }}
-                className="p-1 rounded-full hover:bg-white/15 transition-colors cursor-pointer text-white/90"
-                title={showBalance ? 'Hide Balance' : 'Show Balance'}
-              >
-                {showBalance ? <Eye size={15} /> : <EyeOff size={15} />}
-              </button>
-            </div>
-
-            {/* Large Balance Display */}
-            <div className="py-2">
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono text-white">
-                {showBalance ? (
-                  `${overallBalance >= 0 ? '' : '-'}${currency}${formatRupees(Math.abs(overallBalance))}`
-                ) : (
-                  `${currency}••••••••`
-                )}
-              </h1>
-            </div>
-
-            {/* 4 Action Buttons inside Hero Card */}
-            <div className="pt-4 grid grid-cols-4 gap-2 text-center">
-              {/* Top Up (Add Income) */}
-              <button
-                onClick={() => {
-                  playPopSound();
-                  onOpenAddModal('income');
-                }}
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-emerald-300 transition-all group-active:scale-95 shadow-2xs">
-                  <ArrowDownLeft size={18} className="stroke-[2.5]" />
-                </div>
-                <span className="text-[11px] font-bold text-white/90">Top Up</span>
-              </button>
-
-              {/* Pay (Log Expense) */}
-              <button
-                onClick={() => {
-                  playPopSound();
-                  onOpenAddModal('expense');
-                }}
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-pink-200 transition-all group-active:scale-95 shadow-2xs">
-                  <ArrowUpRight size={18} className="stroke-[2.5]" />
-                </div>
-                <span className="text-[11px] font-bold text-white/90">Pay</span>
-              </button>
-
-              {/* Categories */}
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setIsCategoryManagerOpen(true);
-                }}
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-amber-200 transition-all group-active:scale-95 shadow-2xs">
-                  <Tag size={18} className="stroke-[2.5]" />
-                </div>
-                <span className="text-[11px] font-bold text-white/90">Categories</span>
-              </button>
-
-              {/* History */}
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setActiveTab('history');
-                }}
-                className="flex flex-col items-center gap-1.5 group cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-cyan-200 transition-all group-active:scale-95 shadow-2xs">
-                  <HistoryIcon size={18} className="stroke-[2.5]" />
-                </div>
-                <span className="text-[11px] font-bold text-white/90">History</span>
-              </button>
-            </div>
-          </div>
-
-          {/* OTHERS SERVICE (Quick Categories Grid from Screen 1) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
-                Services & Categories
-              </h3>
-              <button
-                onClick={() => setIsCategoryManagerOpen(true)}
-                className="text-xs font-bold text-[#6228FF] dark:text-[#9955FF] hover:underline cursor-pointer"
-              >
-                Edit All
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 sm:gap-3">
-              {quickServiceTiles.map((tile) => (
-                <button
-                  key={tile.id}
-                  onClick={() => {
-                    playPopSound();
-                    const matchCat = categories.find((c) => c.name.toLowerCase() === tile.catName.toLowerCase());
-                    onOpenAddModal(tile.type, matchCat);
-                  }}
-                  className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-surface hover:bg-sunken border border-subtle text-center transition-all active:scale-95 cursor-pointer shadow-2xs group"
-                >
-                  <div className={`w-10 h-10 rounded-2xl ${tile.bg} flex items-center justify-center text-xl mb-1.5 transition-transform group-hover:scale-110`}>
-                    {tile.icon}
-                  </div>
-                  <span className="text-[11px] font-bold text-main leading-tight truncate w-full">
-                    {tile.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* SMART FINANCIAL PROMO BANNERS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-4 rounded-3xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                  Insights
-                </span>
-                <p className="font-extrabold text-sm leading-tight">
-                  {insights.savingsRate >= 30 ? 'High Savings Rate!' : 'Daily Spending Pace'}
-                </p>
-                <p className="text-[11px] text-white/80">
-                  {insights.avgDailySpend > 0 ? `Avg ${currency}${formatRupees(insights.avgDailySpend)} per day` : 'Ready to log first expense'}
-                </p>
-              </div>
-              <Sparkles size={24} className="text-yellow-300 opacity-90" />
-            </div>
-
-            <div className="p-4 rounded-3xl bg-gradient-to-r from-[#06B6D4] to-[#0284C7] text-white shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                  Savings Goal
-                </span>
-                <p className="font-extrabold text-sm leading-tight">
-                  Net: {currency}{formatRupees(Math.abs(insights.netSavings))}
-                </p>
-                <p className="text-[11px] text-white/80">
-                  {insights.netSavings >= 0 ? 'Surplus retained this month' : 'Review discretionary spends'}
-                </p>
-              </div>
-              <ArrowDownLeft size={24} className="text-white opacity-90" />
-            </div>
-          </div>
-
-          {/* RECENT TRANSACTIONS PREVIEW */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
-                Recent Transactions
-              </h3>
-              <button
-                onClick={() => setActiveTab('history')}
-                className="text-xs font-bold text-[#6228FF] dark:text-[#9955FF] hover:underline cursor-pointer flex items-center gap-1"
-              >
-                <span>See All</span>
-                <ArrowRight size={12} />
-              </button>
-            </div>
-
-            {filteredTransactions.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-surface border border-subtle text-center space-y-2">
-                <p className="text-xs text-muted">No transactions logged this month yet.</p>
-                <button
-                  onClick={() => onOpenAddModal('expense')}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
-                >
-                  + Log First Payment
-                </button>
-              </div>
-            ) : (
-              <div className="bg-surface rounded-2xl border border-subtle divide-y divide-subtle/50 shadow-2xs overflow-hidden">
-                {filteredTransactions.slice(0, 4).map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-sunken/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 truncate pr-2">
-                      <div className="w-10 h-10 rounded-2xl bg-sunken flex items-center justify-center text-lg shrink-0 shadow-2xs">
-                        {tx.categoryIcon || '💸'}
-                      </div>
-                      <div className="truncate">
-                        <p className="text-xs sm:text-sm font-bold text-main truncate flex items-center gap-1">
-                          <span>{tx.category}</span>
-                          <CheckCircle2 size={11} className="text-[#6228FF] shrink-0" />
-                        </p>
-                        <p className="text-[11px] text-muted truncate">
-                          {tx.merchant || tx.note || tx.date}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className={`text-xs sm:text-sm font-extrabold font-mono ${
-                        tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                      }`}>
-                        {tx.type === 'income' ? '+' : '-'}{currency}{formatRupees(Number(tx.amount))}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* SCREEN 2: HISTORY VIEW (Matching Screen 2 of mockup)     */}
-      {/* ======================================================== */}
-      {activeTab === 'history' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          
-          {/* PURPLE TOP BANNER: Frequent Categories / Contacts */}
-          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-md space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-white/90">
-              <span>Frequent Categories</span>
-              <button
-                onClick={() => setIsCategoryManagerOpen(true)}
-                className="text-[11px] text-white/80 hover:text-white underline cursor-pointer"
-              >
-                Manage
-              </button>
-            </div>
-
-            {/* Circular Category Avatars Row */}
-            <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
-              {frequentCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    playPopSound();
-                    setCategoryFilter(categoryFilter === cat.name ? 'all' : cat.name);
-                  }}
-                  className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform group-hover:scale-110 shadow-sm ${
-                    categoryFilter === cat.name ? 'ring-2 ring-white bg-white text-main' : 'bg-white/20 text-white'
-                  }`}>
-                    {cat.icon}
-                  </div>
-                  <span className="text-[10px] font-bold text-white/90 truncate max-w-[55px]">
-                    {cat.name.split(' ')[0]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Segmented Filter Pills: All | Expenses | Income */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setTypeFilter('all');
-                }}
-                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-                  typeFilter === 'all'
-                    ? 'bg-surface text-main font-bold shadow-2xs'
-                    : 'text-muted hover:text-main'
-                }`}
-              >
-                All ({filteredTransactions.length})
-              </button>
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setTypeFilter('expense');
-                }}
-                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-                  typeFilter === 'expense'
-                    ? 'bg-surface text-main font-bold shadow-2xs'
-                    : 'text-muted hover:text-main'
-                }`}
-              >
-                Expenses
-              </button>
-              <button
-                onClick={() => {
-                  playPopSound();
-                  setTypeFilter('income');
-                }}
-                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer min-h-[36px] ${
-                  typeFilter === 'income'
-                    ? 'bg-surface text-main font-bold shadow-2xs'
-                    : 'text-muted hover:text-main'
-                }`}
-              >
-                Income
-              </button>
-            </div>
-
+      {/* 2. TOTAL BALANCE HERO HEADER (Matching Screen 3 of mockup) */}
+      <div className="flex items-center justify-between px-2 pt-1">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+            <CreditCard size={14} />
+            <span>Total Balance</span>
             <button
               onClick={() => {
                 playPopSound();
-                onOpenAddModal();
+                setShowBalance(!showBalance);
               }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
+              className="p-1 rounded-full hover:bg-sunken text-muted hover:text-main transition-colors cursor-pointer"
+              title={showBalance ? 'Hide Balance' : 'Show Balance'}
             >
-              <Plus size={13} className="stroke-[2.5]" />
-              <span>Record</span>
+              {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
             </button>
           </div>
-
-          {/* Date-Grouped Transaction Feed */}
-          <div className="space-y-4">
-            {groupedTransactions.length === 0 ? (
-              <div className="bg-surface rounded-3xl p-8 border border-subtle text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-sunken flex items-center justify-center mx-auto text-xl">
-                  💸
-                </div>
-                <h4 className="text-sm font-bold text-main">No payment records found</h4>
-                <p className="text-xs text-muted max-w-sm mx-auto">
-                  {searchQuery ? 'Try another search query.' : 'Tap Record to log your first payment in Rupees.'}
-                </p>
-                <button
-                  onClick={() => onOpenAddModal()}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs"
-                >
-                  + Record Transaction
-                </button>
-              </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono text-[#6E3BFF] dark:text-[#9955FF]">
+            {showBalance ? (
+              `${overallBalance >= 0 ? '' : '-'}${currency}${formatRupees(Math.abs(overallBalance))}`
             ) : (
-              groupedTransactions.map((group) => (
-                <div key={group.dateStr} className="space-y-2">
-                  <div className="flex items-center justify-between px-2 text-xs font-mono">
-                    <span className="font-bold text-muted capitalize tracking-tight">
-                      {group.label}
-                    </span>
-                    <span className="font-semibold text-muted/80">
-                      {group.subtotal >= 0 ? '+' : '-'}{currency}{formatRupees(Math.abs(group.subtotal))}
-                    </span>
-                  </div>
-
-                  <div className="bg-surface rounded-2xl border border-subtle divide-y divide-subtle/50 shadow-2xs overflow-hidden">
-                    {group.items.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-sunken/50 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className="w-10 h-10 rounded-2xl bg-sunken/80 border border-subtle/60 flex items-center justify-center text-lg shrink-0 shadow-2xs">
-                            {tx.categoryIcon || '💸'}
-                          </div>
-                          <div className="min-w-0 space-y-0.5">
-                            <p className="text-xs sm:text-sm font-bold text-main truncate flex items-center gap-1">
-                              <span>{tx.category}</span>
-                              <CheckCircle2 size={11} className="text-[#6228FF] shrink-0" />
-                            </p>
-                            {(tx.merchant || tx.note) && (
-                              <p className="text-[11px] text-muted truncate">
-                                {tx.merchant || tx.note}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                          <span
-                            className={`text-xs sm:text-sm font-extrabold font-mono ${
-                              tx.type === 'income'
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-rose-600 dark:text-rose-400'
-                            }`}
-                          >
-                            {tx.type === 'income' ? '+' : '-'}{currency}{formatRupees(Number(tx.amount))}
-                          </span>
-
-                          <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => {
-                                playPopSound();
-                                onEditTransaction(tx);
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-sunken text-muted hover:text-main cursor-pointer"
-                              title="Edit"
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                playPopSound();
-                                if (window.confirm(`Delete ${tx.category} payment of ${currency}${tx.amount}?`)) {
-                                  onDeleteTransaction(tx.id);
-                                }
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
-                              title="Delete"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
+              `${currency}••••••••`
             )}
-          </div>
-
+          </h1>
         </div>
-      )}
 
-      {/* ======================================================== */}
-      {/* SCREEN 3: STATISTIC ACTIVITY (Matching Screen 3 of mockup) */}
-      {/* ======================================================== */}
-      {activeTab === 'statistics' && (
-        <div className="space-y-5 animate-in fade-in duration-200">
-          
-          {/* Mini Total Balance Summary */}
-          <div className="flex items-center justify-between p-4 rounded-3xl bg-surface border border-subtle">
-            <div className="space-y-0.5">
-              <span className="text-[10px] uppercase font-bold text-muted tracking-wider flex items-center gap-1">
-                <CreditCard size={12} /> Total Balance
-              </span>
-              <h2 className="text-2xl font-extrabold font-mono text-main">
-                {currency}{formatRupees(Math.abs(overallBalance))}
-              </h2>
-            </div>
-            <button
-              onClick={() => onOpenAddModal()}
-              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs"
+        {/* Categories Manager shortcut */}
+        <button
+          onClick={() => {
+            playPopSound();
+            setIsCategoryManagerOpen(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition-all active:scale-95"
+        >
+          <Tag size={13} className="text-[#6E3BFF]" />
+          <span>Categories ({categories.length})</span>
+        </button>
+      </div>
+
+      {/* 3. "OVERVIEW" DUAL WAVE CHART (Exact Replica of Screen 3 in Reference Image) */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-extrabold text-sm sm:text-base text-main">
+              Overview
+            </h3>
+            <p className="text-[11px] text-muted font-medium">Monthly Income & Expense Waves</p>
+          </div>
+
+          {/* Legend: 🟣 Income  🔵 Expense */}
+          <div className="flex items-center gap-3 text-xs font-bold">
+            <span className="flex items-center gap-1.5 text-[#6E3BFF] dark:text-[#9955FF]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6E3BFF]" />
+              Income
+            </span>
+            <span className="flex items-center gap-1.5 text-[#06B6D4]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4]" />
+              Expense
+            </span>
+          </div>
+        </div>
+
+        {/* Dual Spline SVG Curves */}
+        <div className="relative w-full h-[135px] pt-1">
+          <svg viewBox="0 0 500 135" className="w-full h-full overflow-visible select-none" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="purpleGradientWave" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6E3BFF" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#6E3BFF" stopOpacity="0.0" />
+              </linearGradient>
+              <linearGradient id="cyanGradientWave" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            {/* Income Gradient Area */}
+            {dualTrendData.incomeArea && (
+              <path d={dualTrendData.incomeArea} fill="url(#purpleGradientWave)" />
+            )}
+            {/* Expense Gradient Area */}
+            {dualTrendData.expenseArea && (
+              <path d={dualTrendData.expenseArea} fill="url(#cyanGradientWave)" />
+            )}
+
+            {/* Purple Spline Curve for Income */}
+            {dualTrendData.incomePath && (
+              <path
+                d={dualTrendData.incomePath}
+                fill="none"
+                stroke="#6E3BFF"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+
+            {/* Cyan Spline Curve for Expense */}
+            {dualTrendData.expensePath && (
+              <path
+                d={dualTrendData.expensePath}
+                fill="none"
+                stroke="#06B6D4"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+
+            {/* Income Dots */}
+            {dualTrendData.incomePoints.map((pt, idx) => (
+              <circle
+                key={`inc-${pt.monthKey}`}
+                cx={pt.x}
+                cy={pt.y}
+                r="4"
+                fill="#6E3BFF"
+                stroke="var(--surface)"
+                strokeWidth="2"
+                className="cursor-pointer transition-transform hover:scale-125"
+                onMouseEnter={() => setHoveredTrendIndex(idx)}
+                onMouseLeave={() => setHoveredTrendIndex(null)}
+              />
+            ))}
+
+            {/* Expense Dots */}
+            {dualTrendData.expensePoints.map((pt, idx) => (
+              <circle
+                key={`exp-${pt.monthKey}`}
+                cx={pt.x}
+                cy={pt.y}
+                r="4"
+                fill="#06B6D4"
+                stroke="var(--surface)"
+                strokeWidth="2"
+                className="cursor-pointer transition-transform hover:scale-125"
+                onMouseEnter={() => setHoveredTrendIndex(idx)}
+                onMouseLeave={() => setHoveredTrendIndex(null)}
+              />
+            ))}
+          </svg>
+
+          {/* Interactive Tooltip on hover */}
+          {hoveredTrendIndex !== null && dualTrendData.incomePoints[hoveredTrendIndex] && (
+            <div
+              className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-lg bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
+              style={{ left: `${(dualTrendData.incomePoints[hoveredTrendIndex].x / 500) * 100}%` }}
             >
-              + Record
-            </button>
-          </div>
-
-          {/* "OVERVIEW" DUAL WAVE CHART CARD (Screen 3 Replica) */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-main">
-                  Overview
-                </h3>
-                <p className="text-[11px] text-muted font-medium">Income vs Expense Trend</p>
-              </div>
-
-              {/* Legend: Purple Income • Cyan Expense */}
-              <div className="flex items-center gap-3 text-xs font-bold">
-                <span className="flex items-center gap-1.5 text-[#6228FF] dark:text-[#9955FF]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#6228FF]" />
-                  Income
-                </span>
-                <span className="flex items-center gap-1.5 text-[#06B6D4]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4]" />
-                  Expense
-                </span>
-              </div>
-            </div>
-
-            {/* DUAL SPLINE SVG GRAPH */}
-            <div className="relative w-full h-[140px] pt-2">
-              <svg viewBox="0 0 500 140" className="w-full h-full overflow-visible select-none" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6228FF" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#6228FF" stopOpacity="0.0" />
-                  </linearGradient>
-                  <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Income Area Fill */}
-                {dualTrendData.incomeArea && (
-                  <path d={dualTrendData.incomeArea} fill="url(#purpleGrad)" />
-                )}
-                {/* Expense Area Fill */}
-                {dualTrendData.expenseArea && (
-                  <path d={dualTrendData.expenseArea} fill="url(#cyanGrad)" />
-                )}
-
-                {/* Purple Income Curve */}
-                {dualTrendData.incomePath && (
-                  <path
-                    d={dualTrendData.incomePath}
-                    fill="none"
-                    stroke="#6228FF"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )}
-
-                {/* Cyan Expense Curve */}
-                {dualTrendData.expensePath && (
-                  <path
-                    d={dualTrendData.expensePath}
-                    fill="none"
-                    stroke="#06B6D4"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )}
-
-                {/* Month Points */}
-                {dualTrendData.incomePoints.map((pt, idx) => (
-                  <circle
-                    key={`inc-${pt.monthKey}`}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="4"
-                    fill="#6228FF"
-                    stroke="var(--surface)"
-                    strokeWidth="2"
-                    className="cursor-pointer transition-transform hover:scale-125"
-                    onMouseEnter={() => setHoveredTrendIndex(idx)}
-                    onMouseLeave={() => setHoveredTrendIndex(null)}
-                  />
-                ))}
-
-                {dualTrendData.expensePoints.map((pt, idx) => (
-                  <circle
-                    key={`exp-${pt.monthKey}`}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="4"
-                    fill="#06B6D4"
-                    stroke="var(--surface)"
-                    strokeWidth="2"
-                    className="cursor-pointer transition-transform hover:scale-125"
-                    onMouseEnter={() => setHoveredTrendIndex(idx)}
-                    onMouseLeave={() => setHoveredTrendIndex(null)}
-                  />
-                ))}
-              </svg>
-
-              {/* Tooltip on hover */}
-              {hoveredTrendIndex !== null && dualTrendData.incomePoints[hoveredTrendIndex] && (
-                <div
-                  className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-lg bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
-                  style={{ left: `${(dualTrendData.incomePoints[hoveredTrendIndex].x / 500) * 100}%` }}
-                >
-                  +{currency}{formatRupees(dualTrendData.incomePoints[hoveredTrendIndex].val)} | -{currency}{formatRupees(dualTrendData.expensePoints[hoveredTrendIndex].val)}
-                </div>
-              )}
-            </div>
-
-            {/* Month labels along bottom */}
-            <div className="flex justify-between px-3 text-[11px] font-mono font-semibold text-muted select-none">
-              {insights.monthlyTrend.map((pt) => (
-                <span key={pt.monthKey} className="capitalize">
-                  {pt.monthLabel}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* "INFORMATION" GLOWING DUO CARDS (Screen 3 Replica) */}
-          <div className="space-y-2">
-            <h4 className="font-extrabold text-xs text-muted uppercase tracking-wider px-1">
-              Information Summary
-            </h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Income Purple Card */}
-              <div className="p-5 rounded-3xl bg-gradient-to-br from-[#6228FF] to-[#8C52FF] text-white shadow-md space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-white/90">
-                  <span className="flex items-center gap-1.5">
-                    <ArrowDownLeft size={16} /> Income
-                  </span>
-                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">
-                    {insights.savingsRate}% Saved
-                  </span>
-                </div>
-                <h3 className="text-2xl font-mono font-extrabold">
-                  +{currency}{formatRupees(insights.totalIncome)}
-                </h3>
-              </div>
-
-              {/* Expense Cyan Card */}
-              <div className="p-5 rounded-3xl bg-gradient-to-br from-[#06B6D4] to-[#0284C7] text-white shadow-md space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-white/90">
-                  <span className="flex items-center gap-1.5">
-                    <ArrowUpRight size={16} /> Expense
-                  </span>
-                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">
-                    {selectedMonthOption.label}
-                  </span>
-                </div>
-                <h3 className="text-2xl font-mono font-extrabold">
-                  -{currency}{formatRupees(insights.totalExpenses)}
-                </h3>
-              </div>
-            </div>
-          </div>
-
-          {/* Category Distribution Meters */}
-          {categoryBreakdown.length > 0 && (
-            <div className="p-5 rounded-3xl bg-surface border border-subtle space-y-3">
-              <h4 className="font-extrabold text-xs text-main uppercase tracking-wider">
-                Top Spending Breakdown
-              </h4>
-              <div className="space-y-2.5">
-                {categoryBreakdown.slice(0, 5).map((cat) => (
-                  <div key={cat.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="flex items-center gap-1.5 truncate">
-                        <span>{cat.icon}</span>
-                        <span className="truncate">{cat.name}</span>
-                      </span>
-                      <span className="font-mono text-muted">
-                        {currency}{formatRupees(cat.amount)} ({cat.pct}%)
-                      </span>
-                    </div>
-                    <div className="w-full bg-sunken rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-[#6228FF] to-[#06B6D4] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${cat.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              +{currency}{formatRupees(dualTrendData.incomePoints[hoveredTrendIndex].val)} | -{currency}{formatRupees(dualTrendData.expensePoints[hoveredTrendIndex].val)}
             </div>
           )}
+        </div>
 
+        {/* Month Labels along bottom: Jan Feb Mar Apr Mei Jun Jul */}
+        <div className="flex justify-between px-3 text-[11px] font-mono font-semibold text-muted select-none">
+          {insights.monthlyTrend.map((pt) => {
+            const isSelected = pt.monthKey === selectedMonthKey;
+            return (
+              <button
+                key={pt.monthKey}
+                onClick={() => {
+                  playPopSound();
+                  setSelectedMonthKey(pt.monthKey);
+                }}
+                className={`transition-colors cursor-pointer capitalize ${
+                  isSelected
+                    ? 'text-[#6E3BFF] font-extrabold underline underline-offset-4 decoration-2 decoration-[#6E3BFF]'
+                    : 'hover:text-main'
+                }`}
+              >
+                {pt.monthLabel}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 4. "INFORMATION" GLOWING DUO CARDS (Exact Replica of Screen 3 in Reference Image) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        {/* Purple Glowing Income Card */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-[#6E3BFF] via-[#7B46FF] to-[#8C52FF] text-white shadow-md shadow-purple-500/20 space-y-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-semibold text-white/90">
+            <span className="flex items-center gap-1.5">
+              <ArrowDownLeft size={16} className="stroke-[2.5]" />
+              <span>Income</span>
+            </span>
+            <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-mono">
+              {insights.savingsRate}% Saved
+            </span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-mono font-extrabold text-white">
+            +{currency}{formatRupees(insights.totalIncome)}
+          </h3>
+          <p className="text-[11px] text-white/80 font-medium">
+            Incoming funds for {selectedMonthOption.label}
+          </p>
+        </div>
+
+        {/* Cyan Glowing Expense Card */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-[#06B6D4] to-[#0284C7] text-white shadow-md shadow-cyan-500/20 space-y-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-semibold text-white/90">
+            <span className="flex items-center gap-1.5">
+              <ArrowUpRight size={16} className="stroke-[2.5]" />
+              <span>Expense</span>
+            </span>
+            <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-mono">
+              Net {currency}{formatRupees(Math.abs(insights.netSavings))}
+            </span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-mono font-extrabold text-white">
+            -{currency}{formatRupees(insights.totalExpenses)}
+          </h3>
+          <p className="text-[11px] text-white/80 font-medium">
+            Outflow records for {selectedMonthOption.label}
+          </p>
+        </div>
+      </div>
+
+      {/* 5. FREQUENT CATEGORIES CIRCULAR STRIP (Screen 2 Replica) */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white shadow-sm space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-white/90">
+          <span className="flex items-center gap-1.5">
+            <Tag size={13} />
+            <span>Categories</span>
+          </span>
+          <button
+            onClick={() => setIsCategoryManagerOpen(true)}
+            className="text-[11px] text-white/85 hover:text-white underline cursor-pointer"
+          >
+            Customize
+          </button>
+        </div>
+
+        {/* Circular Avatar Badges */}
+        <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
+          <button
+            onClick={() => {
+              playPopSound();
+              setCategoryFilter('all');
+            }}
+            className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+          >
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-transform group-hover:scale-110 shadow-sm ${
+              categoryFilter === 'all' ? 'bg-white text-[#6E3BFF] ring-2 ring-white' : 'bg-white/20 text-white'
+            }`}>
+              All
+            </div>
+            <span className="text-[10px] font-bold text-white/90">All</span>
+          </button>
+
+          {categories.map((cat) => {
+            const isSelected = categoryFilter === cat.name;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  playPopSound();
+                  setCategoryFilter(isSelected ? 'all' : cat.name);
+                }}
+                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform group-hover:scale-110 shadow-sm ${
+                  isSelected ? 'bg-white text-main ring-2 ring-white scale-105' : 'bg-white/20 text-white'
+                }`}>
+                  {cat.icon}
+                </div>
+                <span className="text-[10px] font-bold text-white/90 truncate max-w-[55px]">
+                  {cat.name.split(' ')[0]}
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => {
+              playPopSound();
+              setIsCategoryManagerOpen(true);
+            }}
+            className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-full border border-dashed border-white/50 flex items-center justify-center text-white/80 transition-transform group-hover:scale-110">
+              <Plus size={18} />
+            </div>
+            <span className="text-[10px] font-bold text-white/80">Add</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 6. TOP SPENDING BREAKDOWN METERS (If expenses exist) */}
+      {categoryBreakdown.length > 0 && (
+        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-extrabold text-xs text-main uppercase tracking-wider">
+              Spending Breakdown
+            </h4>
+            <span className="text-[11px] font-mono text-muted">
+              {categoryBreakdown.length} active categories
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {categoryBreakdown.slice(0, 5).map((cat) => (
+              <div key={cat.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span>{cat.icon}</span>
+                    <span className="truncate">{cat.name}</span>
+                  </span>
+                  <span className="font-mono text-muted">
+                    {currency}{formatRupees(cat.amount)} ({cat.pct}%)
+                  </span>
+                </div>
+                <div className="w-full bg-sunken rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-[#6E3BFF] to-[#06B6D4] h-full rounded-full transition-all duration-500"
+                    style={{ width: `${cat.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* 4. CATEGORY MANAGER MODAL                                 */}
-      {/* ======================================================== */}
+      {/* 7. RECENT PAYMENTS FEED (Matching Screen 2 of Mockup) */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
+            Recent Payments
+          </h3>
+
+          {/* Type Filter Pills: All | Expenses | Income */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('all');
+              }}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                typeFilter === 'all'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              All ({filteredTransactions.length})
+            </button>
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('expense');
+              }}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                typeFilter === 'expense'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              Expenses
+            </button>
+            <button
+              onClick={() => {
+                playPopSound();
+                setTypeFilter('income');
+              }}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                typeFilter === 'income'
+                  ? 'bg-surface text-main font-bold shadow-2xs'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              Income
+            </button>
+          </div>
+        </div>
+
+        {groupedTransactions.length === 0 ? (
+          <div className="bg-surface rounded-3xl p-8 border border-subtle text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-sunken flex items-center justify-center mx-auto text-xl">
+              💸
+            </div>
+            <h4 className="text-sm font-bold text-main">No payment records found</h4>
+            <p className="text-xs text-muted max-w-sm mx-auto">
+              {searchQuery ? 'Try another search query.' : 'Tap Add Entry to log your first income or expense.'}
+            </p>
+            <button
+              onClick={() => onOpenAddModal()}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
+            >
+              + Record in Rupees
+            </button>
+          </div>
+        ) : (
+          groupedTransactions.map((group) => (
+            <div key={group.dateStr} className="space-y-2">
+              <div className="flex items-center justify-between px-2 text-xs font-mono">
+                <span className="font-bold text-muted capitalize tracking-tight">
+                  {group.label}
+                </span>
+                <span className="font-semibold text-muted/80">
+                  {group.subtotal >= 0 ? '+' : '-'}{currency}{formatRupees(Math.abs(group.subtotal))}
+                </span>
+              </div>
+
+              <div className="bg-surface rounded-2xl border border-subtle divide-y divide-subtle/50 shadow-2xs overflow-hidden">
+                {group.items.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-sunken/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      <div className="w-10 h-10 rounded-2xl bg-sunken/80 border border-subtle/60 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+                        {tx.categoryIcon || '💸'}
+                      </div>
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-xs sm:text-sm font-bold text-main truncate flex items-center gap-1">
+                          <span>{tx.category}</span>
+                          <CheckCircle2 size={11} className="text-[#6E3BFF] shrink-0" />
+                        </p>
+                        {(tx.merchant || tx.note) && (
+                          <p className="text-[11px] text-muted truncate">
+                            {tx.merchant || tx.note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <span
+                        className={`text-xs sm:text-sm font-extrabold font-mono ${
+                          tx.type === 'income'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {tx.type === 'income' ? '+' : '-'}{currency}{formatRupees(Number(tx.amount))}
+                      </span>
+
+                      <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            playPopSound();
+                            onEditTransaction(tx);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-sunken text-muted hover:text-main cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            playPopSound();
+                            if (window.confirm(`Delete ${tx.category} payment of ${currency}${tx.amount}?`)) {
+                              onDeleteTransaction(tx.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 8. CATEGORY MANAGER MODAL */}
       {isCategoryManagerOpen && (
         <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-surface text-main rounded-3xl border border-subtle shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-subtle pb-3">
               <div className="flex items-center gap-2">
-                <Tag size={16} className="text-[#6228FF]" />
+                <Tag size={16} className="text-[#6E3BFF]" />
                 <h3 className="font-extrabold text-sm sm:text-base text-main">
                   Customize Categories
                 </h3>
@@ -1116,7 +864,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
                   placeholder="Category Name (e.g. Swiggy, Gym, SIP)..."
-                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-none focus:ring-1 focus:ring-[#6228FF]"
+                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-none focus:ring-1 focus:ring-[#6E3BFF]"
                 />
                 <button
                   type="button"
@@ -1138,7 +886,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       setCatIconInput(emoji);
                     }}
                     className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm transition-transform ${
-                      catIconInput === emoji ? 'bg-[#6228FF] text-white scale-110' : 'hover:bg-sunken'
+                      catIconInput === emoji ? 'bg-[#6E3BFF] text-white scale-110' : 'hover:bg-sunken'
                     }`}
                   >
                     {emoji}
@@ -1174,7 +922,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     setEditingCategory(null);
                     setCatNameInput('');
                   }}
-                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   {editingCategory ? 'Update Category' : '+ Add Category'}
                 </button>
