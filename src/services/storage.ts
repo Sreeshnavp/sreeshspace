@@ -55,7 +55,6 @@ export const INITIAL_LINKS: LinkItem[] = [];
 export function isSampleItem(item: any): boolean {
   if (!item) return false;
   const id = String(item.id || '');
-  const text = String(item.text || item.title || item.url || '').toLowerCase();
   
   if ([
     'link-1', 'link-2', 'link-3', 'link-4',
@@ -70,35 +69,6 @@ export function isSampleItem(item: any): boolean {
     id.startsWith('ev-backfill-todo-') ||
     id.startsWith('ev-backfill-link-') ||
     id.startsWith('ev-backfill-note-')
-  ) {
-    return true;
-  }
-
-  if (
-    text.includes('sreeshspace') ||
-    text.includes('design orbit') ||
-    text.includes('design sreeshspace') ||
-    text.includes('pin favorite') ||
-    text.includes('web tools to the canvas') ||
-    text.includes('project roadmap notes') ||
-    text.includes('notebook workflow') ||
-    text.includes('explore orbit notebook') ||
-    text.includes('review daily study') ||
-    text.includes('evening reflection') ||
-    text.includes('file code and ai') ||
-    text.includes('cute folders') ||
-    text.includes('daily coding and knowledge') ||
-    text.includes('test pwa install') ||
-    text.includes('supabase cloud sync verified') ||
-    text.includes('daily philosophy') ||
-    text.includes('creative ideas for orbit') ||
-    text.includes('color palette & zen') ||
-    text.includes('ai.google.dev') ||
-    text.includes('google ai studio') ||
-    text.includes('tailwindcss.com') ||
-    text.includes('tailwind css reference') ||
-    text.includes('excalidraw') ||
-    text.includes('mdn web')
   ) {
     return true;
   }

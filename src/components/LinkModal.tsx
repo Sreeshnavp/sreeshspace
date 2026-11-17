@@ -48,32 +48,50 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   const [newCatName, setNewCatName] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const prevOpenRef = useRef(false);
+  const prevIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (initialData) {
-      setUrl(initialData.url);
-      setTitle(initialData.title);
-      setCategory(initialData.category || categories[0]?.name || 'Uncategorized');
-      setNotes(initialData.notes || '');
-      setPinned(initialData.pinned || false);
-      setAttachments(initialData.attachments || []);
-    } else {
-      setUrl(defaultUrl || '');
-      setTitle(defaultUrl ? generateSuggestedTitle(defaultUrl) : '');
-      setCategory(defaultCategory || categories[0]?.name || 'Uncategorized');
-      setNotes('');
-      setPinned(false);
-      setAttachments([]);
+    // Only initialize form fields when the modal opens or when editing a different item
+    const justOpened = isOpen && !prevOpenRef.current;
+    const itemChanged = isOpen && initialData?.id !== prevIdRef.current;
+
+    if (justOpened || itemChanged) {
+      if (initialData) {
+        setUrl(initialData.url || '');
+        setTitle(initialData.title || '');
+        setCategory(initialData.category || 'Uncategorized');
+        setNotes(initialData.notes || '');
+        setPinned(initialData.pinned || false);
+        setAttachments(initialData.attachments || []);
+      } else {
+        setUrl(defaultUrl || '');
+        setTitle(defaultUrl ? generateSuggestedTitle(defaultUrl) : '');
+        setCategory(defaultCategory || 'Uncategorized');
+        setNotes('');
+        setPinned(false);
+        setAttachments([]);
+      }
+      setIsAddingCategory(false);
+      setNewCatName('');
     }
-  }, [initialData, isOpen, categories, defaultUrl, defaultCategory]);
+
+    prevOpenRef.current = isOpen;
+    prevIdRef.current = initialData?.id;
+  }, [isOpen, initialData?.id, defaultUrl, defaultCategory]);
 
   if (!isOpen) return null;
 
   const handleUrlChange = (val: string) => {
     setUrl(val);
-    if (!title && val.trim().length > 3) {
+    if (!title.trim() && val.trim().length > 4 && val.includes('.') && !val.endsWith('.')) {
       const suggested = generateSuggestedTitle(val);
-      if (suggested && suggested !== 'New Link') {
+      if (
+        suggested && 
+        suggested !== 'New Link' && 
+        suggested.toLowerCase() !== 'http' && 
+        suggested.toLowerCase() !== 'https'
+      ) {
         setTitle(suggested);
       }
     }
@@ -190,17 +208,22 @@ export const LinkModal: React.FC<LinkModalProps> = ({
             </div>
           </div>
 
-          {/* Title */}
+          {/* Title / Headline */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-main">
-                Title / Name
+                Title / Headline
               </label>
-              {url && !title && (
+              {url.trim().length > 3 && (
                 <button
                   type="button"
-                  onClick={() => setTitle(generateSuggestedTitle(url))}
-                  className="text-[11px] text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                  onClick={() => {
+                    const suggested = generateSuggestedTitle(url);
+                    if (suggested && suggested !== 'New Link') {
+                      setTitle(suggested);
+                    }
+                  }}
+                  className="text-[11px] text-accent hover:underline flex items-center gap-1 cursor-pointer font-semibold"
                 >
                   <Sparkles size={11} /> Auto-fill
                 </button>
@@ -210,7 +233,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Tailwind CSS or Cool Design Resource"
+              placeholder="e.g. Claude Code Docs or Cool Design Resource"
               className="w-full px-4 py-2.5 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm"
             />
           </div>
@@ -221,6 +244,19 @@ export const LinkModal: React.FC<LinkModalProps> = ({
               Folder / Category
             </label>
             <div className="flex flex-wrap gap-1.5">
+              {/* Standalone Canvas Chip */}
+              <button
+                type="button"
+                onClick={() => setCategory('Uncategorized')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 border cursor-pointer ${
+                  !category || category === 'Uncategorized'
+                    ? 'bg-accent text-on-accent border-accent shadow-soft'
+                    : 'bg-surface text-main border-subtle hover:bg-sunken'
+                }`}
+              >
+                📌 Canvas (No Folder)
+              </button>
+
               {categories.map((c) => {
                 const isSelected = category === c.name;
                 return (
@@ -265,16 +301,16 @@ export const LinkModal: React.FC<LinkModalProps> = ({
             </div>
           </div>
 
-          {/* Uses & Context Notes */}
+          {/* Description & Context Notes */}
           <div>
             <label className="block text-xs font-bold text-main mb-1.5">
-              Uses & Notes
+              Description & Notes
             </label>
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="What do you use this for? Add instructions, steps, reminders, or tips..."
+              placeholder="What do you use this for? Add headline notes, instructions, reminders, or tags..."
               className="w-full px-4 py-2.5 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm leading-relaxed"
             />
           </div>

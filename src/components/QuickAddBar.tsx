@@ -36,17 +36,29 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
           className="flex-1 bg-transparent py-2 px-1 text-xs sm:text-sm text-main placeholder-faint focus:outline-none"
         />
 
-        {url.trim() && (
+        {url.trim() ? (
           <button
             type="button"
             onClick={() => {
               onOpenDetailedModal(url);
               setUrl('');
             }}
-            className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-accent hover:bg-accent-soft px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent hover:bg-accent-soft px-2 sm:px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0"
+            title="Add headline, description, folder and files"
           >
             <Sparkles size={13} />
-            <span>Add notes & files</span>
+            <span className="hidden sm:inline">Add notes & details</span>
+            <span className="sm:hidden">+ Details</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenDetailedModal()}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-muted hover:text-accent hover:bg-accent-soft px-2 sm:px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0"
+            title="Open full dialog to add link with headline and description"
+          >
+            <Sparkles size={13} />
+            <span className="hidden sm:inline">Detailed</span>
           </button>
         )}
 
