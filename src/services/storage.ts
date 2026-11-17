@@ -931,9 +931,9 @@ export async function saveFinanceCategories(categories: FinanceCategory[]): Prom
 
 export function loadFinanceCurrency(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY_FINANCE_CURRENCY) || '$';
+    return localStorage.getItem(STORAGE_KEY_FINANCE_CURRENCY) || '₹';
   } catch {
-    return '$';
+    return '₹';
   }
 }
 

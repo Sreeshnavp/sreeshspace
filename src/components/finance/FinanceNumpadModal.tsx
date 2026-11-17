@@ -27,6 +27,8 @@ interface FinanceNumpadModalProps {
   initialData?: FinanceTransaction | null;
   categories: FinanceCategory[];
   currency?: string;
+  defaultType?: TransactionType;
+  defaultCategory?: FinanceCategory;
   onSaveCategory: (cat: FinanceCategory) => void;
   onDeleteCategory: (id: string) => void;
 }
@@ -37,14 +39,16 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
   onSave,
   initialData,
   categories,
-  currency = '$',
+  currency = '₹',
+  defaultType,
+  defaultCategory,
   onSaveCategory,
   onDeleteCategory,
 }) => {
-  const [type, setType] = useState<TransactionType>('expense');
+  const [type, setType] = useState<TransactionType>(defaultType || 'expense');
   const [amountStr, setAmountStr] = useState<string>('0');
   const [selectedCategory, setSelectedCategory] = useState<FinanceCategory>(
-    categories[0] || DEFAULT_FINANCE_CATEGORIES[0]
+    defaultCategory || categories[0] || DEFAULT_FINANCE_CATEGORIES[0]
   );
   const [merchant, setMerchant] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(todayKey());
@@ -94,19 +98,19 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
       setMerchant(initialData.merchant || initialData.note || '');
       setSelectedDate(initialData.date || todayKey());
     } else {
-      setType('expense');
+      const initType = defaultType || 'expense';
+      setType(initType);
       setAmountStr('0');
-      const firstExp = categories.find((c) => c.type === 'expense') || categories[0] || DEFAULT_FINANCE_CATEGORIES[0];
-      setSelectedCategory(firstExp);
+      const firstCat = defaultCategory || categories.find((c) => c.type === initType) || categories[0] || DEFAULT_FINANCE_CATEGORIES[0];
+      setSelectedCategory(firstCat);
       setMerchant('');
       setSelectedDate(todayKey());
     }
     setIsCategoryPickerOpen(false);
     setIsCategoryEditorOpen(false);
     setEditingCategoryTarget(null);
-  }, [initialData, isOpen, categories]);
+  }, [initialData, isOpen, categories, defaultType, defaultCategory]);
 
-  // When switching type (expense <-> income), select the first available category of that type
   const handleTypeSwitch = (newType: TransactionType) => {
     playPopSound();
     setType(newType);
@@ -116,11 +120,9 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     }
   };
 
-  // Keyboard support for desktop
   useEffect(() => {
     if (!isOpen || isCategoryEditorOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If user is focused on the text note/merchant or amount input, let default typing happen
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
         if (e.key === 'Enter') {
@@ -149,7 +151,6 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, amountStr, type, selectedCategory, merchant, selectedDate, isCategoryEditorOpen]);
 
-  // Evaluates math if present (e.g. "12+4.50" -> 16.5)
   const parseComputedAmount = (str: string): number => {
     try {
       if (str.includes('+')) {
@@ -162,17 +163,14 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     }
   };
 
-  // Keypad logic
   const handleDigit = (digit: string) => {
     playPopSound();
     setAmountStr((prev) => {
       if (prev === '0') return digit;
-      // If after '+', allow new leading number
       const lastToken = prev.split('+').pop() || '';
       if (lastToken === '0') {
         return prev.slice(0, -1) + digit;
       }
-      // Max 2 decimal places on current token
       if (lastToken.includes('.')) {
         const decimals = lastToken.split('.')[1];
         if (decimals && decimals.length >= 2) return prev;
@@ -213,7 +211,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     setAmountStr('0');
   };
 
-  // Quick preset add chips (+5, +10, +25, +50, +100)
+  // Quick preset Rupee denominations (+50, +100, +200, +500, +1000, +2000)
   const handleQuickAdd = (increment: number) => {
     playPopSound();
     setAmountStr((prev) => {
@@ -242,7 +240,6 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
     });
   };
 
-  // Category Editor Handlers
   const handleOpenNewCategory = () => {
     playPopSound();
     setEditingCategoryTarget(null);
@@ -291,9 +288,8 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Available quick notes for selected category
   const quickNotes = CATEGORY_QUICK_NOTES[selectedCategory.name] || [
-    'General', 'Daily', 'Online', 'In Store', 'Subscription'
+    'General', 'Daily', 'Online', 'Store', 'Bill'
   ];
 
   return (
@@ -316,29 +312,29 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
             <X size={18} />
           </button>
 
-          {/* Segmented Pill Toggle */}
+          {/* Segmented Pill Toggle with Purple & Cyan Highlighting */}
           <div className="flex items-center gap-1 p-1 bg-sunken rounded-full border border-subtle">
             <button
               type="button"
               onClick={() => handleTypeSwitch('expense')}
               className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 type === 'expense'
-                  ? 'bg-main text-surface shadow-2xs font-extrabold'
+                  ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-xs font-extrabold'
                   : 'text-muted hover:text-main'
               }`}
             >
-              expenses
+              Expense
             </button>
             <button
               type="button"
               onClick={() => handleTypeSwitch('income')}
               className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 type === 'income'
-                  ? 'bg-main text-surface shadow-2xs font-extrabold'
+                  ? 'bg-gradient-to-r from-[#06B6D4] to-[#0284C7] text-white shadow-xs font-extrabold'
                   : 'text-muted hover:text-main'
               }`}
             >
-              income
+              Income
             </button>
           </div>
 
@@ -358,21 +354,20 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 }}
                 className={`flex flex-col items-center justify-center min-w-[40px] py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-main text-surface shadow-xs font-bold scale-105'
+                    ? 'bg-gradient-to-b from-[#6228FF] to-[#7B3FE4] text-white shadow-xs font-bold scale-105'
                     : 'text-muted hover:text-main hover:bg-surface/80'
                 }`}
               >
                 <span className="text-xs font-mono font-extrabold leading-none">
                   {item.dayNum}
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-tight opacity-75 mt-0.5">
+                <span className="text-[10px] uppercase font-bold tracking-tight opacity-80 mt-0.5">
                   {item.dayName}
                 </span>
               </button>
             );
           })}
 
-          {/* Custom Date Picker button */}
           <div className="relative shrink-0 pl-1">
             <label className="p-2 rounded-xl bg-surface border border-subtle hover:bg-sunken text-muted hover:text-main cursor-pointer flex items-center justify-center min-h-[36px] min-w-[36px]">
               <CalendarIcon size={14} />
@@ -391,11 +386,11 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
           </div>
         </div>
 
-        {/* HERO AMOUNT DISPLAY (Direct Editable Input + Currency Symbol) */}
+        {/* HERO RUPEES AMOUNT DISPLAY */}
         <div className="px-6 pt-3 pb-2 text-center space-y-1">
-          <div className="flex items-center justify-center gap-1">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-muted select-none">
-              {currency}
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="text-3xl sm:text-4xl font-extrabold font-mono text-[#7B3FE4] select-none">
+              ₹
             </span>
             <input
               ref={amountInputRef}
@@ -410,29 +405,28 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
             />
           </div>
 
-          {/* Running Calculation Preview if user entered '+' */}
           {amountStr.includes('+') && (
-            <p className="text-xs font-mono font-bold text-accent">
-              = {currency}{parseComputedAmount(amountStr).toFixed(2)}
+            <p className="text-xs font-mono font-bold text-[#7B3FE4]">
+              = ₹{parseComputedAmount(amountStr).toFixed(2)}
             </p>
           )}
 
-          {/* QUICK PRESET CHIPS: +5, +10, +25, +50, +100, AC */}
+          {/* QUICK RUPEE PRESETS: +₹50, +₹100, +₹200, +₹500, +₹1000, AC */}
           <div className="flex items-center justify-center gap-1.5 pt-1.5 flex-wrap">
-            {[5, 10, 25, 50, 100].map((inc) => (
+            {[50, 100, 200, 500, 1000].map((inc) => (
               <button
                 key={inc}
                 type="button"
                 onClick={() => handleQuickAdd(inc)}
-                className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-accent/15 border border-subtle/80 text-[11px] font-mono font-bold text-main transition-all active:scale-95 cursor-pointer shadow-2xs"
+                className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-[#7B3FE4]/15 border border-subtle/80 text-[11px] font-mono font-bold text-main transition-all active:scale-95 cursor-pointer shadow-2xs"
               >
-                +{inc}
+                +₹{inc}
               </button>
             ))}
             <button
               type="button"
               onClick={handleClear}
-              className="px-2 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-mono font-bold transition-all active:scale-95 cursor-pointer"
+              className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-mono font-bold transition-all active:scale-95 cursor-pointer"
             >
               AC
             </button>
@@ -446,7 +440,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 playPopSound();
                 setIsCategoryPickerOpen(!isCategoryPickerOpen);
               }}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-main text-surface hover:opacity-90 font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white hover:opacity-95 font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <span className="text-sm select-none">{selectedCategory.icon}</span>
               <span className="truncate max-w-[130px]">{selectedCategory.name}</span>
@@ -458,11 +452,11 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
               placeholder="Merchant or note..."
-              className="bg-sunken border border-subtle rounded-full px-3 py-1.5 text-xs text-main placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent max-w-[160px]"
+              className="bg-sunken border border-subtle rounded-full px-3 py-1.5 text-xs text-main placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-[#7B3FE4] max-w-[160px]"
             />
           </div>
 
-          {/* Quick Note Suggestions for selected category */}
+          {/* Quick Note Suggestions */}
           <div className="flex items-center justify-center gap-1 overflow-x-auto scrollbar-none py-1">
             {quickNotes.slice(0, 4).map((qn) => (
               <button
@@ -474,7 +468,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 }}
                 className={`text-[10px] px-2 py-0.5 rounded-full border transition-all cursor-pointer whitespace-nowrap ${
                   merchant === qn
-                    ? 'bg-accent text-accent-fg border-accent font-bold'
+                    ? 'bg-[#7B3FE4] text-white border-[#7B3FE4] font-bold'
                     : 'bg-surface hover:bg-sunken text-muted border-subtle/60'
                 }`}
               >
@@ -484,17 +478,17 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
           </div>
         </div>
 
-        {/* CATEGORY PICKER & MANAGER DRAWER */}
+        {/* CATEGORY PICKER DRAWER */}
         {isCategoryPickerOpen && (
           <div className="bg-sunken/90 border-t border-b border-subtle p-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-150 max-h-56 overflow-y-auto">
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                Select or Edit {type} Category
+                Select {type} Category
               </span>
               <button
                 type="button"
                 onClick={handleOpenNewCategory}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent text-accent-fg font-bold text-[10px] shadow-2xs hover:bg-accent-hover cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-[10px] shadow-2xs hover:opacity-90 cursor-pointer"
               >
                 <Plus size={11} className="stroke-[3]" />
                 <span>New Category</span>
@@ -514,7 +508,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                     }}
                     className={`flex items-center justify-between p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all group ${
                       isSelected
-                        ? 'bg-main text-surface border-main font-bold shadow-2xs'
+                        ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white border-transparent font-bold shadow-2xs'
                         : 'bg-surface hover:bg-surface/90 text-main border-subtle'
                     }`}
                   >
@@ -523,7 +517,6 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                       <span className="truncate">{cat.name}</span>
                     </div>
 
-                    {/* Edit button */}
                     <button
                       type="button"
                       onClick={(e) => handleOpenEditCategory(cat, e)}
@@ -539,33 +532,30 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
           </div>
         )}
 
-        {/* 12-BUTTON MINIMALIST NUMPAD + OPERATOR STRIP */}
+        {/* 12-BUTTON NUMPAD + OPERATORS */}
         <div className="px-5 pb-5 pt-1 space-y-2">
-          {/* Keypad Grid */}
           <div className="grid grid-cols-3 gap-2">
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((keyVal) => (
               <button
                 key={keyVal}
                 type="button"
                 onClick={() => (keyVal === '.' ? handleDot() : handleDigit(keyVal))}
-                className="h-12 sm:h-13 rounded-2xl bg-sunken/80 hover:bg-sunken border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+                className="h-12 sm:h-13 rounded-2xl bg-sunken/80 hover:bg-[#7B3FE4]/10 border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               >
                 {keyVal}
               </button>
             ))}
 
-            {/* Checkmark / Save Button */}
             <button
               type="button"
               onClick={handleSubmit}
-              className="h-12 sm:h-13 rounded-2xl bg-accent hover:bg-accent-hover text-accent-fg font-extrabold shadow-sm transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+              className="h-12 sm:h-13 rounded-2xl bg-gradient-to-br from-[#6228FF] to-[#9750FF] hover:opacity-95 text-white font-extrabold shadow-md transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               title="Save Transaction"
             >
               <Check size={22} className="stroke-[3]" />
             </button>
           </div>
 
-          {/* Bottom Secondary Controls: Backspace & Math Add */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
@@ -586,7 +576,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
           </div>
         </div>
 
-        {/* INLINE CATEGORY CREATOR / EDITOR MODAL */}
+        {/* INLINE CATEGORY CREATOR / EDITOR */}
         {isCategoryEditorOpen && (
           <div className="absolute inset-0 z-50 bg-surface/95 backdrop-blur-md p-5 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-150">
             <div className="space-y-4">
@@ -603,14 +593,13 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 </button>
               </div>
 
-              {/* Type Toggle: Expense vs Income */}
               <div className="flex items-center gap-2 p-1 bg-sunken rounded-2xl border border-subtle">
                 <button
                   type="button"
                   onClick={() => setCatTypeInput('expense')}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     catTypeInput === 'expense'
-                      ? 'bg-main text-surface shadow-2xs'
+                      ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-2xs'
                       : 'text-muted'
                   }`}
                 >
@@ -621,7 +610,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                   onClick={() => setCatTypeInput('income')}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     catTypeInput === 'income'
-                      ? 'bg-main text-surface shadow-2xs'
+                      ? 'bg-gradient-to-r from-[#06B6D4] to-[#0284C7] text-white shadow-2xs'
                       : 'text-muted'
                   }`}
                 >
@@ -629,7 +618,6 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 </button>
               </div>
 
-              {/* Icon & Name Input */}
               <div className="flex items-center gap-2">
                 <div className="w-12 h-12 rounded-2xl bg-sunken border border-subtle flex items-center justify-center text-2xl shrink-0">
                   {catIconInput}
@@ -638,13 +626,12 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                   type="text"
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
-                  placeholder="Category Name (e.g. Bubble Tea)"
+                  placeholder="Category Name (e.g. Swiggy, Gym, SIP)"
                   autoFocus
-                  className="w-full bg-sunken border border-subtle rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-main font-semibold placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full bg-sunken border border-subtle rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-main font-semibold placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#7B3FE4]"
                 />
               </div>
 
-              {/* Cute Curated Emoji Palette */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider block">
                   Choose Cute Icon
@@ -660,7 +647,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                       }}
                       className={`h-9 w-9 rounded-xl flex items-center justify-center text-lg transition-transform hover:scale-125 cursor-pointer ${
                         catIconInput === emoji
-                          ? 'bg-accent text-accent-fg shadow-2xs scale-110'
+                          ? 'bg-[#7B3FE4] text-white shadow-2xs scale-110'
                           : 'hover:bg-surface'
                       }`}
                     >
@@ -671,7 +658,6 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               </div>
             </div>
 
-            {/* Bottom Actions */}
             <div className="flex items-center justify-between gap-3 pt-4 border-t border-subtle">
               {editingCategoryTarget ? (
                 <button
@@ -697,7 +683,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveCategorySubmit}
-                  className="px-5 py-2 rounded-2xl bg-accent hover:bg-accent-hover text-accent-fg text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2 rounded-2xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   Save Category
                 </button>

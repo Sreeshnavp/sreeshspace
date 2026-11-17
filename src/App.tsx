@@ -14,7 +14,8 @@ import type {
   DayLog, 
   RoutineItem,
   FinanceTransaction,
-  FinanceCategory
+  FinanceCategory,
+  TransactionType
 } from './types';
 import { DEFAULT_FINANCE_CATEGORIES } from './types/finance';
 import { 
@@ -122,9 +123,11 @@ export function App() {
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [financeCategories, setFinanceCategories] = useState<FinanceCategory[]>(DEFAULT_FINANCE_CATEGORIES);
-  const [financeCurrency, setFinanceCurrency] = useState<string>(() => loadFinanceCurrency());
+  const [financeCurrency, setFinanceCurrency] = useState<string>('₹');
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
+  const [defaultFinanceType, setDefaultFinanceType] = useState<TransactionType>('expense');
+  const [defaultFinanceCategory, setDefaultFinanceCategory] = useState<FinanceCategory | undefined>(undefined);
 
   // Search Query
   const [searchQuery, setSearchQuery] = useState('');
@@ -1654,8 +1657,10 @@ export function App() {
                   categories={financeCategories}
                   currency={financeCurrency}
                   onChangeCurrency={handleChangeFinanceCurrency}
-                  onOpenAddModal={() => {
+                  onOpenAddModal={(type, cat) => {
                     setEditingTransaction(null);
+                    setDefaultFinanceType(type || 'expense');
+                    setDefaultFinanceCategory(cat);
                     setIsFinanceModalOpen(true);
                   }}
                   onEditTransaction={(tx) => {
@@ -1900,7 +1905,7 @@ export function App() {
         onUpdateSettings={handleUpdateBgSettings}
       />
 
-      {/* Finance Numpad Modal (Mibu Screen 3 Replica) */}
+      {/* Finance Numpad Modal (Fintech Rupee Wallet) */}
       <FinanceNumpadModal
         isOpen={isFinanceModalOpen}
         onClose={() => {
@@ -1911,6 +1916,8 @@ export function App() {
         initialData={editingTransaction}
         categories={financeCategories}
         currency={financeCurrency}
+        defaultType={defaultFinanceType}
+        defaultCategory={defaultFinanceCategory}
         onSaveCategory={handleSaveFinanceCategory}
         onDeleteCategory={handleDeleteFinanceCategory}
       />
