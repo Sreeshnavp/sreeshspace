@@ -11,24 +11,23 @@ import {
   ArrowDownLeft,
   ChevronDown,
   X,
-  Calendar,
   CreditCard,
   Tag,
   Eye,
   EyeOff,
   CheckCircle2,
-  PieChart,
-  Sliders,
-  DollarSign,
-  Heart,
-  Smile,
-  Zap
+  Calendar,
+  Layers,
+  BarChart3,
+  Activity,
+  ArrowRight
 } from 'lucide-react';
 import type { FinanceTransaction, FinancialInsights, FinanceCategory, TransactionType } from '../../types/finance';
 import { CUTE_CATEGORY_ICONS } from '../../types/finance';
 import { calculateFinanceInsights } from '../../utils/financeInsights';
 import { todayKey, diffInDays } from '../../utils/dates';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
+import avatarImg from '../../assets/avatar.png';
 
 interface FinanceDashboardProps {
   transactions: FinanceTransaction[];
@@ -43,21 +42,6 @@ interface FinanceDashboardProps {
   onQuickAdd?: (tx: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
-const DEFAULT_STARTER_CATEGORIES = [
-  { name: 'Food & Chai', icon: '🍔', type: 'expense' as const },
-  { name: 'Coffee / Tea', icon: '☕', type: 'expense' as const },
-  { name: 'Groceries', icon: '🛒', type: 'expense' as const },
-  { name: 'Commute / Auto', icon: '🚕', type: 'expense' as const },
-  { name: 'Shopping', icon: '🛍️', type: 'expense' as const },
-  { name: 'Mobile / Bills', icon: '📱', type: 'expense' as const },
-  { name: 'Fun & Movies', icon: '🍿', type: 'expense' as const },
-  { name: 'Health & Meds', icon: '💊', type: 'expense' as const },
-  { name: 'Salary / Income', icon: '💰', type: 'income' as const },
-  { name: 'Freelance & Gig', icon: '💼', type: 'income' as const },
-];
-
-const QUICK_AMOUNTS = [20, 50, 100, 200, 500, 1000];
-
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions,
   categories,
@@ -67,7 +51,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   onDeleteTransaction,
   onSaveCategory,
   onDeleteCategory,
-  onQuickAdd,
 }) => {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -78,15 +61,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showBalance, setShowBalance] = useState<boolean>(true);
+  
+  // Detailed Chart Controls
+  const [chartTimeframe, setChartTimeframe] = useState<'6m' | '30d'>('6m');
   const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
-
-  // Quick 1-Tap Log Bar state
-  const [isQuickLogOpen, setIsQuickLogOpen] = useState(true);
-  const [quickAmount, setQuickAmount] = useState<string>('');
-  const [quickType, setQuickType] = useState<TransactionType>('expense');
-  const [quickCategory, setQuickCategory] = useState<string>('Food & Chai');
-  const [quickIcon, setQuickIcon] = useState<string>('🍔');
-  const [quickNote, setQuickNote] = useState<string>('');
 
   // Category Manager Modal state
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -94,6 +72,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [catNameInput, setCatNameInput] = useState('');
   const [catIconInput, setCatIconInput] = useState('🏷️');
   const [catTypeInput, setCatTypeInput] = useState<TransactionType>('expense');
+
+  // Format Indian Rupee currency with standard en-IN grouping (e.g. ₹1,23,456.78)
+  const formatRupees = (val: number | string) => {
+    const num = typeof val === 'number' ? val : parseFloat(val) || 0;
+    return num.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   // Month selector options
   const monthOptions = useMemo(() => {
@@ -108,6 +95,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     }
     return list;
   }, []);
+
+  const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
 
   const insights: FinancialInsights = useMemo(() => {
     return calculateFinanceInsights(transactions, selectedMonthKey);
@@ -125,26 +114,40 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return Math.round((inc - exp) * 100) / 100;
   }, [transactions]);
 
-  // Category breakdown for statistics
+  // Lifetime Inflow & Outflow
+  const lifetimeStats = useMemo(() => {
+    let totalIn = 0;
+    let totalOut = 0;
+    transactions.forEach((tx) => {
+      const val = Number(tx.amount) || 0;
+      if (tx.type === 'income') totalIn += val;
+      else totalOut += val;
+    });
+    return { totalIn, totalOut };
+  }, [transactions]);
+
+  // Category breakdown for statistics (Ranked & Detailed)
   const categoryBreakdown = useMemo(() => {
     const monthExpenses = transactions.filter(
       (tx) => tx.type === 'expense' && tx.date && tx.date.startsWith(selectedMonthKey)
     );
-    const map: Record<string, { name: string; icon: string; amount: number }> = {};
+    const map: Record<string, { name: string; icon: string; amount: number; count: number }> = {};
     let totalExp = 0;
     monthExpenses.forEach((tx) => {
       const val = Number(tx.amount) || 0;
       totalExp += val;
       if (!map[tx.category]) {
-        map[tx.category] = { name: tx.category, icon: tx.categoryIcon || '💸', amount: 0 };
+        map[tx.category] = { name: tx.category, icon: tx.categoryIcon || '💸', amount: 0, count: 0 };
       }
       map[tx.category].amount += val;
+      map[tx.category].count += 1;
     });
 
     return Object.values(map)
       .map((item) => ({
         ...item,
         pct: totalExp > 0 ? Math.round((item.amount / totalExp) * 100) : 0,
+        avg: item.count > 0 ? Math.round((item.amount / item.count) * 100) / 100 : 0,
       }))
       .sort((a, b) => b.amount - a.amount);
   }, [transactions, selectedMonthKey]);
@@ -180,10 +183,58 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       });
   }, [transactions, selectedMonthKey, typeFilter, categoryFilter, searchQuery]);
 
-  // Group transactions by date
+  // Comprehensive Period Ledger Totals (For bottom area)
+  const periodTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    let maxExpense = 0;
+    let incCount = 0;
+    let expCount = 0;
+
+    filteredTransactions.forEach((tx) => {
+      const val = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        income += val;
+        incCount++;
+      } else {
+        expense += val;
+        expCount++;
+        if (val > maxExpense) maxExpense = val;
+      }
+    });
+
+    const net = income - expense;
+    const count = filteredTransactions.length;
+    const avg = count > 0 ? (income + expense) / count : 0;
+    const savingsRate = income > 0 ? Math.max(0, Math.round((net / income) * 100)) : 0;
+
+    return {
+      income,
+      expense,
+      net,
+      count,
+      incCount,
+      expCount,
+      avg,
+      maxExpense,
+      savingsRate,
+    };
+  }, [filteredTransactions]);
+
+  // Group transactions by date with detailed income & expense sub-totals
   const groupedTransactions = useMemo(() => {
-    const groups: { dateStr: string; label: string; subtotal: number; items: FinanceTransaction[] }[] = [];
-    const dateMap: Record<string, { label: string; subtotal: number; items: FinanceTransaction[] }> = {};
+    const groups: {
+      dateStr: string;
+      label: string;
+      income: number;
+      expense: number;
+      net: number;
+      items: FinanceTransaction[];
+    }[] = [];
+    const dateMap: Record<
+      string,
+      { label: string; income: number; expense: number; net: number; items: FinanceTransaction[] }
+    > = {};
 
     filteredTransactions.forEach((tx) => {
       const d = tx.date || todayKey();
@@ -199,42 +250,55 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
         dateMap[d] = {
           label,
-          subtotal: 0,
+          income: 0,
+          expense: 0,
+          net: 0,
           items: [],
         };
-        groups.push({ dateStr: d, label, subtotal: 0, items: dateMap[d].items });
+        groups.push({
+          dateStr: d,
+          label,
+          income: 0,
+          expense: 0,
+          net: 0,
+          items: dateMap[d].items,
+        });
       }
 
       const val = Number(tx.amount) || 0;
-      if (tx.type === 'expense') {
-        dateMap[d].subtotal -= val;
+      if (tx.type === 'income') {
+        dateMap[d].income += val;
       } else {
-        dateMap[d].subtotal += val;
+        dateMap[d].expense += val;
       }
       dateMap[d].items.push(tx);
     });
 
     groups.forEach((g) => {
-      g.subtotal = dateMap[g.dateStr].subtotal;
+      const entry = dateMap[g.dateStr];
+      g.income = entry.income;
+      g.expense = entry.expense;
+      g.net = entry.income - entry.expense;
     });
 
     return groups;
   }, [filteredTransactions]);
 
-  // Dual Wave Spline Curves Generator
-  const dualTrendData = useMemo(() => {
-    const data = insights.monthlyTrend;
-    if (!data || data.length === 0) return { incomePoints: [], expensePoints: [], incomePath: '', expensePath: '', incomeArea: '', expenseArea: '' };
+  // 6-Month Detailed Trend Calculation
+  const sixMonthTrendData = useMemo(() => {
+    const data = insights.monthlyTrend || [];
+    if (data.length === 0) return null;
 
-    const width = 500;
-    const height = 135;
-    const padX = 35;
-    const padY = 20;
+    const width = 600;
+    const height = 160;
+    const padX = 45;
+    const padY = 25;
     const innerW = width - padX * 2;
     const innerH = height - padY * 2;
 
     const allValues = data.flatMap((d) => [d.income, d.expense]);
     const maxVal = Math.max(...allValues, 100);
+    const gridLevels = [maxVal, maxVal * 0.66, maxVal * 0.33, 0];
 
     const calcPoints = (key: 'income' | 'expense') => {
       return data.map((item, idx) => {
@@ -274,92 +338,105 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const incPath = makeSpline(incPts);
     const expPath = makeSpline(expPts);
 
-    const incArea = incPts.length > 0 ? `${incPath} L ${incPts[incPts.length - 1].x} 135 L ${incPts[0].x} 135 Z` : '';
-    const expArea = expPts.length > 0 ? `${expPath} L ${expPts[expPts.length - 1].x} 135 L ${expPts[0].x} 135 Z` : '';
+    const incArea = incPts.length > 0 ? `${incPath} L ${incPts[incPts.length - 1].x} ${height - padY} L ${incPts[0].x} ${height - padY} Z` : '';
+    const expArea = expPts.length > 0 ? `${expPath} L ${expPts[expPts.length - 1].x} ${height - padY} L ${expPts[0].x} ${height - padY} Z` : '';
+
+    // Summary metrics inside chart
+    const peakInc = [...data].sort((a, b) => b.income - a.income)[0];
+    const peakExp = [...data].sort((a, b) => b.expense - a.expense)[0];
+    const totalTrendNet = data.reduce((acc, cur) => acc + (cur.income - cur.expense), 0);
 
     return {
-      incomePoints: incPts,
-      expensePoints: expPts,
-      incomePath: incPath,
-      expensePath: expPath,
-      incomeArea: incArea,
-      expenseArea: expArea,
+      width,
+      height,
+      padX,
+      padY,
+      innerW,
+      innerH,
+      maxVal,
+      gridLevels,
+      incPts,
+      expPts,
+      incPath,
+      expPath,
+      incArea,
+      expArea,
+      peakInc,
+      peakExp,
+      totalTrendNet,
     };
   }, [insights.monthlyTrend]);
 
-  // Format Indian Rupee currency with commas: ₹489,300.00
-  const formatRupees = (val: number) => {
-    return val.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
-
-  // Quick-Log submit handler
-  const handleQuickLogSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const parsed = parseFloat(quickAmount);
-    if (!parsed || parsed <= 0) return;
-
-    playPopSound();
-    triggerPartyPop('single');
-
-    const txData: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'> = {
-      type: quickType,
-      amount: parsed,
-      category: quickCategory,
-      categoryIcon: quickIcon,
-      merchant: quickNote.trim() || undefined,
-      note: quickNote.trim() || undefined,
-      date: todayKey(),
-    };
-
-    if (onQuickAdd) {
-      onQuickAdd(txData);
-    } else {
-      // Fallback: trigger add modal
-      onOpenAddModal(quickType);
+  // 30-Day Daily Detailed Activity Calculation
+  const thirtyDayData = useMemo(() => {
+    const days: { dateStr: string; label: string; dayNum: number; income: number; expense: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 86400000);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+      let inc = 0;
+      let exp = 0;
+      transactions.forEach((tx) => {
+        if (tx.date === key) {
+          const val = Number(tx.amount) || 0;
+          if (tx.type === 'income') inc += val;
+          else exp += val;
+        }
+      });
+      days.push({ dateStr: key, label, dayNum: d.getDate(), income: inc, expense: exp });
     }
 
-    setQuickAmount('');
-    setQuickNote('');
-  };
+    const allValues = days.flatMap((d) => [d.income, d.expense]);
+    const maxVal = Math.max(...allValues, 50);
+
+    return {
+      days,
+      maxVal,
+      totalIncome: days.reduce((acc, cur) => acc + cur.income, 0),
+      totalExpense: days.reduce((acc, cur) => acc + cur.expense, 0),
+      activeDays: days.filter((d) => d.income > 0 || d.expense > 0).length,
+    };
+  }, [transactions]);
 
   return (
     <div className="space-y-4 sm:space-y-5 max-w-2xl mx-auto pb-16">
       
-      {/* 1. TOP CUTE HERO BANNER & MOOD INDICATOR */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-200 via-rose-200 to-indigo-200 dark:from-amber-950/60 dark:to-rose-950/60 flex items-center justify-center text-xl shadow-2xs select-none">
-            🪙
+      {/* 1. TOP HERO BANNER WITH USER AVATAR & DELIGHTFUL MOOD */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3.5">
+          <div className="relative shrink-0 select-none">
+            <img
+              src={avatarImg}
+              alt="Sreeshnav"
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover ring-2 ring-accent/30 shadow-soft"
+            />
+            <span className="absolute -bottom-1 -right-1 text-xs select-none">✨</span>
           </div>
           <div>
             <h2 className="font-black text-base sm:text-lg text-main flex items-center gap-2">
-              <span>Personal Finance Hub</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-soft text-accent font-bold">
-                Indian Rupees ({currency})
-              </span>
+              <span>Personal Finance</span>
             </h2>
             <p className="text-[11px] text-muted font-medium flex items-center gap-1.5 mt-0.5">
               {insights.netSavings >= 0 ? (
                 <>
                   <span className="text-emerald-500">🌸</span>
-                  <span>Cozy savings! Net +{currency}{formatRupees(insights.netSavings)} this month</span>
+                  <span>
+                    Cozy savings! Net +<span className="font-sans font-bold">₹</span>{formatRupees(insights.netSavings)} this month
+                  </span>
                 </>
               ) : (
                 <>
                   <span className="text-amber-500">☕</span>
-                  <span>Spent {currency}{formatRupees(Math.abs(insights.netSavings))} over income. Stay mindful!</span>
+                  <span>
+                    Spent <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))} over income. Stay mindful!
+                  </span>
                 </>
               )}
             </p>
           </div>
         </div>
 
-        {/* Right Controls: Month Selector + Search + Numpad Modal */}
+        {/* Right Controls: Month Selector + Search + Add Entry Button */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Month selector */}
           <div className="relative inline-block">
@@ -395,7 +472,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <Search size={14} />
           </button>
 
-          {/* Detailed Calculator Modal Button */}
+          {/* Add Entry Modal Button */}
           <button
             type="button"
             onClick={() => {
@@ -434,174 +511,73 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       )}
 
-      {/* 2. TOTAL BALANCE HERO CARD */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-muted">
-            <CreditCard size={14} />
-            <span>Lifetime Balance</span>
-            <button
-              type="button"
-              onClick={() => {
-                playPopSound();
-                setShowBalance(!showBalance);
-              }}
-              className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main transition cursor-pointer"
-              title={showBalance ? 'Hide Balance' : 'Show Balance'}
-            >
-              {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
-            </button>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-main">
-            {showBalance ? (
-              `${overallBalance >= 0 ? '' : '-'}${currency}${formatRupees(Math.abs(overallBalance))}`
-            ) : (
-              `${currency}••••••••`
-            )}
-          </h1>
-          <p className="text-[11px] text-muted">
-            {insights.savingsRate}% saved out of this month's earnings
-          </p>
-        </div>
-
-        {/* Categories Manager Shortcut */}
-        <button
-          type="button"
-          onClick={() => {
-            playPopSound();
-            setIsCategoryManagerOpen(true);
-          }}
-          className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95"
-        >
-          <Tag size={13} className="text-accent" />
-          <span>Categories ({categories.length})</span>
-        </button>
-      </div>
-
-      {/* 3. INSTANT 1-TAP QUICK-LOG BAR ("SUPER EASY TO HANDLE") */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base select-none">⚡</span>
-            <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
-              Quick Log in 2 Seconds
-            </h3>
-          </div>
-
-          {/* Toggle Type: Expense 💸 vs Income 🌱 */}
-          <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => {
-                setQuickType('expense');
-                playPopSound();
-              }}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                quickType === 'expense'
-                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-200 shadow-2xs font-black'
-                  : 'text-muted hover:text-main'
-              }`}
-            >
-              💸 Expense
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setQuickType('income');
-                playPopSound();
-              }}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                quickType === 'income'
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200 shadow-2xs font-black'
-                  : 'text-muted hover:text-main'
-              }`}
-            >
-              🌱 Income
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Amount Preset Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
-          <span className="text-[11px] font-bold text-muted shrink-0 pr-1">Tap:</span>
-          {QUICK_AMOUNTS.map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              onClick={() => {
-                setQuickAmount(String(amt));
-                playPopSound();
-              }}
-              className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-mono font-bold text-main transition active:scale-95 cursor-pointer shrink-0 shadow-2xs"
-            >
-              +{currency}{amt}
-            </button>
-          ))}
-        </div>
-
-        {/* Category Avatars Quick Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-          {(categories.length > 0 ? categories : DEFAULT_STARTER_CATEGORIES).map((cat) => {
-            const isSelected = quickCategory === cat.name;
-            return (
+      {/* 2. TOTAL LIFETIME BALANCE HERO CARD */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-bold text-muted">
+              <CreditCard size={14} />
+              <span>Lifetime Net Balance</span>
               <button
-                key={cat.name}
                 type="button"
                 onClick={() => {
-                  setQuickCategory(cat.name);
-                  setQuickIcon(cat.icon);
                   playPopSound();
+                  setShowBalance(!showBalance);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  isSelected
-                    ? 'bg-accent text-on-accent border-accent scale-102 shadow-soft'
-                    : 'bg-surface hover:bg-sunken text-main border-subtle'
-                }`}
+                className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main transition cursor-pointer"
+                title={showBalance ? 'Hide Balance' : 'Show Balance'}
               >
-                <span>{cat.icon}</span>
-                <span>{cat.name}</span>
+                {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
               </button>
-            );
-          })}
-        </div>
-
-        {/* Amount Input + Note Input + Submit Button */}
-        <form onSubmit={handleQuickLogSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
-          <div className="relative w-full sm:w-44 shrink-0">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-muted text-sm">
-              {currency}
-            </span>
-            <input
-              type="number"
-              step="any"
-              min="0"
-              placeholder="Amount (e.g. 150)"
-              value={quickAmount}
-              onChange={(e) => setQuickAmount(e.target.value)}
-              className="w-full bg-sunken border border-subtle rounded-2xl pl-8 pr-3 py-2 text-xs sm:text-sm font-mono font-bold text-main placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-ring/40"
-            />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-main">
+              {showBalance ? (
+                <>
+                  {overallBalance < 0 && '-'}
+                  <span className="font-sans font-bold">₹</span>
+                  {formatRupees(Math.abs(overallBalance))}
+                </>
+              ) : (
+                <><span className="font-sans font-bold">₹</span>••••••••</>
+              )}
+            </h1>
+            <p className="text-[11px] text-muted">
+              {insights.savingsRate}% retained out of this month's earnings
+            </p>
           </div>
 
-          <input
-            type="text"
-            placeholder="Note / Merchant (e.g. Chai with friends)..."
-            value={quickNote}
-            onChange={(e) => setQuickNote(e.target.value)}
-            className="flex-1 bg-sunken border border-subtle rounded-2xl px-3.5 py-2 text-xs text-main placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-ring/40"
-          />
-
+          {/* Categories Shortcut */}
           <button
-            type="submit"
-            disabled={!parseFloat(quickAmount) || parseFloat(quickAmount) <= 0}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-2xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover disabled:opacity-40 transition active:scale-95 cursor-pointer shrink-0"
+            type="button"
+            onClick={() => {
+              playPopSound();
+              setIsCategoryManagerOpen(true);
+            }}
+            className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95"
           >
-            <Sparkles size={13} />
-            <span>Record {quickType === 'expense' ? 'Spend' : 'Income'}</span>
+            <Tag size={13} className="text-accent" />
+            <span>Categories ({categories.length})</span>
           </button>
-        </form>
+        </div>
+
+        {/* Lifetime Flow Mini Meters */}
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-subtle/50 text-xs">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-sunken/40">
+            <span className="text-muted text-[11px] font-semibold">Total Earned</span>
+            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              +<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalIn)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-xl bg-sunken/40">
+            <span className="text-muted text-[11px] font-semibold">Total Spent</span>
+            <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+              -<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalOut)}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* 4. "INFORMATION" CUTE DUO CARDS */}
+      {/* 3. SOFT CUTE DUO INFORMATION CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Soft Matcha Mint Income Card */}
         <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
@@ -615,7 +591,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-mono font-black text-emerald-700 dark:text-emerald-300">
-            +{currency}{formatRupees(insights.totalIncome)}
+            +<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalIncome)}
           </h3>
           <p className="text-[11px] text-muted font-medium">
             Incoming funds for {selectedMonthOption.label}
@@ -630,11 +606,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <span>Expenses</span>
             </span>
             <span className="text-[10px] bg-rose-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
-              Net {currency}{formatRupees(Math.abs(insights.netSavings))}
+              Net <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))}
             </span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-mono font-black text-rose-700 dark:text-rose-300">
-            -{currency}{formatRupees(insights.totalExpenses)}
+            -<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalExpenses)}
           </h3>
           <p className="text-[11px] text-muted font-medium">
             Outflow records for {selectedMonthOption.label}
@@ -642,172 +618,366 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       </div>
 
-      {/* 5. CUTE OVERVIEW DUAL WAVE CHART */}
+      {/* 4. HIGHLY DETAILED INTERACTIVE CHART */}
       <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 className="font-extrabold text-sm sm:text-base text-main">
-              Flow Overview
+            <h3 className="font-extrabold text-sm sm:text-base text-main flex items-center gap-2">
+              <Activity size={16} className="text-accent" />
+              <span>Financial Flow & Trajectory</span>
             </h3>
-            <p className="text-[11px] text-muted font-medium">Monthly Income & Spend Waveform</p>
+            <p className="text-[11px] text-muted font-medium">
+              Detailed cashflow curves, reference levels, and interactive metrics
+            </p>
           </div>
 
-          {/* Legend: 🟣 Income  🌸 Expense */}
-          <div className="flex items-center gap-3 text-xs font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              Income
-            </span>
-            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              Expense
-            </span>
-          </div>
-        </div>
-
-        {/* Dual Spline SVG Curves */}
-        <div className="relative w-full h-[135px] pt-1">
-          <svg viewBox="0 0 500 135" className="w-full h-full overflow-visible select-none" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="emeraldGradientWave" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-              </linearGradient>
-              <linearGradient id="roseGradientWave" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-
-            {/* Income Gradient Area */}
-            {dualTrendData.incomeArea && (
-              <path d={dualTrendData.incomeArea} fill="url(#emeraldGradientWave)" />
-            )}
-            {/* Expense Gradient Area */}
-            {dualTrendData.expenseArea && (
-              <path d={dualTrendData.expenseArea} fill="url(#roseGradientWave)" />
-            )}
-
-            {/* Spline Curve for Income */}
-            {dualTrendData.incomePath && (
-              <path
-                d={dualTrendData.incomePath}
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-
-            {/* Spline Curve for Expense */}
-            {dualTrendData.expensePath && (
-              <path
-                d={dualTrendData.expensePath}
-                fill="none"
-                stroke="#f43f5e"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-
-            {/* Income Dots */}
-            {dualTrendData.incomePoints.map((pt, idx) => (
-              <circle
-                key={`inc-${pt.monthKey}`}
-                cx={pt.x}
-                cy={pt.y}
-                r="4.5"
-                fill="#10b981"
-                stroke="white"
-                strokeWidth="2"
-                className="cursor-pointer transition-transform hover:scale-130"
-                onMouseEnter={() => setHoveredTrendIndex(idx)}
-                onMouseLeave={() => setHoveredTrendIndex(null)}
-              />
-            ))}
-
-            {/* Expense Dots */}
-            {dualTrendData.expensePoints.map((pt, idx) => (
-              <circle
-                key={`exp-${pt.monthKey}`}
-                cx={pt.x}
-                cy={pt.y}
-                r="4.5"
-                fill="#f43f5e"
-                stroke="white"
-                strokeWidth="2"
-                className="cursor-pointer transition-transform hover:scale-130"
-                onMouseEnter={() => setHoveredTrendIndex(idx)}
-                onMouseLeave={() => setHoveredTrendIndex(null)}
-              />
-            ))}
-          </svg>
-
-          {/* Interactive Tooltip on hover */}
-          {hoveredTrendIndex !== null && dualTrendData.incomePoints[hoveredTrendIndex] && (
-            <div
-              className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-xl bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
-              style={{ left: `${(dualTrendData.incomePoints[hoveredTrendIndex].x / 500) * 100}%` }}
-            >
-              +{currency}{formatRupees(dualTrendData.incomePoints[hoveredTrendIndex].val)} | -{currency}{formatRupees(dualTrendData.expensePoints[hoveredTrendIndex].val)}
-            </div>
-          )}
-        </div>
-
-        {/* Month Labels along bottom */}
-        <div className="flex justify-between px-3 text-[11px] font-mono font-semibold text-muted select-none">
-          {insights.monthlyTrend.map((pt) => {
-            const isSelected = pt.monthKey === selectedMonthKey;
-            return (
+          <div className="flex items-center gap-2">
+            {/* View Selector: 6M Trend vs 30D Daily */}
+            <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle text-xs font-bold">
               <button
-                key={pt.monthKey}
                 type="button"
                 onClick={() => {
+                  setChartTimeframe('6m');
                   playPopSound();
-                  setSelectedMonthKey(pt.monthKey);
                 }}
-                className={`transition-colors cursor-pointer capitalize ${
-                  isSelected
-                    ? 'text-accent font-black underline underline-offset-4 decoration-2 decoration-accent'
-                    : 'hover:text-main'
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  chartTimeframe === '6m'
+                    ? 'bg-surface text-main font-black shadow-2xs'
+                    : 'text-muted hover:text-main'
                 }`}
               >
-                {pt.monthLabel}
+                6-Month Trend
               </button>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => {
+                  setChartTimeframe('30d');
+                  playPopSound();
+                }}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  chartTimeframe === '30d'
+                    ? 'bg-surface text-main font-black shadow-2xs'
+                    : 'text-muted hover:text-main'
+                }`}
+              >
+                30-Day Activity
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* 6. TOP SPENDING BREAKDOWN METERS (If expenses exist) */}
-      {categoryBreakdown.length > 0 && (
-        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-extrabold text-xs text-main uppercase tracking-wider">
-              Category Spending Breakdown
-            </h4>
-            <span className="text-[11px] font-mono text-muted">
-              {categoryBreakdown.length} active categories
+        {/* Legend */}
+        <div className="flex items-center justify-between text-xs font-semibold px-1">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              Income Flow
+            </span>
+            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              Expense Flow
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {categoryBreakdown.slice(0, 5).map((cat) => (
-              <div key={cat.name} className="space-y-1">
+          <span className="text-[11px] text-muted font-mono">
+            Tap or hover points for details
+          </span>
+        </div>
+
+        {/* CHART BODY */}
+        {chartTimeframe === '6m' && sixMonthTrendData && (
+          <div className="relative w-full h-[170px] pt-1 select-none">
+            <svg
+              viewBox={`0 0 ${sixMonthTrendData.width} ${sixMonthTrendData.height}`}
+              className="w-full h-full overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="detailedEmeraldWave" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                </linearGradient>
+                <linearGradient id="detailedRoseWave" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* Grid Lines with Rupee Reference Labels */}
+              {sixMonthTrendData.gridLevels.map((lvlVal, idx) => {
+                const norm = lvlVal / sixMonthTrendData.maxVal;
+                const y = sixMonthTrendData.padY + sixMonthTrendData.innerH - norm * sixMonthTrendData.innerH;
+                return (
+                  <g key={idx}>
+                    <line
+                      x1={sixMonthTrendData.padX}
+                      y1={y}
+                      x2={sixMonthTrendData.width - sixMonthTrendData.padX}
+                      y2={y}
+                      stroke="currentColor"
+                      strokeOpacity="0.09"
+                      strokeDasharray="4,4"
+                    />
+                    <text
+                      x={sixMonthTrendData.padX - 8}
+                      y={y + 3.5}
+                      textAnchor="end"
+                      className="text-[9px] font-mono fill-muted select-none"
+                    >
+                      ₹{Math.round(lvlVal >= 1000 ? lvlVal / 1000 : lvlVal)}{lvlVal >= 1000 ? 'k' : ''}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Income Area & Expense Area */}
+              {sixMonthTrendData.incArea && (
+                <path d={sixMonthTrendData.incArea} fill="url(#detailedEmeraldWave)" />
+              )}
+              {sixMonthTrendData.expArea && (
+                <path d={sixMonthTrendData.expArea} fill="url(#detailedRoseWave)" />
+              )}
+
+              {/* Spline Path for Income */}
+              {sixMonthTrendData.incPath && (
+                <path
+                  d={sixMonthTrendData.incPath}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+
+              {/* Spline Path for Expense */}
+              {sixMonthTrendData.expPath && (
+                <path
+                  d={sixMonthTrendData.expPath}
+                  fill="none"
+                  stroke="#f43f5e"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+
+              {/* Income Dots */}
+              {sixMonthTrendData.incPts.map((pt, idx) => (
+                <circle
+                  key={`inc-${pt.monthKey}`}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="5"
+                  fill="#10b981"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  className="cursor-pointer transition-transform hover:scale-140 shadow-xs"
+                  onMouseEnter={() => setHoveredTrendIndex(idx)}
+                  onMouseLeave={() => setHoveredTrendIndex(null)}
+                  onClick={() => {
+                    playPopSound();
+                    setSelectedMonthKey(pt.monthKey);
+                  }}
+                />
+              ))}
+
+              {/* Expense Dots */}
+              {sixMonthTrendData.expPts.map((pt, idx) => (
+                <circle
+                  key={`exp-${pt.monthKey}`}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="5"
+                  fill="#f43f5e"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  className="cursor-pointer transition-transform hover:scale-140 shadow-xs"
+                  onMouseEnter={() => setHoveredTrendIndex(idx)}
+                  onMouseLeave={() => setHoveredTrendIndex(null)}
+                  onClick={() => {
+                    playPopSound();
+                    setSelectedMonthKey(pt.monthKey);
+                  }}
+                />
+              ))}
+            </svg>
+
+            {/* Hover Tooltip Box */}
+            {hoveredTrendIndex !== null && sixMonthTrendData.incPts[hoveredTrendIndex] && (
+              <div
+                className="absolute -top-10 transform -translate-x-1/2 pointer-events-none px-3 py-1.5 rounded-2xl bg-main text-surface text-[11px] font-mono font-bold shadow-raised z-20 whitespace-nowrap space-x-2"
+                style={{
+                  left: `${(sixMonthTrendData.incPts[hoveredTrendIndex].x / sixMonthTrendData.width) * 100}%`,
+                }}
+              >
+                <span className="capitalize text-accent font-sans">{sixMonthTrendData.incPts[hoveredTrendIndex].monthLabel}:</span>
+                <span className="text-emerald-400">+₹{formatRupees(sixMonthTrendData.incPts[hoveredTrendIndex].val)}</span>
+                <span>|</span>
+                <span className="text-rose-400">-₹{formatRupees(sixMonthTrendData.expPts[hoveredTrendIndex].val)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 30-Day Activity Bar Representation */}
+        {chartTimeframe === '30d' && (
+          <div className="space-y-2">
+            <div className="flex items-end gap-1 h-[140px] px-2 pt-2 bg-sunken/30 rounded-2xl border border-subtle/40 overflow-x-auto scrollbar-none">
+              {thirtyDayData.days.map((d) => {
+                const incHeight = thirtyDayData.maxVal > 0 ? (d.income / thirtyDayData.maxVal) * 110 : 0;
+                const expHeight = thirtyDayData.maxVal > 0 ? (d.expense / thirtyDayData.maxVal) * 110 : 0;
+                const isToday = d.dateStr === todayKey();
+                return (
+                  <div
+                    key={d.dateStr}
+                    className="flex-1 min-w-[16px] flex flex-col items-center justify-end h-full group relative cursor-pointer"
+                    title={`${d.label}: +₹${d.income} | -₹${d.expense}`}
+                  >
+                    <div className="flex items-end gap-0.5 w-full justify-center">
+                      {d.income > 0 && (
+                        <div
+                          className="w-1.5 bg-emerald-500 rounded-t-sm transition-all"
+                          style={{ height: `${Math.max(4, incHeight)}px` }}
+                        />
+                      )}
+                      {d.expense > 0 && (
+                        <div
+                          className="w-1.5 bg-rose-500 rounded-t-sm transition-all"
+                          style={{ height: `${Math.max(4, expHeight)}px` }}
+                        />
+                      )}
+                      {d.income === 0 && d.expense === 0 && (
+                        <div className="w-1 h-1 rounded-full bg-subtle mb-1" />
+                      )}
+                    </div>
+                    <span
+                      className={`text-[9px] font-mono mt-1 ${
+                        isToday ? 'text-accent font-extrabold underline' : 'text-muted'
+                      }`}
+                    >
+                      {d.dayNum}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-muted px-1 font-mono">
+              <span>30 Days Ago</span>
+              <span>{thirtyDayData.activeDays} active spending/earning days</span>
+              <span>Today</span>
+            </div>
+          </div>
+        )}
+
+        {/* Month Buttons Strip (When in 6M view) */}
+        {chartTimeframe === '6m' && sixMonthTrendData && (
+          <div className="flex justify-between px-6 text-[11px] font-mono font-semibold text-muted select-none pt-1">
+            {insights.monthlyTrend.map((pt) => {
+              const isSelected = pt.monthKey === selectedMonthKey;
+              return (
+                <button
+                  key={pt.monthKey}
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setSelectedMonthKey(pt.monthKey);
+                  }}
+                  className={`transition-colors cursor-pointer capitalize ${
+                    isSelected
+                      ? 'text-accent font-black underline underline-offset-4 decoration-2 decoration-accent'
+                      : 'hover:text-main'
+                  }`}
+                >
+                  {pt.monthLabel}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Detailed Chart Summary Metric Strip */}
+        {sixMonthTrendData && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-subtle/50 text-xs">
+            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
+              <span className="text-[10px] font-bold text-muted uppercase block">Peak Income</span>
+              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 capitalize">
+                +<span className="font-sans font-bold">₹</span>{formatRupees(sixMonthTrendData.peakInc?.income || 0)}
+              </span>
+              <span className="text-[10px] text-muted block capitalize">
+                {sixMonthTrendData.peakInc?.monthLabel}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
+              <span className="text-[10px] font-bold text-muted uppercase block">Peak Expense</span>
+              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 capitalize">
+                -<span className="font-sans font-bold">₹</span>{formatRupees(sixMonthTrendData.peakExp?.expense || 0)}
+              </span>
+              <span className="text-[10px] text-muted block capitalize">
+                {sixMonthTrendData.peakExp?.monthLabel}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
+              <span className="text-[10px] font-bold text-muted uppercase block">Daily Avg Spend</span>
+              <span className="font-mono font-bold text-main">
+                <span className="font-sans font-bold">₹</span>{formatRupees(insights.avgDailySpend)}
+              </span>
+              <span className="text-[10px] text-muted block">This Month</span>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
+              <span className="text-[10px] font-bold text-muted uppercase block">6-Month Net</span>
+              <span
+                className={`font-mono font-bold ${
+                  sixMonthTrendData.totalTrendNet >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {sixMonthTrendData.totalTrendNet >= 0 ? '+' : '-'}
+                <span className="font-sans font-bold">₹</span>
+                {formatRupees(Math.abs(sixMonthTrendData.totalTrendNet))}
+              </span>
+              <span className="text-[10px] text-muted block">Cumulative</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. CATEGORY SPENDING BREAKDOWN METERS (DETAILED) */}
+      {categoryBreakdown.length > 0 && (
+        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
+          <div className="flex items-center justify-between">
+            <h4 className="font-extrabold text-xs text-main uppercase tracking-wider flex items-center gap-1.5">
+              <span>Category Spending Breakdown</span>
+            </h4>
+            <span className="text-[11px] font-mono text-muted">
+              {categoryBreakdown.length} active spending channels
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {categoryBreakdown.map((cat, idx) => (
+              <div key={cat.name} className="space-y-1.5 p-2 rounded-2xl hover:bg-sunken/40 transition">
                 <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="flex items-center gap-1.5 truncate">
-                    <span>{cat.icon}</span>
-                    <span className="truncate">{cat.name}</span>
-                  </span>
-                  <span className="font-mono text-muted">
-                    {currency}{formatRupees(cat.amount)} ({cat.pct}%)
-                  </span>
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-sunken font-mono font-bold text-muted">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-base select-none">{cat.icon}</span>
+                    <span className="font-bold text-main truncate">{cat.name}</span>
+                    <span className="text-[10px] text-muted">({cat.count} payments)</span>
+                  </div>
+                  <div className="text-right font-mono">
+                    <span className="font-bold text-main">
+                      <span className="font-sans font-bold">₹</span>{formatRupees(cat.amount)}
+                    </span>
+                    <span className="text-[10px] text-muted ml-1.5">({cat.pct}%)</span>
+                  </div>
                 </div>
+
                 <div className="w-full bg-sunken rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-rose-400 to-amber-400 h-full rounded-full transition-all duration-500"
+                    className="bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500"
                     style={{ width: `${cat.pct}%` }}
                   />
                 </div>
@@ -817,7 +987,68 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       )}
 
-      {/* 7. RECENT PAYMENTS FEED */}
+      {/* 6. COMPREHENSIVE PERIOD FINANCIAL LEDGER SUMMARY CARD ("MAKE THE TOTAL EVEN MORE") */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h4 className="font-black text-xs sm:text-sm uppercase tracking-wider text-main flex items-center gap-2">
+            <span>📊 Period Ledger Totals & Summary</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
+              {periodTotals.count} Transactions
+            </span>
+          </h4>
+          <span className="text-xs font-mono font-bold text-main">
+            Net:{' '}
+            <span
+              className={
+                periodTotals.net >= 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-rose-600 dark:text-rose-400'
+              }
+            >
+              {periodTotals.net >= 0 ? '+' : '-'}
+              <span className="font-sans font-bold">₹</span>
+              {formatRupees(Math.abs(periodTotals.net))}
+            </span>
+          </span>
+        </div>
+
+        {/* 4-Box Comprehensive Total Breakdown */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+            <p className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-200">
+              Total Inflow ({periodTotals.incCount})
+            </p>
+            <p className="text-sm sm:text-base font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+              +<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.income)}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+            <p className="text-[10px] uppercase font-bold text-rose-800 dark:text-rose-200">
+              Total Outflow ({periodTotals.expCount})
+            </p>
+            <p className="text-sm sm:text-base font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
+              -<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.expense)}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-sunken/70 border border-subtle/50">
+            <p className="text-[10px] uppercase font-bold text-muted">Avg Transaction</p>
+            <p className="text-sm sm:text-base font-black font-mono text-main mt-0.5">
+              <span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.avg)}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-sunken/70 border border-subtle/50">
+            <p className="text-[10px] uppercase font-bold text-muted">Largest Spend</p>
+            <p className="text-sm sm:text-base font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
+              -<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.maxExpense)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 7. RECENT PAYMENTS FEED WITH SPLIT SUB-TOTALS */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between gap-2 px-1">
           <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
@@ -878,7 +1109,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
             <h4 className="text-sm font-bold text-main">No payment records found</h4>
             <p className="text-xs text-muted max-w-sm mx-auto">
-              {searchQuery ? 'Try another search query.' : 'Use the Quick Log bar above or tap Add Entry to record your first spend.'}
+              {searchQuery
+                ? 'Try another search query.'
+                : 'Tap Add Entry above to record your first transaction in Indian Rupees.'}
             </p>
             <button
               type="button"
@@ -891,13 +1124,29 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         ) : (
           groupedTransactions.map((group) => (
             <div key={group.dateStr} className="space-y-2">
+              {/* Detailed Date Header with Inflow & Outflow Split Badges */}
               <div className="flex items-center justify-between px-2 text-xs font-mono">
-                <span className="font-bold text-muted capitalize tracking-tight">
-                  {group.label}
+                <span className="font-bold text-muted capitalize tracking-tight flex items-center gap-1.5">
+                  <Calendar size={12} />
+                  <span>{group.label}</span>
                 </span>
-                <span className="font-semibold text-muted/80">
-                  {group.subtotal >= 0 ? '+' : '-'}{currency}{formatRupees(Math.abs(group.subtotal))}
-                </span>
+                
+                <div className="flex items-center gap-2 font-semibold">
+                  {group.income > 0 && (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      +<span className="font-sans font-bold">₹</span>{formatRupees(group.income)}
+                    </span>
+                  )}
+                  {group.expense > 0 && (
+                    <span className="text-[11px] text-rose-600 dark:text-rose-400">
+                      -<span className="font-sans font-bold">₹</span>{formatRupees(group.expense)}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-muted">
+                    Net: {group.net >= 0 ? '+' : '-'}
+                    <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(group.net))}
+                  </span>
+                </div>
               </div>
 
               <div className="bg-surface rounded-3xl border border-subtle divide-y divide-subtle/50 shadow-soft overflow-hidden">
@@ -931,7 +1180,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                             : 'text-rose-600 dark:text-rose-400'
                         }`}
                       >
-                        {tx.type === 'income' ? '+' : '-'}{currency}{formatRupees(Number(tx.amount))}
+                        {tx.type === 'income' ? '+' : '-'}
+                        <span className="font-sans font-bold">₹</span>
+                        {formatRupees(Number(tx.amount))}
                       </span>
 
                       <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -950,7 +1201,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                           type="button"
                           onClick={() => {
                             playPopSound();
-                            if (window.confirm(`Delete ${tx.category} payment of ${currency}${tx.amount}?`)) {
+                            if (window.confirm(`Delete ${tx.category} payment of ₹${tx.amount}?`)) {
                               onDeleteTransaction(tx.id);
                             }
                           }}
@@ -966,6 +1217,26 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </div>
             </div>
           ))
+        )}
+
+        {/* Grand Total Ledger Footer */}
+        {groupedTransactions.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-sunken/60 border border-subtle/50 text-center flex flex-col sm:flex-row items-center justify-between text-xs text-muted font-mono gap-1">
+            <span>Grand Total for Filtered Records:</span>
+            <div className="flex items-center gap-3 font-bold">
+              <span className="text-emerald-600 dark:text-emerald-400">
+                In: +₹{formatRupees(periodTotals.income)}
+              </span>
+              <span>•</span>
+              <span className="text-rose-600 dark:text-rose-400">
+                Out: -₹{formatRupees(periodTotals.expense)}
+              </span>
+              <span>•</span>
+              <span className="text-main">
+                Net: {periodTotals.net >= 0 ? '+' : '-'}₹{formatRupees(Math.abs(periodTotals.net))}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 

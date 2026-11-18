@@ -364,7 +364,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 }}
                 className={`flex flex-col items-center justify-center min-w-[40px] py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-gradient-to-b from-[#6228FF] to-[#7B3FE4] text-white shadow-xs font-bold scale-105'
+                    ? 'bg-accent text-on-accent shadow-soft font-bold scale-105'
                     : 'text-muted hover:text-main hover:bg-surface/80'
                 }`}
               >
@@ -399,7 +399,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
         {/* HERO RUPEES AMOUNT DISPLAY */}
         <div className="px-6 pt-3 pb-2 text-center space-y-1">
           <div className="flex items-center justify-center gap-1.5">
-            <span className="text-3xl sm:text-4xl font-extrabold font-mono text-[#7B3FE4] select-none">
+            <span className="text-3xl sm:text-4xl font-extrabold font-sans text-accent select-none">
               ₹
             </span>
             <input
@@ -411,13 +411,13 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 const val = e.target.value.replace(/[^0-9.+]/g, '');
                 setAmountStr(val || '0');
               }}
-              className="text-4xl sm:text-5xl font-extrabold tracking-tight font-mono text-main bg-transparent text-center focus:outline-none max-w-[260px]"
+              className="text-4xl sm:text-5xl font-extrabold tracking-tight font-mono text-main bg-transparent text-center focus:outline-hidden max-w-[260px]"
             />
           </div>
 
           {amountStr.includes('+') && (
-            <p className="text-xs font-mono font-bold text-[#7B3FE4]">
-              = ₹{parseComputedAmount(amountStr).toFixed(2)}
+            <p className="text-xs font-mono font-bold text-accent">
+              = ₹{parseComputedAmount(amountStr).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           )}
 
@@ -428,7 +428,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 key={inc}
                 type="button"
                 onClick={() => handleQuickAdd(inc)}
-                className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-[#7B3FE4]/15 border border-subtle/80 text-[11px] font-mono font-bold text-main transition-all active:scale-95 cursor-pointer shadow-2xs"
+                className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-accent/15 border border-subtle/80 text-[11px] font-mono font-bold text-main transition-all active:scale-95 cursor-pointer shadow-2xs"
               >
                 +₹{inc}
               </button>
@@ -450,7 +450,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 playPopSound();
                 setIsCategoryPickerOpen(!isCategoryPickerOpen);
               }}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white hover:opacity-95 font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent text-on-accent hover:bg-accent-hover font-bold text-xs shadow-soft transition-all active:scale-95 cursor-pointer"
             >
               <span className="text-sm select-none">{selectedCategory.icon}</span>
               <span className="truncate max-w-[130px]">{selectedCategory.name}</span>
@@ -462,7 +462,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
               placeholder="Merchant or note..."
-              className="bg-sunken border border-subtle rounded-full px-3 py-1.5 text-xs text-main placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-[#7B3FE4] max-w-[160px]"
+              className="bg-sunken border border-subtle rounded-full px-3 py-1.5 text-xs text-main placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40 max-w-[160px]"
             />
           </div>
 
@@ -478,7 +478,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 }}
                 className={`text-[10px] px-2 py-0.5 rounded-full border transition-all cursor-pointer whitespace-nowrap ${
                   merchant === qn
-                    ? 'bg-[#7B3FE4] text-white border-[#7B3FE4] font-bold'
+                    ? 'bg-accent text-on-accent border-accent font-bold shadow-2xs'
                     : 'bg-surface hover:bg-sunken text-muted border-subtle/60'
                 }`}
               >
@@ -498,7 +498,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               <button
                 type="button"
                 onClick={handleOpenNewCategory}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-[10px] shadow-2xs hover:opacity-90 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent text-on-accent font-bold text-[10px] shadow-2xs hover:bg-accent-hover cursor-pointer"
               >
                 <Plus size={11} className="stroke-[3]" />
                 <span>New Category</span>
@@ -511,7 +511,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenNewCategory}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover cursor-pointer"
                 >
                   + Create First {type === 'expense' ? 'Expense' : 'Income'} Category
                 </button>
@@ -530,7 +530,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                       }}
                       className={`flex items-center justify-between p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all group ${
                         isSelected
-                          ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white border-transparent font-bold shadow-2xs'
+                          ? 'bg-accent text-on-accent border-accent font-bold shadow-soft'
                           : 'bg-surface hover:bg-surface/90 text-main border-subtle'
                       }`}
                     >
@@ -670,7 +670,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                       }}
                       className={`h-9 w-9 rounded-xl flex items-center justify-center text-lg transition-transform hover:scale-125 cursor-pointer ${
                         catIconInput === emoji
-                          ? 'bg-[#7B3FE4] text-white shadow-2xs scale-110'
+                          ? 'bg-accent text-on-accent shadow-soft scale-110'
                           : 'hover:bg-surface'
                       }`}
                     >
@@ -706,7 +706,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveCategorySubmit}
-                  className="px-5 py-2 rounded-2xl bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2 rounded-2xl bg-accent text-on-accent hover:bg-accent-hover text-xs font-bold shadow-soft transition-all active:scale-95 cursor-pointer"
                 >
                   Save Category
                 </button>

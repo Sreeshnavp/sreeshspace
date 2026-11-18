@@ -104,7 +104,7 @@ export function calculateFinanceInsights(
           id: 'sug-high-savings',
           type: 'positive',
           title: `Superb saving pace! (${savingsRate}%)`,
-          message: `You are retaining $${netSavings.toFixed(2)} of your income this month. You're well on track for your financial goals!`,
+          message: `You are retaining ₹${netSavings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} of your income this month. You're well on track for your financial goals!`,
         });
       } else {
         suggestions.push({
@@ -119,7 +119,7 @@ export function calculateFinanceInsights(
         id: 'sug-deficit',
         type: 'warning',
         title: 'Spending exceeds income',
-        message: `Expenses exceed incoming funds by $${Math.abs(netSavings).toFixed(2)}. Review discretionary purchases to rebalance.`,
+        message: `Expenses exceed incoming funds by ₹${Math.abs(netSavings).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Review discretionary purchases to rebalance.`,
       });
     }
 
@@ -129,7 +129,7 @@ export function calculateFinanceInsights(
         id: 'sug-top-cat',
         type: 'warning',
         title: `Heavy spend on ${topExpenseCategory.name}`,
-        message: `${topExpenseCategory.icon} ${topExpenseCategory.name} accounts for ${topExpenseCategory.pct}% ($${topExpenseCategory.amount.toFixed(2)}) of all spending this month.`,
+        message: `${topExpenseCategory.icon} ${topExpenseCategory.name} accounts for ${topExpenseCategory.pct}% (₹${topExpenseCategory.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) of all spending this month.`,
       });
     }
 
@@ -139,8 +139,8 @@ export function calculateFinanceInsights(
       suggestions.push({
         id: 'sug-pacing',
         type: 'tip',
-        title: `Daily average: $${avgDailySpend.toFixed(2)} / day`,
-        message: `At this pacing, month-end spending will project around $${projectedMonth.toFixed(2)}.`,
+        title: `Daily average: ₹${avgDailySpend.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / day`,
+        message: `At this pacing, month-end spending will project around ₹${projectedMonth.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
       });
     }
   }
