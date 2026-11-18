@@ -33,7 +33,7 @@ export interface CategoryInfo {
 
 export type MainTab = 'all' | 'categories';
 export type ViewMode = 'grid' | 'list';
-export type WorkspaceView = 'links' | 'notebook' | 'finance' | 'both';
+export type WorkspaceView = 'links' | 'notebook' | 'finance' | 'notes' | 'both';
 export type AccentTheme = 'sage' | 'peach' | 'wisteria' | 'sky' | 'honey';
 
 export * from './todo';
@@ -46,7 +46,20 @@ export interface NoteItem {
   highlight?: string;
   color: string;
   pinned: boolean;
+  tag?: string;
+  drawing?: string; // Optional embedded sketch data URL
   attachments?: Attachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SketchItem {
+  id: string;
+  title: string;
+  dataUrl: string; // Base64 PNG image data
+  paperStyle?: 'cream' | 'blank' | 'grid' | 'dots' | 'ruled' | 'dark';
+  colorTheme?: string;
+  tag?: string;
   createdAt: string;
   updatedAt: string;
 }

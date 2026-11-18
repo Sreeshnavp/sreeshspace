@@ -9,7 +9,8 @@ import type {
   RoutineItem, 
   StreakState,
   FinanceTransaction,
-  FinanceCategory
+  FinanceCategory,
+  SketchItem
 } from '../types';
 import { DEFAULT_FINANCE_CATEGORIES } from '../types/finance';
 import { toLocalDateKey, todayKey, addDays } from '../utils/dates';
@@ -807,7 +808,8 @@ export function exportBackup(
   notes?: NoteItem[],
   events?: ActivityEvent[],
   dayLogs?: Record<string, DayLog>,
-  routines?: RoutineItem[]
+  routines?: RoutineItem[],
+  sketches?: SketchItem[]
 ): string {
   return JSON.stringify({
     app: 'Orbit',
@@ -822,6 +824,7 @@ export function exportBackup(
     events: events || [],
     dayLogs: dayLogs || {},
     routines: routines || [],
+    sketches: sketches || [],
   }, null, 2);
 }
 
@@ -912,5 +915,36 @@ export function saveFinanceCurrency(currency: string): void {
     localStorage.setItem(STORAGE_KEY_FINANCE_CURRENCY, currency);
   } catch (err) {
     console.error('Error saving finance currency:', err);
+  }
+}
+
+// ==========================================
+// 🎨 SKETCHPAD & DOODLES STORAGE (V1)
+// ==========================================
+
+export const STORAGE_KEY_SKETCHES = 'orbit_sketches_v1';
+
+export async function loadSketches(): Promise<SketchItem[]> {
+  try {
+    const data = await get<SketchItem[]>(STORAGE_KEY_SKETCHES);
+    if (data && Array.isArray(data)) {
+      return data;
+    }
+    const local = localStorage.getItem(STORAGE_KEY_SKETCHES);
+    if (local) {
+      return JSON.parse(local);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSketches(sketches: SketchItem[]): Promise<void> {
+  try {
+    await set(STORAGE_KEY_SKETCHES, sketches);
+    localStorage.setItem(STORAGE_KEY_SKETCHES, JSON.stringify(sketches));
+  } catch (err) {
+    console.error('Error saving sketches:', err);
   }
 }

@@ -42,6 +42,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [paragraph, setParagraph] = useState('');
   const [color, setColor] = useState('sage');
   const [pinned, setPinned] = useState(false);
+  const [tag, setTag] = useState('💡 Idea');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setParagraph(note.content || '');
       setColor(resolveCategoryKey(note.color));
       setPinned(Boolean(note.pinned));
+      setTag(note.tag || '💡 Idea');
       setAttachments(note.attachments || []);
       setViewMode('read');
     } else {
@@ -61,6 +63,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setParagraph('');
       setColor('sage');
       setPinned(false);
+      setTag('💡 Idea');
       setAttachments([]);
       setViewMode('edit');
     }
@@ -111,6 +114,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       content: paragraph.trim(),
       color,
       pinned,
+      tag,
       attachments,
       updatedAt: new Date().toISOString(),
     });
@@ -525,6 +529,32 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* 6. Cute Note Tag */}
+            <div>
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-faint mb-1.5">
+                Note Tag
+              </label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {['💡 Idea', '💖 Personal', '🚀 Project', '🎀 Cute', '📌 Urgent'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setTag(t);
+                      playPopSound();
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                      tag === t
+                        ? 'bg-main text-surface shadow-2xs'
+                        : 'bg-sunken hover:bg-surface text-muted border border-subtle'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
 

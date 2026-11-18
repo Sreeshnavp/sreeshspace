@@ -1,7 +1,6 @@
 import React from 'react';
 import { StreakHeroCommandCenter } from './StreakHeroCommandCenter';
 import { TodoList } from './TodoList';
-import { NotesArea } from './NotesArea';
 import type { 
   LinkItem, 
   TodoItem, 
@@ -116,16 +115,6 @@ export const NotebookArea: React.FC<NotebookAreaProps> = ({
         onToggleSubtask={onToggleSubtask}
         onCopyYesterdayList={onCopyYesterdayList}
         onClearAllGoals={onClearAllGoals}
-      />
-
-      {/* 3. BOTTOM SECTION: ENHANCED SCRATCHPAD & PASTEL NOTES WITH DRAG & DROP */}
-      <NotesArea
-        notes={notes}
-        onAddNote={onAddNote}
-        onUpdateNote={onUpdateNote}
-        onDeleteNote={onDeleteNote}
-        onOpenAttachment={onOpenAttachment}
-        onReorderNotes={onReorderNotes}
       />
 
     </div>

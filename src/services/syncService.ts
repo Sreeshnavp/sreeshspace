@@ -25,6 +25,8 @@ import {
   saveFinanceTransactions,
   loadFinanceCategories,
   saveFinanceCategories,
+  loadSketches,
+  saveSketches,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -428,6 +430,16 @@ export function mergeVaultData(
     mergedTombstones
   ).filter((c) => !c.isDefault && !c.id.startsWith('cat-'));
 
+  // 12. Sketches & Doodles
+  const localSketches: any[] = (local.settings?.sketches as any[]) || [];
+  const remoteSketches: any[] = (remote.settings?.sketches as any[]) || [];
+  const sketches = mergeItemsById(
+    localSketches,
+    remoteSketches,
+    (s) => new Date(s.updatedAt || s.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
@@ -435,6 +447,7 @@ export function mergeVaultData(
     tombstones: mergedTombstones,
     finances,
     financeCategories,
+    sketches,
     ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
@@ -495,6 +508,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localTombstones,
       localFinances,
       localFinanceCats,
+      localSketches,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -508,6 +522,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadTombstones(),
       loadFinanceTransactions(),
       loadFinanceCategories(),
+      loadSketches(),
     ]);
 
     const localData = {
@@ -531,6 +546,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         tombstones: localTombstones,
         finances: localFinances,
         financeCategories: localFinanceCats,
+        sketches: localSketches,
         streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
@@ -581,6 +597,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         : Promise.resolve(),
       mergedPayload.settings?.financeCategories
         ? saveFinanceCategories(mergedPayload.settings.financeCategories)
+        : Promise.resolve(),
+      mergedPayload.settings?.sketches
+        ? saveSketches(mergedPayload.settings.sketches)
         : Promise.resolve(),
     ]);
 

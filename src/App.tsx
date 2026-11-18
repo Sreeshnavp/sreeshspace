@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet } from 'lucide-react';
+import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet, Palette } from 'lucide-react';
 
 import type { 
   LinkItem, 
@@ -8,6 +8,7 @@ import type {
   Attachment, 
   TodoItem, 
   NoteItem, 
+  SketchItem,
   WorkspaceView, 
   ActivityEvent, 
   StreakState, 
@@ -27,6 +28,8 @@ import {
   saveTodos, 
   loadNotes, 
   saveNotes, 
+  loadSketches,
+  saveSketches,
   loadActivityEvents, 
   saveActivityEvents, 
   logActivity, 
@@ -79,6 +82,7 @@ import { NotebookArea } from './components/NotebookArea';
 import { DesignGuideModal } from './components/DesignGuideModal';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
+import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
 
 import { GoalModal } from './components/GoalModal';
 import { ExtendDeadlineModal } from './components/ExtendDeadlineModal';
@@ -104,8 +108,13 @@ export function App() {
   const [categories, setCategories] = useState<CategoryInfo[]>(DEFAULT_CATEGORIES);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [sketches, setSketches] = useState<SketchItem[]>([]);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('links');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Swipe Navigation Feedback State
+  const [swipePill, setSwipePill] = useState<{ label: string; icon: string } | null>(null);
+  const swipePillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Date, Streaks & Activity Log
   const [selectedDate, setSelectedDate] = useState<string>(todayKey());
@@ -230,6 +239,7 @@ export function App() {
         loadedBgData,
         loadedFinances,
         loadedFinanceCats,
+        loadedSketches,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -242,11 +252,13 @@ export function App() {
         loadCustomBackground(),
         loadFinanceTransactions(),
         loadFinanceCategories(),
+        loadSketches(),
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
       setTodos(loadedTodos);
       setNotes(loadedNotes);
+      setSketches(loadedSketches);
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
       const hasValidCompletions = loadedEvents.some((e) =>
@@ -362,6 +374,7 @@ export function App() {
           loadedBgData,
           loadedFinances,
           loadedFinanceCats,
+          loadedSketches,
         ] = await Promise.all([
           loadLinks(),
           loadCategories(),
@@ -374,6 +387,7 @@ export function App() {
           loadCustomBackground(),
           loadFinanceTransactions(),
           loadFinanceCategories(),
+          loadSketches(),
         ]);
         const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
         const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
@@ -389,6 +403,7 @@ export function App() {
         setCategories(loadedCats);
         setTodos(cleanTodos);
         setNotes(cleanNotes);
+        setSketches(loadedSketches);
         setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
         const hasValidCompletions = cleanEvents.some((e) =>
@@ -491,6 +506,146 @@ export function App() {
     window.addEventListener('hashchange', checkHash);
     return () => window.removeEventListener('hashchange', checkHash);
   }, []);
+
+  // ==========================================
+  // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> FINANCES <-> NOTES & SKETCHPAD)
+  // ==========================================
+  const WORKSPACE_SECTIONS: WorkspaceView[] = ['links', 'notebook', 'finance', 'notes'];
+
+  const showSwipePill = (section: WorkspaceView) => {
+    const config: Record<WorkspaceView, { label: string; icon: string }> = {
+      links: { label: 'Links', icon: '🔗' },
+      notebook: { label: 'Habits & Tasks', icon: '📖' },
+      finance: { label: 'Finances', icon: '💳' },
+      notes: { label: 'Notes & Sketchpad', icon: '🎨' },
+      both: { label: 'Workspace', icon: '✨' },
+    };
+    if (swipePillTimerRef.current) clearTimeout(swipePillTimerRef.current);
+    setSwipePill(config[section] || { label: 'Section', icon: '✨' });
+    swipePillTimerRef.current = setTimeout(() => {
+      setSwipePill(null);
+    }, 1100);
+  };
+
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches.length !== 1) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Safe guards:
+      // 1. Drawing canvas or no-swipe designated zones (so sketching never triggers section switch)
+      if (
+        target.closest('canvas') ||
+        target.closest('.no-swipe-zone') ||
+        target.closest('[data-no-swipe="true"]') ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('select') ||
+        target.closest('[role="dialog"]')
+      ) {
+        return;
+      }
+
+      // 2. Modals currently open
+      if (
+        isFinanceModalOpen ||
+        isAddModalOpen ||
+        isBackupModalOpen ||
+        isGoalModalOpen ||
+        isWallpaperModalOpen ||
+        isSyncModalOpen ||
+        isPwaPromptOpen ||
+        isDesignGuideOpen ||
+        isHistoryTimelineOpen ||
+        isInsightsOpen ||
+        isWeeklyReviewOpen ||
+        isRolloverOpen ||
+        Boolean(detailLink) ||
+        Boolean(editingCategory) ||
+        Boolean(activeAttachment) ||
+        Boolean(extendingGoal) ||
+        Boolean(focusTask) ||
+        Boolean(inspectingDateKey)
+      ) {
+        return;
+      }
+
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const deltaX = endX - startX;
+      const deltaY = endY - startY;
+      const elapsed = Date.now() - startTime;
+
+      // Intentional swipe:
+      // - At least 55px horizontal distance
+      // - Predominantly horizontal swipe (1.5x greater than vertical movement)
+      // - Flick within 650ms
+      if (
+        Math.abs(deltaX) >= 55 &&
+        Math.abs(deltaX) > Math.abs(deltaY) * 1.5 &&
+        elapsed <= 650
+      ) {
+        const curIdx = WORKSPACE_SECTIONS.indexOf(workspaceView);
+        if (curIdx === -1) return;
+
+        if (deltaX < 0 && curIdx < WORKSPACE_SECTIONS.length - 1) {
+          // Swipe Left -> Next Section
+          const next = WORKSPACE_SECTIONS[curIdx + 1];
+          setWorkspaceView(next);
+          playPopSound();
+          if (navigator.vibrate) navigator.vibrate(15);
+          showSwipePill(next);
+        } else if (deltaX > 0 && curIdx > 0) {
+          // Swipe Right -> Prev Section
+          const prev = WORKSPACE_SECTIONS[curIdx - 1];
+          setWorkspaceView(prev);
+          playPopSound();
+          if (navigator.vibrate) navigator.vibrate(15);
+          showSwipePill(prev);
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [
+    workspaceView,
+    isFinanceModalOpen,
+    isAddModalOpen,
+    isBackupModalOpen,
+    isGoalModalOpen,
+    isWallpaperModalOpen,
+    isSyncModalOpen,
+    isPwaPromptOpen,
+    isDesignGuideOpen,
+    isHistoryTimelineOpen,
+    isInsightsOpen,
+    isWeeklyReviewOpen,
+    isRolloverOpen,
+    detailLink,
+    editingCategory,
+    activeAttachment,
+    extendingGoal,
+    focusTask,
+    inspectingDateKey,
+  ]);
 
   const handleCloseDesignGuide = () => {
     setIsDesignGuideOpen(false);
@@ -1279,6 +1434,32 @@ export function App() {
     triggerAutoSync();
   };
 
+  const handleSaveSketch = async (sketchData: Omit<SketchItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newSketch: SketchItem = {
+      ...sketchData,
+      id: `sk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = [newSketch, ...sketches];
+    setSketches(updated);
+    await saveSketches(updated);
+    await logActivity('note_added', newSketch.id, newSketch.title);
+    const freshEvents = await loadActivityEvents();
+    setEvents(freshEvents);
+    showToast(`Saved doodle "${newSketch.title}"! 🎨`);
+    triggerAutoSync();
+  };
+
+  const handleDeleteSketch = async (id: string) => {
+    const updated = sketches.filter((s) => s.id !== id);
+    setSketches(updated);
+    await saveSketches(updated);
+    await recordTombstone(id);
+    showToast('Doodle deleted');
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
   // Import Backup
   const handleImportData = async (data: { 
     links: LinkItem[]; 
@@ -1307,6 +1488,10 @@ export function App() {
       setNotes(data.notes);
       await saveNotes(data.notes);
     }
+    if ((data as any).sketches && Array.isArray((data as any).sketches)) {
+      setSketches((data as any).sketches);
+      await saveSketches((data as any).sketches);
+    }
 
     confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
     showToast('Import successful! 🎉');
@@ -1318,6 +1503,7 @@ export function App() {
       ...links.map((l) => l.id),
       ...todos.map((t) => t.id),
       ...notes.map((n) => n.id),
+      ...sketches.map((s) => s.id),
       ...transactions.map((tx) => tx.id),
     ];
     await recordTombstones(allIds);
@@ -1325,6 +1511,7 @@ export function App() {
     setCategories(DEFAULT_CATEGORIES);
     setTodos([]);
     setNotes([]);
+    setSketches([]);
     setEvents([]);
     setDayLogs({});
     setTransactions([]);
@@ -1340,6 +1527,7 @@ export function App() {
     await saveCategories(DEFAULT_CATEGORIES);
     await saveTodos([]);
     await saveNotes([]);
+    await saveSketches([]);
     await saveActivityEvents([]);
     await saveDayLogs({});
     await saveStreakState(cleanStreak);
@@ -1570,12 +1758,16 @@ export function App() {
           /* MAIN WORKSPACE CANVAS: VIEW SWITCHER + LINKS + NOTEBOOK & TASKS */
           <div className="space-y-5 sm:space-y-6">
 
-            {/* Workspace View Switcher: Links vs Habits & Tasks */}
-            <div className="flex items-center justify-between gap-2 p-1 sm:p-1.5 rounded-2xl bg-sunken border border-subtle">
+            {/* Workspace View Switcher: Links vs Habits & Tasks vs Finances vs Notes & Sketchpad */}
+            <div className="flex items-center justify-between gap-2 p-1 sm:p-1.5 rounded-2xl bg-sunken border border-subtle overflow-x-auto scrollbar-none">
               <div className="flex items-center gap-1 w-full sm:w-auto">
                 <button
-                  onClick={() => setWorkspaceView('links')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceView('links');
+                    playPopSound();
+                  }}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
                     workspaceView === 'links'
                       ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
                       : 'text-muted hover:text-main'
@@ -1585,8 +1777,12 @@ export function App() {
                   <span>Links ({links.length})</span>
                 </button>
                 <button
-                  onClick={() => setWorkspaceView('notebook')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceView('notebook');
+                    playPopSound();
+                  }}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
                     workspaceView === 'notebook'
                       ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
                       : 'text-muted hover:text-main'
@@ -1596,8 +1792,12 @@ export function App() {
                   <span>Habits & Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
                 </button>
                 <button
-                  onClick={() => setWorkspaceView('finance')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] ${
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceView('finance');
+                    playPopSound();
+                  }}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
                     workspaceView === 'finance'
                       ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
                       : 'text-muted hover:text-main'
@@ -1605,6 +1805,21 @@ export function App() {
                 >
                   <Wallet size={13} className="stroke-[2.2]" />
                   <span>Finances ({transactions.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceView('notes');
+                    playPopSound();
+                  }}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
+                    workspaceView === 'notes'
+                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
+                  }`}
+                >
+                  <Palette size={13} className="stroke-[2.2] text-pink-500" />
+                  <span>Notes & Sketch ({notes.length + sketches.length})</span>
                 </button>
               </div>
             </div>
@@ -1905,12 +2120,39 @@ export function App() {
               </div>
             )}
 
+            {/* 4. NOTES & SKETCHPAD SECTION: Cute Creative Studio */}
+            {workspaceView === 'notes' && (
+              <div className="pt-2">
+                <NotesAndSketchpadArea
+                  notes={notes}
+                  sketches={sketches}
+                  onAddNote={handleAddNote}
+                  onUpdateNote={handleUpdateNote}
+                  onDeleteNote={handleDeleteNote}
+                  onReorderNotes={handleReorderNotes}
+                  onSaveSketch={handleSaveSketch}
+                  onDeleteSketch={handleDeleteSketch}
+                  onOpenAttachment={(att) => setActiveAttachment(att)}
+                />
+              </div>
+            )}
+
           </div>
         )}
 
 
 
       </main>
+
+      {/* 📲 Cute Swipe Gesture Section Indicator */}
+      {swipePill && (
+        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-main/90 text-surface shadow-raised backdrop-blur-md text-xs font-black">
+            <span className="text-sm">{swipePill.icon}</span>
+            <span>{swipePill.label}</span>
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Button for Mobile */}
       <button
