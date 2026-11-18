@@ -55,6 +55,7 @@ export const DailyRoutinesModal: React.FC<DailyRoutinesModalProps> = ({
 }) => {
   const [editingRoutine, setEditingRoutine] = useState<RoutineItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [routineToDelete, setRoutineToDelete] = useState<RoutineItem | null>(null);
 
   // Form State
   const [text, setText] = useState('');
@@ -431,13 +432,11 @@ export const DailyRoutinesModal: React.FC<DailyRoutinesModalProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            if (window.confirm(`Delete fixed routine "${routine.text}"? It will stop being added to future daily lists.`)) {
-                              playPopSound();
-                              onDeleteRoutine(routine.id);
-                            }
+                            playPopSound();
+                            setRoutineToDelete(routine);
                           }}
                           className="p-1.5 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
-                          title="Delete Routine"
+                          title="Delete Routine Permanently"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -449,6 +448,43 @@ export const DailyRoutinesModal: React.FC<DailyRoutinesModalProps> = ({
             )}
           </div>
         </div>
+
+        {/* In-App Confirmation Modal for Permanent Routine Deletion */}
+        {routineToDelete && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-main/50 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="w-full max-w-sm bg-surface rounded-3xl border border-subtle shadow-raised p-5 space-y-3.5 text-center animate-in zoom-in-95 duration-150">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto text-xl shadow-2xs">
+                <Trash2 size={22} className="stroke-[2.5]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-base text-main">Delete Routine Permanently?</h3>
+                <p className="text-xs text-muted">
+                  "{routineToDelete.text}" will be permanently removed from today's list and won't appear on future days.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRoutineToDelete(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-muted cursor-pointer"
+                >
+                  Keep It
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    onDeleteRoutine(routineToDelete.id);
+                    setRoutineToDelete(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-danger hover:bg-danger-hover text-on-accent text-xs font-extrabold shadow-soft cursor-pointer transition active:scale-95"
+                >
+                  Delete Permanently
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs text-muted shrink-0">

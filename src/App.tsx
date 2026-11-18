@@ -1066,9 +1066,16 @@ export function App() {
   // Delete Todo (removes task and cleans up any related activity events)
   const handleDeleteTodo = async (id: string) => {
     const target = todos.find((t) => t.id === id);
+
+    // If deleting a task created from a fixed routine, also remove the routine so it doesn't reappear
     if (target?.recurringId) {
-      showToast("Fixed Daily Routine cannot be deleted from today's list. Manage it in Fixed Routines! 🔄");
-      return;
+      const routineId = target.recurringId;
+      const updatedRoutines = routines.filter((r) => r.id !== routineId);
+      if (updatedRoutines.length !== routines.length) {
+        setRoutines(updatedRoutines);
+        await saveRoutines(updatedRoutines);
+        await recordTombstone(routineId);
+      }
     }
 
     const updated = todos.filter((t) => t.id !== id);
@@ -1082,7 +1089,8 @@ export function App() {
     await saveActivityEvents(cleanEvents);
     setEvents(cleanEvents);
 
-    showToast('Task removed');
+    const isGoal = target?.type === 'permanent';
+    showToast(target?.recurringId ? 'Fixed routine deleted permanently 🗑️' : isGoal ? 'Goal deleted permanently 🗑️' : 'Task removed');
     syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
@@ -1110,11 +1118,30 @@ export function App() {
   };
 
   const handleDeleteRoutine = async (id: string) => {
-    const updated = routines.filter((r) => r.id !== id);
-    setRoutines(updated);
-    await saveRoutines(updated);
+    // 1. Remove routine definition
+    const updatedRoutines = routines.filter((r) => r.id !== id);
+    setRoutines(updatedRoutines);
+    await saveRoutines(updatedRoutines);
     await recordTombstone(id);
-    showToast('Routine removed');
+
+    // 2. Permanently remove all daily task instances created from this routine
+    const removedInstances = todos.filter((t) => t.recurringId === id);
+    const updatedTodos = todos.filter((t) => t.recurringId !== id);
+    setTodos(updatedTodos);
+    await saveTodos(updatedTodos);
+
+    if (removedInstances.length > 0) {
+      const removedIds = removedInstances.map((t) => t.id);
+      await recordTombstones(removedIds);
+      const freshEvents = await loadActivityEvents();
+      const cleanEvents = freshEvents.filter(
+        (e) => !removedIds.includes(e.refId) && !e.type.includes('deleted')
+      );
+      await saveActivityEvents(cleanEvents);
+      setEvents(cleanEvents);
+    }
+
+    showToast('Fixed routine deleted permanently 🗑️');
     syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
@@ -2285,6 +2312,7 @@ export function App() {
           setActiveGoalForModal(null);
         }}
         onSave={handleSaveGoal}
+        onDelete={handleDeleteTodo}
         goal={activeGoalForModal}
       />
 

@@ -87,6 +87,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   const [dailyInput, setDailyInput] = useState('');
   const [isPastReadOnly, setIsPastReadOnly] = useState(true);
   const [isRoutinesModalOpen, setIsRoutinesModalOpen] = useState(false);
+  const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState<TodoItem | null>(null);
 
   // Drag and drop state
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
@@ -492,16 +493,30 @@ export const TodoList: React.FC<TodoListProps> = ({
 
                         {!isLocked && (
                           todo.recurringId ? (
-                            <span
-                              className="p-1.5 rounded-lg text-accent/70 hover:text-accent hover:bg-sunken transition cursor-help shrink-0"
-                              title="Fixed Daily Routine: Automatically appears each scheduled day and cannot be deleted from the daily list. Manage routines in Fixed Routines."
-                              onClick={() => {
-                                playPopSound();
-                                setIsRoutinesModalOpen(true);
-                              }}
-                            >
-                              <Lock size={12} className="text-accent" />
-                            </span>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  playPopSound();
+                                  setConfirmDeleteRoutine(todo);
+                                }}
+                                className="p-1.5 rounded-lg text-accent/70 hover:text-accent hover:bg-sunken transition cursor-pointer shrink-0"
+                                title="Fixed Routine: Click to delete permanently or manage"
+                              >
+                                <Lock size={12} className="text-accent" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  playPopSound();
+                                  setConfirmDeleteRoutine(todo);
+                                }}
+                                className="p-1.5 rounded-lg text-faint hover:text-danger hover:bg-sunken opacity-0 group-hover:opacity-100 transition cursor-pointer shrink-0"
+                                title="Delete fixed routine permanently"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           ) : (
                             <button
                               type="button"
@@ -711,6 +726,60 @@ export const TodoList: React.FC<TodoListProps> = ({
         onSaveRoutine={onSaveRoutine || (() => {})}
         onDeleteRoutine={onDeleteRoutine || (() => {})}
       />
+
+      {/* QUICK DELETE FIXED ROUTINE CONFIRMATION DIALOG */}
+      {confirmDeleteRoutine && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-surface rounded-3xl border border-subtle shadow-raised p-5 space-y-3.5 text-center animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto text-xl shadow-2xs">
+              <Trash2 size={22} className="stroke-[2.5]" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-base text-main">Delete Fixed Routine Permanently?</h3>
+              <p className="text-xs text-muted">
+                "{confirmDeleteRoutine.text}" is a fixed routine. Do you want to delete it permanently? It will be removed from today's list and stop appearing on future days.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  if (confirmDeleteRoutine.recurringId && onDeleteRoutine) {
+                    onDeleteRoutine(confirmDeleteRoutine.recurringId);
+                  } else {
+                    onDeleteTodo(confirmDeleteRoutine.id);
+                  }
+                  setConfirmDeleteRoutine(null);
+                }}
+                className="w-full py-2.5 rounded-xl bg-danger hover:bg-danger-hover text-on-accent text-xs font-extrabold shadow-soft cursor-pointer transition active:scale-95"
+              >
+                🗑️ Yes, Delete Permanently
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setConfirmDeleteRoutine(null);
+                    setIsRoutinesModalOpen(true);
+                  }}
+                  className="flex-1 py-2 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-accent cursor-pointer"
+                >
+                  Manage Routines
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteRoutine(null)}
+                  className="flex-1 py-2 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-muted cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

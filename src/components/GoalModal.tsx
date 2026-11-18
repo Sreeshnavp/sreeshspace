@@ -22,6 +22,7 @@ interface GoalModalProps {
   onClose: () => void;
   goal?: TodoItem | null;
   onSave: (goalData: Partial<TodoItem>) => void;
+  onDelete?: (id: string) => void;
 }
 
 export const GoalModal: React.FC<GoalModalProps> = ({
@@ -29,6 +30,7 @@ export const GoalModal: React.FC<GoalModalProps> = ({
   onClose,
   goal,
   onSave,
+  onDelete,
 }) => {
   const [text, setText] = useState('');
   const [notes, setNotes] = useState('');
@@ -557,22 +559,41 @@ export const GoalModal: React.FC<GoalModalProps> = ({
         </form>
 
         {/* Modal Actions */}
-        <div className="p-4 border-t border-subtle bg-sunken/40 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-surface hover:bg-sunken border border-border-input text-main text-xs font-bold transition cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="goal-form"
-            className="min-h-[44px] px-5 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            <Check size={14} className="stroke-[2.5]" />
-            <span>{goal ? 'Update Goal' : 'Create Goal'}</span>
-          </button>
+        <div className="p-4 border-t border-subtle bg-sunken/40 flex items-center justify-between gap-2">
+          {goal && onDelete ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`Permanently delete master goal "${goal.text}"?`)) {
+                  playPopSound();
+                  onDelete(goal.id);
+                  onClose();
+                }
+              }}
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-danger-soft hover:bg-danger/20 text-danger border border-danger/30 text-xs font-bold transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Trash2 size={14} />
+              <span>Delete Permanently</span>
+            </button>
+          ) : <div />}
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-surface hover:bg-sunken border border-border-input text-main text-xs font-bold transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="goal-form"
+              className="min-h-[44px] px-5 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-bold shadow-soft transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Check size={14} className="stroke-[2.5]" />
+              <span>{goal ? 'Update Goal' : 'Create Goal'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
