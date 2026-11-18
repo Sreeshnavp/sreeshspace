@@ -2189,7 +2189,7 @@ export function App() {
             setIsAddModalOpen(true);
           }
         }}
-        className="fixed bottom-5 right-5 sm:hidden z-40 w-13 h-13 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
+        className="fixed bottom-5 right-5 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
         aria-label={workspaceView === 'finance' ? "Add Transaction" : "Add Bookmark"}
       >
         <Plus size={24} className="stroke-[2.5]" />

@@ -563,7 +563,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 key={keyVal}
                 type="button"
                 onClick={() => (keyVal === '.' ? handleDot() : handleDigit(keyVal))}
-                className="h-12 sm:h-13 rounded-2xl bg-sunken/80 hover:bg-sunken border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+                className="h-12 sm:h-14 rounded-2xl bg-sunken/80 hover:bg-sunken border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               >
                 {keyVal}
               </button>
@@ -572,7 +572,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="h-12 sm:h-13 rounded-2xl bg-accent hover:bg-accent-hover text-on-accent font-extrabold shadow-soft transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+              className="h-12 sm:h-14 rounded-2xl bg-accent hover:bg-accent-hover text-on-accent font-extrabold shadow-soft transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               title="Save Transaction"
             >
               <Check size={22} className="stroke-[3]" />

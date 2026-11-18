@@ -402,32 +402,34 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     <div className="space-y-4 sm:space-y-5 max-w-2xl mx-auto pb-16">
       
       {/* 1. TOP HERO BANNER WITH USER AVATAR & DELIGHTFUL MOOD */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-        <div className="flex items-center gap-3.5">
-          <div className="relative shrink-0 select-none">
-            <img
-              src={avatarImg}
-              alt="Sreeshnav"
-              className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover ring-2 ring-accent/30 shadow-soft"
-            />
-            <span className="absolute -bottom-1 -right-1 text-xs select-none">✨</span>
+      <div className="p-3.5 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-3.5">
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-400 to-indigo-400 shadow-soft shrink-0 select-none">
+            <div className="w-full h-full rounded-[14px] overflow-hidden bg-surface relative flex items-center justify-center">
+              <img
+                src={avatarImg}
+                alt="Sreeshnav"
+                className="w-full h-full object-cover rounded-[14px]"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] select-none">✨</span>
+            </div>
           </div>
-          <div>
-            <h2 className="font-black text-base sm:text-lg text-main flex items-center gap-2">
-              <span>Personal Finance</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-black text-base sm:text-lg text-main truncate">
+              Personal Finance
             </h2>
-            <p className="text-[11px] text-muted font-medium flex items-center gap-1.5 mt-0.5">
+            <p className="text-[11px] text-muted font-medium truncate flex items-center gap-1.5 mt-0.5">
               {insights.netSavings >= 0 ? (
                 <>
-                  <span className="text-emerald-500">🌸</span>
-                  <span>
+                  <span className="text-emerald-500 shrink-0">🌸</span>
+                  <span className="truncate">
                     Cozy savings! Net +<span className="font-sans font-bold">₹</span>{formatRupees(insights.netSavings)} this month
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="text-amber-500">☕</span>
-                  <span>
+                  <span className="text-amber-500 shrink-0">☕</span>
+                  <span className="truncate">
                     Spent <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))} over income. Stay mindful!
                   </span>
                 </>
@@ -437,13 +439,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
 
         {/* Right Controls: Month Selector + Search + Add Entry Button */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-subtle/50">
           {/* Month selector */}
-          <div className="relative inline-block">
+          <div className="relative inline-block flex-1 sm:flex-none">
             <select
               value={selectedMonthKey}
               onChange={(e) => setSelectedMonthKey(e.target.value)}
-              className="appearance-none bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs pl-3 pr-7 py-2 rounded-2xl shadow-2xs cursor-pointer focus:outline-hidden"
+              className="w-full sm:w-auto appearance-none bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs pl-3 pr-7 py-2 rounded-2xl shadow-2xs cursor-pointer focus:outline-hidden"
             >
               {monthOptions.map((opt) => (
                 <option key={opt.key} value={opt.key}>
@@ -462,7 +464,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               setIsSearchOpen((prev) => !prev);
               if (isSearchOpen) setSearchQuery('');
             }}
-            className={`p-2 rounded-2xl border border-subtle transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ${
+            className={`p-2 rounded-2xl border border-subtle transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center shrink-0 ${
               isSearchOpen || searchQuery
                 ? 'bg-accent text-on-accent border-accent'
                 : 'bg-surface hover:bg-sunken text-muted hover:text-main shadow-2xs'
@@ -479,7 +481,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               playPopSound();
               onOpenAddModal();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition active:scale-95 cursor-pointer min-h-[38px]"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition active:scale-95 cursor-pointer min-h-[38px] shrink-0"
           >
             <Plus size={14} className="stroke-[2.5]" />
             <span>Add Entry</span>
@@ -512,11 +514,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* 2. TOTAL LIFETIME BALANCE HERO CARD */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
+      <div className="p-4 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 text-xs font-bold text-muted">
-              <CreditCard size={14} />
+              <CreditCard size={14} className="shrink-0" />
               <span>Lifetime Net Balance</span>
               <button
                 type="button"
@@ -530,7 +532,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
               </button>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-main">
+            <h1 className="text-2xl sm:text-4xl font-black font-mono tracking-tight text-main truncate">
               {showBalance ? (
                 <>
                   {overallBalance < 0 && '-'}
@@ -541,7 +543,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 <><span className="font-sans font-bold">₹</span>••••••••</>
               )}
             </h1>
-            <p className="text-[11px] text-muted">
+            <p className="text-[11px] text-muted truncate">
               {insights.savingsRate}% retained out of this month's earnings
             </p>
           </div>
@@ -553,7 +555,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               playPopSound();
               setIsCategoryManagerOpen(true);
             }}
-            className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95"
+            className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95 shrink-0"
           >
             <Tag size={13} className="text-accent" />
             <span>Categories ({categories.length})</span>
@@ -562,15 +564,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
         {/* Lifetime Flow Mini Meters */}
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-subtle/50 text-xs">
-          <div className="flex items-center justify-between p-2 rounded-xl bg-sunken/40">
-            <span className="text-muted text-[11px] font-semibold">Total Earned</span>
-            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-sunken/40 gap-0.5 min-w-0">
+            <span className="text-muted text-[10px] sm:text-[11px] font-semibold truncate">Total Earned</span>
+            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm truncate">
               +<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalIn)}
             </span>
           </div>
-          <div className="flex items-center justify-between p-2 rounded-xl bg-sunken/40">
-            <span className="text-muted text-[11px] font-semibold">Total Spent</span>
-            <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-sunken/40 gap-0.5 min-w-0">
+            <span className="text-muted text-[10px] sm:text-[11px] font-semibold truncate">Total Spent</span>
+            <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-xs sm:text-sm truncate">
               -<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalOut)}
             </span>
           </div>
@@ -580,7 +582,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 3. SOFT CUTE DUO INFORMATION CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Soft Matcha Mint Income Card */}
-        <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
+        <div className="p-4 sm:p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-200">
             <span className="flex items-center gap-1.5">
               <ArrowDownLeft size={16} className="stroke-[2.5]" />
@@ -590,16 +592,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               +{insights.savingsRate}% Saved
             </span>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-mono font-black text-emerald-700 dark:text-emerald-300">
+          <h3 className="text-xl sm:text-3xl font-mono font-black text-emerald-700 dark:text-emerald-300 truncate">
             +<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalIncome)}
           </h3>
-          <p className="text-[11px] text-muted font-medium">
+          <p className="text-[11px] text-muted font-medium truncate">
             Incoming funds for {selectedMonthOption.label}
           </p>
         </div>
 
         {/* Soft Sakura Rose Expense Card */}
-        <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
+        <div className="p-4 sm:p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-bold text-rose-800 dark:text-rose-200">
             <span className="flex items-center gap-1.5">
               <ArrowUpRight size={16} className="stroke-[2.5]" />
@@ -609,10 +611,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               Net <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))}
             </span>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-mono font-black text-rose-700 dark:text-rose-300">
+          <h3 className="text-xl sm:text-3xl font-mono font-black text-rose-700 dark:text-rose-300 truncate">
             -<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalExpenses)}
           </h3>
-          <p className="text-[11px] text-muted font-medium">
+          <p className="text-[11px] text-muted font-medium truncate">
             Outflow records for {selectedMonthOption.label}
           </p>
         </div>
