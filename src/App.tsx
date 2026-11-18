@@ -83,6 +83,8 @@ import { DesignGuideModal } from './components/DesignGuideModal';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
+import { LockScreen } from './components/LockScreen';
+import { isDeviceUnlocked, lockDevice } from './utils/security';
 
 import { GoalModal } from './components/GoalModal';
 import { ExtendDeadlineModal } from './components/ExtendDeadlineModal';
@@ -111,6 +113,9 @@ export function App() {
   const [sketches, setSketches] = useState<SketchItem[]>([]);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('links');
   const [isLoading, setIsLoading] = useState(true);
+
+  // 🔒 Master PIN Security Gate
+  const [isLocked, setIsLocked] = useState<boolean>(!isDeviceUnlocked());
 
   // Swipe Navigation Feedback State
   const [swipePill, setSwipePill] = useState<{ label: string; icon: string } | null>(null);
@@ -558,8 +563,9 @@ export function App() {
         return;
       }
 
-      // 2. Modals currently open
+      // 2. Lock screen or Modals currently open
       if (
+        isLocked ||
         isFinanceModalOpen ||
         isAddModalOpen ||
         isBackupModalOpen ||
@@ -1640,6 +1646,16 @@ export function App() {
   return (
     <div className="min-h-screen bg-page text-main flex flex-col font-sans transition-colors duration-200 relative overflow-x-hidden">
       
+      {/* 🔒 Master PIN Security Gate */}
+      {isLocked && (
+        <LockScreen
+          onUnlock={() => {
+            setIsLocked(false);
+            showToast('Welcome back, Sreeshnav! ✨');
+          }}
+        />
+      )}
+
       {/* Full-Screen Custom Wallpaper Layer (Controlled Opacity & Blur) */}
       {customBgImage && bgSettings.enabled && (
         <div 
@@ -1670,6 +1686,11 @@ export function App() {
           onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
           onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
           onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+            showToast('Space locked 🔒');
+          }}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           totalCount={links.length}

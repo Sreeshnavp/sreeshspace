@@ -10,7 +10,8 @@ import {
   Volume2,
   VolumeX,
   Palette,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Lock
 } from 'lucide-react';
 import { isSoundEnabled, toggleSound, triggerPartyPop } from '../utils/delight';
 import avatarImg from '../assets/avatar.png';
@@ -23,6 +24,7 @@ interface HeaderProps {
   onOpenPwaGuide: () => void;
   onOpenDesignGuide?: () => void;
   onOpenWallpaper?: () => void;
+  onLock?: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   totalCount: number;
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPwaGuide,
   onOpenDesignGuide,
   onOpenWallpaper,
+  onLock,
   darkMode,
   onToggleDarkMode,
 }) => {
@@ -174,7 +177,20 @@ export const Header: React.FC<HeaderProps> = ({
               <Smartphone size={17} />
             </button>
 
-            {/* 6. Backup & Restore Data */}
+            {/* 6. Lock Space Button */}
+            {onLock && (
+              <button
+                type="button"
+                onClick={onLock}
+                aria-label="Lock your space"
+                className="p-1.5 sm:p-2 text-muted hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer active:scale-95"
+                title="Lock Space 🔒"
+              >
+                <Lock size={17} />
+              </button>
+            )}
+
+            {/* 7. Backup & Restore Data */}
             <button
               type="button"
               onClick={onOpenBackupModal}
