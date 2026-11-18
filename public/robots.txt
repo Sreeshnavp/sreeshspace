@@ -1,0 +1,3 @@
+# Block all search engine crawlers (Google, Bing, Yahoo, DuckDuckGo, etc.) from indexing or searching this personal vault
+User-agent: *
+Disallow: /
