@@ -329,22 +329,22 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
               onClick={() => handleTypeSwitch('expense')}
               className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 type === 'expense'
-                  ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-xs font-extrabold'
+                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-200 border border-rose-200/60 shadow-2xs font-black'
                   : 'text-muted hover:text-main'
               }`}
             >
-              Expense
+              💸 Expense
             </button>
             <button
               type="button"
               onClick={() => handleTypeSwitch('income')}
               className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 type === 'income'
-                  ? 'bg-gradient-to-r from-[#06B6D4] to-[#0284C7] text-white shadow-xs font-extrabold'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200 border border-emerald-200/60 shadow-2xs font-black'
                   : 'text-muted hover:text-main'
               }`}
             >
-              Income
+              🌱 Income
             </button>
           </div>
 
@@ -563,7 +563,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                 key={keyVal}
                 type="button"
                 onClick={() => (keyVal === '.' ? handleDot() : handleDigit(keyVal))}
-                className="h-12 sm:h-13 rounded-2xl bg-sunken/80 hover:bg-[#7B3FE4]/10 border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+                className="h-12 sm:h-13 rounded-2xl bg-sunken/80 hover:bg-sunken border border-subtle/50 text-main font-bold text-lg sm:text-xl font-mono shadow-2xs transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               >
                 {keyVal}
               </button>
@@ -572,7 +572,7 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="h-12 sm:h-13 rounded-2xl bg-gradient-to-br from-[#6228FF] to-[#9750FF] hover:opacity-95 text-white font-extrabold shadow-md transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
+              className="h-12 sm:h-13 rounded-2xl bg-accent hover:bg-accent-hover text-on-accent font-extrabold shadow-soft transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none"
               title="Save Transaction"
             >
               <Check size={22} className="stroke-[3]" />
@@ -622,22 +622,22 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                   onClick={() => setCatTypeInput('expense')}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     catTypeInput === 'expense'
-                      ? 'bg-gradient-to-r from-[#6228FF] to-[#8C52FF] text-white shadow-2xs'
+                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200 shadow-2xs font-extrabold'
                       : 'text-muted'
                   }`}
                 >
-                  Expense Category
+                  💸 Expense Category
                 </button>
                 <button
                   type="button"
                   onClick={() => setCatTypeInput('income')}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     catTypeInput === 'income'
-                      ? 'bg-gradient-to-r from-[#06B6D4] to-[#0284C7] text-white shadow-2xs'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 shadow-2xs font-extrabold'
                       : 'text-muted'
                   }`}
                 >
-                  Income Category
+                  🌱 Income Category
                 </button>
               </div>
 
@@ -649,9 +649,9 @@ export const FinanceNumpadModal: React.FC<FinanceNumpadModalProps> = ({
                   type="text"
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
-                  placeholder="Category Name (e.g. Swiggy, Gym, SIP)"
+                  placeholder="Category Name (e.g. Swiggy, Gym, Fuel)"
                   autoFocus
-                  className="w-full bg-sunken border border-subtle rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-main font-semibold placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#7B3FE4]"
+                  className="w-full bg-sunken border border-subtle rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-main font-semibold placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40"
                 />
               </div>
 

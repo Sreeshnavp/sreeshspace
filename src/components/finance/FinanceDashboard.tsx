@@ -17,18 +17,18 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  AlertTriangle,
-  Lightbulb,
   PieChart,
-  BarChart2,
   Sliders,
-  DollarSign
+  DollarSign,
+  Heart,
+  Smile,
+  Zap
 } from 'lucide-react';
 import type { FinanceTransaction, FinancialInsights, FinanceCategory, TransactionType } from '../../types/finance';
 import { CUTE_CATEGORY_ICONS } from '../../types/finance';
 import { calculateFinanceInsights } from '../../utils/financeInsights';
 import { todayKey, diffInDays } from '../../utils/dates';
-import { playPopSound } from '../../utils/delight';
+import { playPopSound, triggerPartyPop } from '../../utils/delight';
 
 interface FinanceDashboardProps {
   transactions: FinanceTransaction[];
@@ -40,7 +40,23 @@ interface FinanceDashboardProps {
   onDeleteTransaction: (id: string) => void;
   onSaveCategory: (cat: FinanceCategory) => void;
   onDeleteCategory: (id: string) => void;
+  onQuickAdd?: (tx: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
+
+const DEFAULT_STARTER_CATEGORIES = [
+  { name: 'Food & Chai', icon: '🍔', type: 'expense' as const },
+  { name: 'Coffee / Tea', icon: '☕', type: 'expense' as const },
+  { name: 'Groceries', icon: '🛒', type: 'expense' as const },
+  { name: 'Commute / Auto', icon: '🚕', type: 'expense' as const },
+  { name: 'Shopping', icon: '🛍️', type: 'expense' as const },
+  { name: 'Mobile / Bills', icon: '📱', type: 'expense' as const },
+  { name: 'Fun & Movies', icon: '🍿', type: 'expense' as const },
+  { name: 'Health & Meds', icon: '💊', type: 'expense' as const },
+  { name: 'Salary / Income', icon: '💰', type: 'income' as const },
+  { name: 'Freelance & Gig', icon: '💼', type: 'income' as const },
+];
+
+const QUICK_AMOUNTS = [20, 50, 100, 200, 500, 1000];
 
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions,
@@ -51,6 +67,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   onDeleteTransaction,
   onSaveCategory,
   onDeleteCategory,
+  onQuickAdd,
 }) => {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -62,6 +79,14 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showBalance, setShowBalance] = useState<boolean>(true);
   const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
+
+  // Quick 1-Tap Log Bar state
+  const [isQuickLogOpen, setIsQuickLogOpen] = useState(true);
+  const [quickAmount, setQuickAmount] = useState<string>('');
+  const [quickType, setQuickType] = useState<TransactionType>('expense');
+  const [quickCategory, setQuickCategory] = useState<string>('Food & Chai');
+  const [quickIcon, setQuickIcon] = useState<string>('🍔');
+  const [quickNote, setQuickNote] = useState<string>('');
 
   // Category Manager Modal state
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -77,8 +102,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       let label = d.toLocaleDateString('default', { month: 'long', year: 'numeric' }).toLowerCase();
-      if (i === 0) label = 'this month';
-      else if (i === 1) label = 'last month';
+      if (i === 0) label = 'This Month';
+      else if (i === 1) label = 'Last Month';
       list.push({ key, label });
     }
     return list;
@@ -165,11 +190,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       if (!dateMap[d]) {
         let label = d;
         const diff = diffInDays(todayKey(), d);
-        if (diff === 0) label = 'today';
-        else if (diff === 1) label = 'yesterday';
+        if (diff === 0) label = 'Today';
+        else if (diff === 1) label = 'Yesterday';
         else {
           const dObj = new Date(d + 'T00:00:00');
-          label = dObj.toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase();
+          label = dObj.toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' });
         }
 
         dateMap[d] = {
@@ -196,7 +221,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return groups;
   }, [filteredTransactions]);
 
-  // Dual Wave Spline Curves Generator for Overview Chart
+  // Dual Wave Spline Curves Generator
   const dualTrendData = useMemo(() => {
     const data = insights.monthlyTrend;
     if (!data || data.length === 0) return { incomePoints: [], expensePoints: [], incomePath: '', expensePath: '', incomeArea: '', expenseArea: '' };
@@ -262,7 +287,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     };
   }, [insights.monthlyTrend]);
 
-  // Format Indian Rupee currency with commas: ₹489,300.60
+  // Format Indian Rupee currency with commas: ₹489,300.00
   const formatRupees = (val: number) => {
     return val.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
@@ -272,28 +297,76 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
   const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
 
+  // Quick-Log submit handler
+  const handleQuickLogSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const parsed = parseFloat(quickAmount);
+    if (!parsed || parsed <= 0) return;
+
+    playPopSound();
+    triggerPartyPop('single');
+
+    const txData: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'> = {
+      type: quickType,
+      amount: parsed,
+      category: quickCategory,
+      categoryIcon: quickIcon,
+      merchant: quickNote.trim() || undefined,
+      note: quickNote.trim() || undefined,
+      date: todayKey(),
+    };
+
+    if (onQuickAdd) {
+      onQuickAdd(txData);
+    } else {
+      // Fallback: trigger add modal
+      onOpenAddModal(quickType);
+    }
+
+    setQuickAmount('');
+    setQuickNote('');
+  };
+
   return (
     <div className="space-y-4 sm:space-y-5 max-w-2xl mx-auto pb-16">
       
-      {/* 1. TOP HEADER BAR */}
-      <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
-        <div>
-          <h2 className="font-extrabold text-base sm:text-lg text-main leading-tight flex items-center gap-1.5">
-            <span>Finance & Expense Tracker</span>
-          </h2>
-          <p className="text-[11px] text-muted font-medium">
-            Personal income & spend flow in Indian Rupees ({currency})
-          </p>
+      {/* 1. TOP CUTE HERO BANNER & MOOD INDICATOR */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-200 via-rose-200 to-indigo-200 dark:from-amber-950/60 dark:to-rose-950/60 flex items-center justify-center text-xl shadow-2xs select-none">
+            🪙
+          </div>
+          <div>
+            <h2 className="font-black text-base sm:text-lg text-main flex items-center gap-2">
+              <span>Personal Finance Hub</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-soft text-accent font-bold">
+                Indian Rupees ({currency})
+              </span>
+            </h2>
+            <p className="text-[11px] text-muted font-medium flex items-center gap-1.5 mt-0.5">
+              {insights.netSavings >= 0 ? (
+                <>
+                  <span className="text-emerald-500">🌸</span>
+                  <span>Cozy savings! Net +{currency}{formatRupees(insights.netSavings)} this month</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-amber-500">☕</span>
+                  <span>Spent {currency}{formatRupees(Math.abs(insights.netSavings))} over income. Stay mindful!</span>
+                </>
+              )}
+            </p>
+          </div>
         </div>
 
-        {/* Right Action Controls: Month Dropdown + Search + Record */}
-        <div className="flex items-center gap-2">
+        {/* Right Controls: Month Selector + Search + Numpad Modal */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Month selector */}
           <div className="relative inline-block">
             <select
               value={selectedMonthKey}
               onChange={(e) => setSelectedMonthKey(e.target.value)}
-              className="appearance-none bg-surface hover:bg-sunken border border-subtle text-main font-semibold text-xs pl-3 pr-7 py-1.5 rounded-full shadow-2xs cursor-pointer focus:outline-none"
+              className="appearance-none bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs pl-3 pr-7 py-2 rounded-2xl shadow-2xs cursor-pointer focus:outline-hidden"
             >
               {monthOptions.map((opt) => (
                 <option key={opt.key} value={opt.key}>
@@ -306,28 +379,30 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
           {/* Search Toggle */}
           <button
+            type="button"
             onClick={() => {
               playPopSound();
               setIsSearchOpen((prev) => !prev);
               if (isSearchOpen) setSearchQuery('');
             }}
-            className={`p-2 rounded-full border border-subtle transition-all cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center ${
+            className={`p-2 rounded-2xl border border-subtle transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ${
               isSearchOpen || searchQuery
-                ? 'bg-[#6E3BFF] text-white border-[#6E3BFF]'
+                ? 'bg-accent text-on-accent border-accent'
                 : 'bg-surface hover:bg-sunken text-muted hover:text-main shadow-2xs'
             }`}
-            title="Search"
+            title="Search payments"
           >
             <Search size={14} />
           </button>
 
-          {/* Add Transaction Button */}
+          {/* Detailed Calculator Modal Button */}
           <button
+            type="button"
             onClick={() => {
               playPopSound();
               onOpenAddModal();
             }}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] hover:opacity-95 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer min-h-[36px]"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition active:scale-95 cursor-pointer min-h-[38px]"
           >
             <Plus size={14} className="stroke-[2.5]" />
             <span>Add Entry</span>
@@ -345,10 +420,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search payments by category, merchant, note, or amount..."
             autoFocus
-            className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-9 py-2 text-xs sm:text-sm text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#6E3BFF]/30 shadow-2xs"
+            className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-9 py-2.5 text-xs sm:text-sm text-main placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main p-1 cursor-pointer"
             >
@@ -358,63 +434,232 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       )}
 
-      {/* 2. TOTAL BALANCE HERO HEADER (Matching Screen 3 of mockup) */}
-      <div className="flex items-center justify-between px-2 pt-1">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+      {/* 2. TOTAL BALANCE HERO CARD */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-muted">
             <CreditCard size={14} />
-            <span>Total Balance</span>
+            <span>Lifetime Balance</span>
             <button
+              type="button"
               onClick={() => {
                 playPopSound();
                 setShowBalance(!showBalance);
               }}
-              className="p-1 rounded-full hover:bg-sunken text-muted hover:text-main transition-colors cursor-pointer"
+              className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main transition cursor-pointer"
               title={showBalance ? 'Hide Balance' : 'Show Balance'}
             >
               {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
             </button>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono text-[#6E3BFF] dark:text-[#9955FF]">
+          <h1 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-main">
             {showBalance ? (
               `${overallBalance >= 0 ? '' : '-'}${currency}${formatRupees(Math.abs(overallBalance))}`
             ) : (
               `${currency}••••••••`
             )}
           </h1>
+          <p className="text-[11px] text-muted">
+            {insights.savingsRate}% saved out of this month's earnings
+          </p>
         </div>
 
-        {/* Categories Manager shortcut */}
+        {/* Categories Manager Shortcut */}
         <button
+          type="button"
           onClick={() => {
             playPopSound();
             setIsCategoryManagerOpen(true);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition-all active:scale-95"
+          className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95"
         >
-          <Tag size={13} className="text-[#6E3BFF]" />
+          <Tag size={13} className="text-accent" />
           <span>Categories ({categories.length})</span>
         </button>
       </div>
 
-      {/* 3. "OVERVIEW" DUAL WAVE CHART (Exact Replica of Screen 3 in Reference Image) */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-xs space-y-4">
+      {/* 3. INSTANT 1-TAP QUICK-LOG BAR ("SUPER EASY TO HANDLE") */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base select-none">⚡</span>
+            <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
+              Quick Log in 2 Seconds
+            </h3>
+          </div>
+
+          {/* Toggle Type: Expense 💸 vs Income 🌱 */}
+          <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setQuickType('expense');
+                playPopSound();
+              }}
+              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                quickType === 'expense'
+                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-200 shadow-2xs font-black'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              💸 Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickType('income');
+                playPopSound();
+              }}
+              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                quickType === 'income'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200 shadow-2xs font-black'
+                  : 'text-muted hover:text-main'
+              }`}
+            >
+              🌱 Income
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Amount Preset Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+          <span className="text-[11px] font-bold text-muted shrink-0 pr-1">Tap:</span>
+          {QUICK_AMOUNTS.map((amt) => (
+            <button
+              key={amt}
+              type="button"
+              onClick={() => {
+                setQuickAmount(String(amt));
+                playPopSound();
+              }}
+              className="px-2.5 py-1 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-mono font-bold text-main transition active:scale-95 cursor-pointer shrink-0 shadow-2xs"
+            >
+              +{currency}{amt}
+            </button>
+          ))}
+        </div>
+
+        {/* Category Avatars Quick Selector */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+          {(categories.length > 0 ? categories : DEFAULT_STARTER_CATEGORIES).map((cat) => {
+            const isSelected = quickCategory === cat.name;
+            return (
+              <button
+                key={cat.name}
+                type="button"
+                onClick={() => {
+                  setQuickCategory(cat.name);
+                  setQuickIcon(cat.icon);
+                  playPopSound();
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  isSelected
+                    ? 'bg-accent text-on-accent border-accent scale-102 shadow-soft'
+                    : 'bg-surface hover:bg-sunken text-main border-subtle'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Amount Input + Note Input + Submit Button */}
+        <form onSubmit={handleQuickLogSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+          <div className="relative w-full sm:w-44 shrink-0">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-muted text-sm">
+              {currency}
+            </span>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              placeholder="Amount (e.g. 150)"
+              value={quickAmount}
+              onChange={(e) => setQuickAmount(e.target.value)}
+              className="w-full bg-sunken border border-subtle rounded-2xl pl-8 pr-3 py-2 text-xs sm:text-sm font-mono font-bold text-main placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-ring/40"
+            />
+          </div>
+
+          <input
+            type="text"
+            placeholder="Note / Merchant (e.g. Chai with friends)..."
+            value={quickNote}
+            onChange={(e) => setQuickNote(e.target.value)}
+            className="flex-1 bg-sunken border border-subtle rounded-2xl px-3.5 py-2 text-xs text-main placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-ring/40"
+          />
+
+          <button
+            type="submit"
+            disabled={!parseFloat(quickAmount) || parseFloat(quickAmount) <= 0}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-2xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover disabled:opacity-40 transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Sparkles size={13} />
+            <span>Record {quickType === 'expense' ? 'Spend' : 'Income'}</span>
+          </button>
+        </form>
+      </div>
+
+      {/* 4. "INFORMATION" CUTE DUO CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        {/* Soft Matcha Mint Income Card */}
+        <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-200">
+            <span className="flex items-center gap-1.5">
+              <ArrowDownLeft size={16} className="stroke-[2.5]" />
+              <span>Income</span>
+            </span>
+            <span className="text-[10px] bg-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+              +{insights.savingsRate}% Saved
+            </span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-mono font-black text-emerald-700 dark:text-emerald-300">
+            +{currency}{formatRupees(insights.totalIncome)}
+          </h3>
+          <p className="text-[11px] text-muted font-medium">
+            Incoming funds for {selectedMonthOption.label}
+          </p>
+        </div>
+
+        {/* Soft Sakura Rose Expense Card */}
+        <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs font-bold text-rose-800 dark:text-rose-200">
+            <span className="flex items-center gap-1.5">
+              <ArrowUpRight size={16} className="stroke-[2.5]" />
+              <span>Expenses</span>
+            </span>
+            <span className="text-[10px] bg-rose-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+              Net {currency}{formatRupees(Math.abs(insights.netSavings))}
+            </span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-mono font-black text-rose-700 dark:text-rose-300">
+            -{currency}{formatRupees(insights.totalExpenses)}
+          </h3>
+          <p className="text-[11px] text-muted font-medium">
+            Outflow records for {selectedMonthOption.label}
+          </p>
+        </div>
+      </div>
+
+      {/* 5. CUTE OVERVIEW DUAL WAVE CHART */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-extrabold text-sm sm:text-base text-main">
-              Overview
+              Flow Overview
             </h3>
-            <p className="text-[11px] text-muted font-medium">Monthly Income & Expense Waves</p>
+            <p className="text-[11px] text-muted font-medium">Monthly Income & Spend Waveform</p>
           </div>
 
-          {/* Legend: 🟣 Income  🔵 Expense */}
+          {/* Legend: 🟣 Income  🌸 Expense */}
           <div className="flex items-center gap-3 text-xs font-bold">
-            <span className="flex items-center gap-1.5 text-[#6E3BFF] dark:text-[#9955FF]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#6E3BFF]" />
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               Income
             </span>
-            <span className="flex items-center gap-1.5 text-[#06B6D4]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4]" />
+            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
               Expense
             </span>
           </div>
@@ -424,43 +669,43 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         <div className="relative w-full h-[135px] pt-1">
           <svg viewBox="0 0 500 135" className="w-full h-full overflow-visible select-none" preserveAspectRatio="none">
             <defs>
-              <linearGradient id="purpleGradientWave" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6E3BFF" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#6E3BFF" stopOpacity="0.0" />
+              <linearGradient id="emeraldGradientWave" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
               </linearGradient>
-              <linearGradient id="cyanGradientWave" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.0" />
+              <linearGradient id="roseGradientWave" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
             {/* Income Gradient Area */}
             {dualTrendData.incomeArea && (
-              <path d={dualTrendData.incomeArea} fill="url(#purpleGradientWave)" />
+              <path d={dualTrendData.incomeArea} fill="url(#emeraldGradientWave)" />
             )}
             {/* Expense Gradient Area */}
             {dualTrendData.expenseArea && (
-              <path d={dualTrendData.expenseArea} fill="url(#cyanGradientWave)" />
+              <path d={dualTrendData.expenseArea} fill="url(#roseGradientWave)" />
             )}
 
-            {/* Purple Spline Curve for Income */}
+            {/* Spline Curve for Income */}
             {dualTrendData.incomePath && (
               <path
                 d={dualTrendData.incomePath}
                 fill="none"
-                stroke="#6E3BFF"
+                stroke="#10b981"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             )}
 
-            {/* Cyan Spline Curve for Expense */}
+            {/* Spline Curve for Expense */}
             {dualTrendData.expensePath && (
               <path
                 d={dualTrendData.expensePath}
                 fill="none"
-                stroke="#06B6D4"
+                stroke="#f43f5e"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -473,11 +718,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 key={`inc-${pt.monthKey}`}
                 cx={pt.x}
                 cy={pt.y}
-                r="4"
-                fill="#6E3BFF"
-                stroke="var(--surface)"
+                r="4.5"
+                fill="#10b981"
+                stroke="white"
                 strokeWidth="2"
-                className="cursor-pointer transition-transform hover:scale-125"
+                className="cursor-pointer transition-transform hover:scale-130"
                 onMouseEnter={() => setHoveredTrendIndex(idx)}
                 onMouseLeave={() => setHoveredTrendIndex(null)}
               />
@@ -489,11 +734,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 key={`exp-${pt.monthKey}`}
                 cx={pt.x}
                 cy={pt.y}
-                r="4"
-                fill="#06B6D4"
-                stroke="var(--surface)"
+                r="4.5"
+                fill="#f43f5e"
+                stroke="white"
                 strokeWidth="2"
-                className="cursor-pointer transition-transform hover:scale-125"
+                className="cursor-pointer transition-transform hover:scale-130"
                 onMouseEnter={() => setHoveredTrendIndex(idx)}
                 onMouseLeave={() => setHoveredTrendIndex(null)}
               />
@@ -503,7 +748,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           {/* Interactive Tooltip on hover */}
           {hoveredTrendIndex !== null && dualTrendData.incomePoints[hoveredTrendIndex] && (
             <div
-              className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-lg bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
+              className="absolute -top-7 transform -translate-x-1/2 pointer-events-none px-2.5 py-1 rounded-xl bg-main text-surface text-[10px] font-mono font-bold shadow-md z-10 whitespace-nowrap"
               style={{ left: `${(dualTrendData.incomePoints[hoveredTrendIndex].x / 500) * 100}%` }}
             >
               +{currency}{formatRupees(dualTrendData.incomePoints[hoveredTrendIndex].val)} | -{currency}{formatRupees(dualTrendData.expensePoints[hoveredTrendIndex].val)}
@@ -511,20 +756,21 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           )}
         </div>
 
-        {/* Month Labels along bottom: Jan Feb Mar Apr Mei Jun Jul */}
+        {/* Month Labels along bottom */}
         <div className="flex justify-between px-3 text-[11px] font-mono font-semibold text-muted select-none">
           {insights.monthlyTrend.map((pt) => {
             const isSelected = pt.monthKey === selectedMonthKey;
             return (
               <button
                 key={pt.monthKey}
+                type="button"
                 onClick={() => {
                   playPopSound();
                   setSelectedMonthKey(pt.monthKey);
                 }}
                 className={`transition-colors cursor-pointer capitalize ${
                   isSelected
-                    ? 'text-[#6E3BFF] font-extrabold underline underline-offset-4 decoration-2 decoration-[#6E3BFF]'
+                    ? 'text-accent font-black underline underline-offset-4 decoration-2 decoration-accent'
                     : 'hover:text-main'
                 }`}
               >
@@ -535,141 +781,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       </div>
 
-      {/* 4. "INFORMATION" GLOWING DUO CARDS (Exact Replica of Screen 3 in Reference Image) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        {/* Purple Glowing Income Card */}
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-[#6E3BFF] via-[#7B46FF] to-[#8C52FF] text-white shadow-md shadow-purple-500/20 space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between text-xs font-semibold text-white/90">
-            <span className="flex items-center gap-1.5">
-              <ArrowDownLeft size={16} className="stroke-[2.5]" />
-              <span>Income</span>
-            </span>
-            <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-mono">
-              {insights.savingsRate}% Saved
-            </span>
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-mono font-extrabold text-white">
-            +{currency}{formatRupees(insights.totalIncome)}
-          </h3>
-          <p className="text-[11px] text-white/80 font-medium">
-            Incoming funds for {selectedMonthOption.label}
-          </p>
-        </div>
-
-        {/* Cyan Glowing Expense Card */}
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-[#06B6D4] to-[#0284C7] text-white shadow-md shadow-cyan-500/20 space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between text-xs font-semibold text-white/90">
-            <span className="flex items-center gap-1.5">
-              <ArrowUpRight size={16} className="stroke-[2.5]" />
-              <span>Expense</span>
-            </span>
-            <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-mono">
-              Net {currency}{formatRupees(Math.abs(insights.netSavings))}
-            </span>
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-mono font-extrabold text-white">
-            -{currency}{formatRupees(insights.totalExpenses)}
-          </h3>
-          <p className="text-[11px] text-white/80 font-medium">
-            Outflow records for {selectedMonthOption.label}
-          </p>
-        </div>
-      </div>
-
-      {/* 5. FREQUENT CATEGORIES CIRCULAR STRIP (Screen 2 Replica) */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white shadow-sm space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-white/90">
-          <span className="flex items-center gap-1.5">
-            <Tag size={13} />
-            <span>Categories</span>
-          </span>
-          <button
-            onClick={() => setIsCategoryManagerOpen(true)}
-            className="text-[11px] text-white/85 hover:text-white underline cursor-pointer"
-          >
-            Customize
-          </button>
-        </div>
-
-        {/* Circular Avatar Badges */}
-        {categories.length === 0 ? (
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-white/10 backdrop-blur-sm">
-            <span className="text-xs text-white/90 font-medium">No categories created yet</span>
-            <button
-              onClick={() => {
-                playPopSound();
-                setIsCategoryManagerOpen(true);
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-[#6E3BFF] font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
-            >
-              <Plus size={13} className="stroke-[3]" />
-              <span>Create Category</span>
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
-            <button
-              onClick={() => {
-                playPopSound();
-                setCategoryFilter('all');
-              }}
-              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-            >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-transform group-hover:scale-110 shadow-sm ${
-                categoryFilter === 'all' ? 'bg-white text-[#6E3BFF] ring-2 ring-white' : 'bg-white/20 text-white'
-              }`}>
-                All
-              </div>
-              <span className="text-[10px] font-bold text-white/90">All</span>
-            </button>
-
-            {categories.map((cat) => {
-              const isSelected = categoryFilter === cat.name;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    playPopSound();
-                    setCategoryFilter(isSelected ? 'all' : cat.name);
-                  }}
-                  className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform group-hover:scale-110 shadow-sm ${
-                    isSelected ? 'bg-white text-main ring-2 ring-white scale-105' : 'bg-white/20 text-white'
-                  }`}>
-                    {cat.icon}
-                  </div>
-                  <span className="text-[10px] font-bold text-white/90 truncate max-w-[55px]">
-                    {cat.name.split(' ')[0]}
-                  </span>
-                </button>
-              );
-            })}
-
-            <button
-              onClick={() => {
-                playPopSound();
-                setIsCategoryManagerOpen(true);
-              }}
-              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer"
-            >
-              <div className="w-12 h-12 rounded-full border border-dashed border-white/50 flex items-center justify-center text-white/80 transition-transform group-hover:scale-110">
-                <Plus size={18} />
-              </div>
-              <span className="text-[10px] font-bold text-white/80">Add</span>
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* 6. TOP SPENDING BREAKDOWN METERS (If expenses exist) */}
       {categoryBreakdown.length > 0 && (
-        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-2xs space-y-3">
+        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-extrabold text-xs text-main uppercase tracking-wider">
-              Spending Breakdown
+              Category Spending Breakdown
             </h4>
             <span className="text-[11px] font-mono text-muted">
               {categoryBreakdown.length} active categories
@@ -688,9 +805,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     {currency}{formatRupees(cat.amount)} ({cat.pct}%)
                   </span>
                 </div>
-                <div className="w-full bg-sunken rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-sunken rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-[#6E3BFF] to-[#06B6D4] h-full rounded-full transition-all duration-500"
+                    className="bg-gradient-to-r from-rose-400 to-amber-400 h-full rounded-full transition-all duration-500"
                     style={{ width: `${cat.pct}%` }}
                   />
                 </div>
@@ -700,21 +817,22 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       )}
 
-      {/* 7. RECENT PAYMENTS FEED (Matching Screen 2 of Mockup) */}
-      <div className="space-y-3 pt-2">
+      {/* 7. RECENT PAYMENTS FEED */}
+      <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between gap-2 px-1">
           <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
-            Recent Payments
+            Payment History
           </h3>
 
           {/* Type Filter Pills: All | Expenses | Income */}
           <div className="flex items-center gap-1 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
             <button
+              type="button"
               onClick={() => {
                 playPopSound();
                 setTypeFilter('all');
               }}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
                 typeFilter === 'all'
                   ? 'bg-surface text-main font-bold shadow-2xs'
                   : 'text-muted hover:text-main'
@@ -723,11 +841,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               All ({filteredTransactions.length})
             </button>
             <button
+              type="button"
               onClick={() => {
                 playPopSound();
                 setTypeFilter('expense');
               }}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
                 typeFilter === 'expense'
                   ? 'bg-surface text-main font-bold shadow-2xs'
                   : 'text-muted hover:text-main'
@@ -736,11 +855,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               Expenses
             </button>
             <button
+              type="button"
               onClick={() => {
                 playPopSound();
                 setTypeFilter('income');
               }}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
                 typeFilter === 'income'
                   ? 'bg-surface text-main font-bold shadow-2xs'
                   : 'text-muted hover:text-main'
@@ -752,17 +872,18 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
 
         {groupedTransactions.length === 0 ? (
-          <div className="bg-surface rounded-3xl p-8 border border-subtle text-center space-y-3">
+          <div className="bg-surface rounded-3xl p-8 border border-subtle text-center space-y-3 shadow-soft">
             <div className="w-12 h-12 rounded-2xl bg-sunken flex items-center justify-center mx-auto text-xl">
               💸
             </div>
             <h4 className="text-sm font-bold text-main">No payment records found</h4>
             <p className="text-xs text-muted max-w-sm mx-auto">
-              {searchQuery ? 'Try another search query.' : 'Tap Add Entry to log your first income or expense.'}
+              {searchQuery ? 'Try another search query.' : 'Use the Quick Log bar above or tap Add Entry to record your first spend.'}
             </p>
             <button
+              type="button"
               onClick={() => onOpenAddModal()}
-              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white font-bold text-xs shadow-xs cursor-pointer"
+              className="px-4 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition cursor-pointer"
             >
               + Record in Rupees
             </button>
@@ -779,20 +900,20 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 </span>
               </div>
 
-              <div className="bg-surface rounded-2xl border border-subtle divide-y divide-subtle/50 shadow-2xs overflow-hidden">
+              <div className="bg-surface rounded-3xl border border-subtle divide-y divide-subtle/50 shadow-soft overflow-hidden">
                 {group.items.map((tx) => (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-sunken/50 transition-colors group"
+                    className="flex items-center justify-between p-3.5 hover:bg-sunken/40 transition-colors group"
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-2">
-                      <div className="w-10 h-10 rounded-2xl bg-sunken/80 border border-subtle/60 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+                      <div className="w-10 h-10 rounded-2xl bg-sunken border border-subtle flex items-center justify-center text-lg shrink-0 shadow-2xs">
                         {tx.categoryIcon || '💸'}
                       </div>
                       <div className="min-w-0 space-y-0.5">
                         <p className="text-xs sm:text-sm font-bold text-main truncate flex items-center gap-1">
                           <span>{tx.category}</span>
-                          <CheckCircle2 size={11} className="text-[#6E3BFF] shrink-0" />
+                          <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
                         </p>
                         {(tx.merchant || tx.note) && (
                           <p className="text-[11px] text-muted truncate">
@@ -815,6 +936,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
                       <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
+                          type="button"
                           onClick={() => {
                             playPopSound();
                             onEditTransaction(tx);
@@ -825,6 +947,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                           <Edit3 size={13} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             playPopSound();
                             if (window.confirm(`Delete ${tx.category} payment of ${currency}${tx.amount}?`)) {
@@ -848,44 +971,45 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
       {/* 8. CATEGORY MANAGER MODAL */}
       {isCategoryManagerOpen && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-surface text-main rounded-3xl border border-subtle shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/50 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-surface text-main rounded-3xl border border-subtle shadow-raised p-5 space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-subtle pb-3">
               <div className="flex items-center gap-2">
-                <Tag size={16} className="text-[#6E3BFF]" />
+                <Tag size={16} className="text-accent" />
                 <h3 className="font-extrabold text-sm sm:text-base text-main">
-                  Customize Categories
+                  Manage Categories
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCategoryManagerOpen(false)}
-                className="p-1 rounded-full hover:bg-sunken text-muted hover:text-main"
+                className="p-1.5 rounded-xl hover:bg-sunken text-muted hover:text-main cursor-pointer"
               >
                 <X size={16} />
               </button>
             </div>
 
             {/* Category Form */}
-            <div className="p-3 bg-sunken rounded-2xl border border-subtle space-y-3">
+            <div className="p-3.5 bg-sunken rounded-2xl border border-subtle space-y-3">
               <p className="text-xs font-bold text-main">
                 {editingCategory ? `Edit "${editingCategory.name}"` : 'Create New Category'}
               </p>
 
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-surface border border-subtle flex items-center justify-center text-xl shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-surface border border-subtle flex items-center justify-center text-xl shrink-0 shadow-2xs">
                   {catIconInput}
                 </div>
                 <input
                   type="text"
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
-                  placeholder="Category Name (e.g. Swiggy, Gym, SIP)..."
-                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-none focus:ring-1 focus:ring-[#6E3BFF]"
+                  placeholder="Category Name (e.g. Swiggy, Gym, Fuel)..."
+                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-hidden focus:ring-2 focus:ring-ring/40"
                 />
                 <button
                   type="button"
                   onClick={() => setCatTypeInput(catTypeInput === 'expense' ? 'income' : 'expense')}
-                  className="px-2.5 py-2 rounded-xl bg-surface border border-subtle text-[11px] font-bold text-muted hover:text-main uppercase"
+                  className="px-2.5 py-2 rounded-xl bg-surface border border-subtle text-[11px] font-bold text-muted hover:text-main uppercase cursor-pointer"
                 >
                   {catTypeInput}
                 </button>
@@ -901,8 +1025,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       playPopSound();
                       setCatIconInput(emoji);
                     }}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm transition-transform ${
-                      catIconInput === emoji ? 'bg-[#6E3BFF] text-white scale-110' : 'hover:bg-sunken'
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm transition-transform cursor-pointer ${
+                      catIconInput === emoji ? 'bg-accent text-on-accent scale-110 shadow-2xs' : 'hover:bg-sunken'
                     }`}
                   >
                     {emoji}
@@ -918,7 +1042,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       setEditingCategory(null);
                       setCatNameInput('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-surface hover:bg-subtle text-xs font-semibold text-muted cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken text-xs font-semibold text-muted cursor-pointer"
                   >
                     Clear Form
                   </button>
@@ -938,7 +1062,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     setEditingCategory(null);
                     setCatNameInput('');
                   }}
-                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#6E3BFF] to-[#8C52FF] text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover transition cursor-pointer"
                 >
                   {editingCategory ? 'Update Category' : '+ Add Category'}
                 </button>
@@ -948,56 +1072,65 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             {/* List of Existing Categories */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-60">
               <span className="text-[11px] font-bold text-muted uppercase tracking-wider block px-1">
-                Existing Categories ({categories.length})
+                Your Categories ({categories.length})
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {categories.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between p-2 rounded-xl bg-surface border border-subtle text-xs font-semibold group"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-base">{cat.icon}</span>
-                      <div className="min-w-0">
-                        <p className="truncate text-main font-bold">{cat.name}</p>
-                        <p className="text-[10px] text-muted capitalize">{cat.type}</p>
+              {categories.length === 0 ? (
+                <p className="text-xs text-muted px-1 py-2">
+                  No custom categories yet. Use the form above to add your own!
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-surface border border-subtle text-xs font-semibold group"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-base">{cat.icon}</span>
+                        <div className="min-w-0">
+                          <p className="truncate text-main font-bold">{cat.name}</p>
+                          <p className="text-[10px] text-muted capitalize">{cat.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategory(cat);
+                            setCatNameInput(cat.name);
+                            setCatIconInput(cat.icon);
+                            setCatTypeInput(cat.type);
+                          }}
+                          className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete "${cat.name}" category?`)) {
+                              playPopSound();
+                              onDeleteCategory(cat.id);
+                            }
+                          }}
+                          className="p-1 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingCategory(cat);
-                          setCatNameInput(cat.name);
-                          setCatIconInput(cat.icon);
-                          setCatTypeInput(cat.type);
-                        }}
-                        className="p-1 rounded-md hover:bg-sunken text-muted hover:text-main cursor-pointer"
-                        title="Edit"
-                      >
-                        <Edit3 size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Delete "${cat.name}" category?`)) {
-                            playPopSound();
-                            onDeleteCategory(cat.id);
-                          }
-                        }}
-                        className="p-1 rounded-md hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
-                        title="Delete"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="pt-2 border-t border-subtle flex justify-end">
               <button
+                type="button"
                 onClick={() => setIsCategoryManagerOpen(false)}
-                className="px-4 py-2 rounded-2xl bg-sunken hover:bg-subtle text-xs font-bold text-main cursor-pointer"
+                className="px-4 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main cursor-pointer"
               >
                 Done
               </button>

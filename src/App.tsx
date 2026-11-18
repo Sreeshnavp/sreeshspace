@@ -2137,6 +2137,7 @@ export function App() {
                   onDeleteTransaction={handleDeleteFinanceTransaction}
                   onSaveCategory={handleSaveFinanceCategory}
                   onDeleteCategory={handleDeleteFinanceCategory}
+                  onQuickAdd={handleSaveFinanceTransaction}
                 />
               </div>
             )}
