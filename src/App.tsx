@@ -1108,12 +1108,18 @@ export function App() {
     setRoutines(updated);
     await saveRoutines(updated);
 
-    // Immediately populate instance for current selected date if scheduled
-    const { updatedTodos, createdCount } = ensureRoutinesForDate(todos, updated, selectedDate);
-    if (createdCount > 0) {
-      setTodos(updatedTodos);
-      await saveTodos(updatedTodos);
+    // Immediately populate instance for TODAY and current selected date
+    const today = todayKey();
+    let currentTodos = todos;
+    const { updatedTodos: todayTodos } = ensureRoutinesForDate(currentTodos, updated, today);
+    currentTodos = todayTodos;
+    if (selectedDate !== today) {
+      const { updatedTodos: selectedTodos } = ensureRoutinesForDate(currentTodos, updated, selectedDate);
+      currentTodos = selectedTodos;
     }
+    setTodos(currentTodos);
+    await saveTodos(currentTodos);
+
     syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
@@ -1125,8 +1131,9 @@ export function App() {
     await recordTombstone(id);
 
     // 2. Permanently remove all daily task instances created from this routine
-    const removedInstances = todos.filter((t) => t.recurringId === id);
-    const updatedTodos = todos.filter((t) => t.recurringId !== id);
+    const isTargetInstance = (t: TodoItem) => t.recurringId === id || t.id.startsWith(`routine_inst_${id}`);
+    const removedInstances = todos.filter(isTargetInstance);
+    const updatedTodos = todos.filter((t) => !isTargetInstance(t));
     setTodos(updatedTodos);
     await saveTodos(updatedTodos);
 

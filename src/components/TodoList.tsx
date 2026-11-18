@@ -88,6 +88,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   const [isPastReadOnly, setIsPastReadOnly] = useState(true);
   const [isRoutinesModalOpen, setIsRoutinesModalOpen] = useState(false);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState<TodoItem | null>(null);
+  const [isFixedRoutineInput, setIsFixedRoutineInput] = useState(false);
 
   // Drag and drop state
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
@@ -135,7 +136,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   const permActive = permanentGoals.filter((g) => !g.completed && g.status !== 'archived').length;
   const permDone = permanentGoals.filter((g) => g.completed || g.status === 'completed').length;
 
-  // Handle Natural Language Daily Add
+  // Handle Natural Language Daily Add (or Fixed Routine Add)
   const handleAddDailySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!dailyInput.trim() || isLocked) return;
@@ -143,12 +144,48 @@ export const TodoList: React.FC<TodoListProps> = ({
     const parsed = parseNaturalLanguageTodo(dailyInput);
     if (!parsed.cleanText) return;
 
-    const targetDate = parsed.dateKey || selectedDate;
     const priority = parsed.priority || 'medium';
 
+    if (isFixedRoutineInput && onSaveRoutine) {
+      const routineId = `routine_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const newRoutine: RoutineItem = {
+        id: routineId,
+        text: parsed.cleanText,
+        priority,
+        frequency: 'daily',
+        tags: parsed.tags,
+        active: true,
+        createdAt: new Date().toISOString(),
+      };
+      onSaveRoutine(newRoutine);
+      setDailyInput('');
+      playPopSound();
+      triggerPartyPop('single');
+      return;
+    }
+
+    const targetDate = parsed.dateKey || selectedDate;
     onAddTodo(parsed.cleanText, 'daily', priority, targetDate, parsed.tags);
     setDailyInput('');
     triggerPartyPop('single');
+  };
+
+  // Quick convert a normal daily task into a recurring fixed routine
+  const handleMakeTaskFixed = (todo: TodoItem) => {
+    if (!onSaveRoutine) return;
+    playPopSound();
+    triggerPartyPop('single');
+    const routineId = `routine_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newRoutine: RoutineItem = {
+      id: routineId,
+      text: todo.text,
+      priority: todo.priority || 'medium',
+      frequency: 'daily',
+      tags: todo.tags,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
+    onSaveRoutine(newRoutine);
   };
 
   const handleToggle = (todo: TodoItem) => {
@@ -316,20 +353,61 @@ export const TodoList: React.FC<TodoListProps> = ({
 
           {/* Natural Language Task Input (Disabled if past day is locked) */}
           {!isLocked && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
+              {/* Task Creation Mode Switcher: Single Today vs Fixed Daily Routine */}
+              <div className="flex items-center gap-1.5 px-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsFixedRoutineInput(false);
+                  }}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    !isFixedRoutineInput
+                      ? 'bg-sunken text-main border-subtle shadow-2xs font-extrabold'
+                      : 'bg-transparent text-muted hover:text-main border-transparent'
+                  }`}
+                >
+                  <Sun size={12} className={!isFixedRoutineInput ? 'text-accent stroke-[2.5]' : 'text-muted'} />
+                  <span>Today Only</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsFixedRoutineInput(true);
+                  }}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    isFixedRoutineInput
+                      ? 'bg-accent text-on-accent border-accent shadow-2xs font-black'
+                      : 'bg-transparent text-muted hover:text-accent border-transparent'
+                  }`}
+                >
+                  <RotateCcw size={12} className={isFixedRoutineInput ? 'text-on-accent stroke-[2.5]' : 'text-accent stroke-[2]'} />
+                  <span>Fixed Routine (Every Day)</span>
+                </button>
+              </div>
+
               <form onSubmit={handleAddDailySubmit} className="relative">
                 <input
                   type="text"
                   value={dailyInput}
                   onChange={(e) => setDailyInput(e.target.value)}
-                  placeholder="Add daily task (try: read book !high #study)..."
-                  className="w-full min-h-[44px] text-xs sm:text-sm pl-3.5 pr-11 py-2.5 rounded-2xl bg-sunken border border-border-input text-main placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ring transition shadow-2xs font-medium"
+                  placeholder={
+                    isFixedRoutineInput
+                      ? "Add fixed routine (appears in today & every day from now on)..."
+                      : "Add daily task (try: read book !high #study)..."
+                  }
+                  className={`w-full min-h-[44px] text-xs sm:text-sm pl-3.5 pr-11 py-2.5 rounded-2xl bg-sunken border text-main placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ring transition shadow-2xs font-medium ${
+                    isFixedRoutineInput ? 'border-accent/50 bg-accent-soft/15' : 'border-border-input'
+                  }`}
                 />
                 <button
                   type="submit"
                   disabled={!dailyInput.trim()}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent text-on-accent disabled:opacity-40 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-soft"
-                  aria-label="Add task"
+                  aria-label={isFixedRoutineInput ? "Add fixed routine" : "Add task"}
                 >
                   <Plus size={16} className="stroke-[2.5]" />
                 </button>
@@ -339,7 +417,9 @@ export const TodoList: React.FC<TodoListProps> = ({
               <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-muted">
                 <span className="flex items-center gap-1 text-muted">
                   <RotateCcw size={11} className="text-accent" />
-                  <span>Routines auto-appear in daily list</span>
+                  <span>
+                    {isFixedRoutineInput ? 'Auto-added to today & every day' : 'Routines auto-appear in daily list'}
+                  </span>
                 </span>
                 <button
                   type="button"
@@ -350,7 +430,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                   className="text-accent hover:underline flex items-center gap-1 font-bold cursor-pointer"
                 >
                   <Plus size={11} className="stroke-[3]" />
-                  <span>+ Set Fixed Routine</span>
+                  <span>Manage Fixed Routines ({routines.length})</span>
                 </button>
               </div>
             </div>
@@ -478,7 +558,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                         </div>
                       </div>
 
-                      {/* Right action group: Focus Timer & Delete */}
+                      {/* Right action group: Focus Timer, Convert to Routine & Delete */}
                       <div className="flex items-center gap-1 shrink-0">
                         {!todo.completed && !isLocked && (
                           <button
@@ -491,6 +571,17 @@ export const TodoList: React.FC<TodoListProps> = ({
                           </button>
                         )}
 
+                        {!todo.recurringId && !todo.completed && !isLocked && onSaveRoutine && (
+                          <button
+                            type="button"
+                            onClick={() => handleMakeTaskFixed(todo)}
+                            className="p-1.5 rounded-lg text-muted hover:text-accent hover:bg-sunken opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition cursor-pointer"
+                            title="Convert to Fixed Daily Routine (repeats daily)"
+                          >
+                            <RotateCcw size={12} />
+                          </button>
+                        )}
+
                         {!isLocked && (
                           todo.recurringId ? (
                             <div className="flex items-center gap-0.5 shrink-0">
@@ -500,7 +591,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                                   playPopSound();
                                   setConfirmDeleteRoutine(todo);
                                 }}
-                                className="p-1.5 rounded-lg text-accent/70 hover:text-accent hover:bg-sunken transition cursor-pointer shrink-0"
+                                className="p-1.5 rounded-lg text-accent hover:text-danger hover:bg-rose-500/10 transition cursor-pointer shrink-0"
                                 title="Fixed Routine: Click to delete permanently or manage"
                               >
                                 <Lock size={12} className="text-accent" />
@@ -511,7 +602,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                                   playPopSound();
                                   setConfirmDeleteRoutine(todo);
                                 }}
-                                className="p-1.5 rounded-lg text-faint hover:text-danger hover:bg-sunken opacity-0 group-hover:opacity-100 transition cursor-pointer shrink-0"
+                                className="p-1.5 rounded-lg text-muted hover:text-danger hover:bg-rose-500/10 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition cursor-pointer shrink-0"
                                 title="Delete fixed routine permanently"
                               >
                                 <Trash2 size={13} />
@@ -521,7 +612,7 @@ export const TodoList: React.FC<TodoListProps> = ({
                             <button
                               type="button"
                               onClick={() => onDeleteTodo(todo.id)}
-                              className="p-1.5 rounded-lg text-faint hover:text-danger hover:bg-sunken opacity-0 group-hover:opacity-100 transition cursor-pointer shrink-0"
+                              className="p-1.5 rounded-lg text-muted hover:text-danger hover:bg-rose-500/10 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition cursor-pointer shrink-0"
                               title="Delete task"
                             >
                               <Trash2 size={13} />

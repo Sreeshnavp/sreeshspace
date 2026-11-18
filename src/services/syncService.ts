@@ -326,7 +326,8 @@ export function mergeVaultData(
   const routines = mergeItemsById(
     local.routines || [],
     remote.routines || [],
-    () => 0
+    (r) => new Date(r.createdAt || 0).getTime(),
+    mergedTombstones
   );
 
   // 8. Streak

@@ -470,4 +470,57 @@ describe('syncService - merge algorithms', () => {
     expect(finances.find((f: any) => f.id === 'tx-active')).toBeDefined();
     expect(finances.find((f: any) => f.id === 'tx-remote')).toBeDefined();
   });
+
+  it('merges routines and honors tombstones for deleted routines so they never resurrect', () => {
+    const localVault = {
+      links: [],
+      categories: [],
+      todos: [],
+      notes: [],
+      daylogs: {},
+      routines: [
+        {
+          id: 'routine-active',
+          text: 'Drink 2L Water',
+          frequency: 'daily' as const,
+          priority: 'medium' as const,
+          createdAt: '2026-11-18T10:00:00.000Z',
+        },
+      ],
+      settings: {
+        tombstones: {
+          'routine-deleted': '2026-11-18T12:00:00.000Z',
+        },
+      },
+    };
+
+    const remoteVault = {
+      routines: [
+        {
+          id: 'routine-deleted',
+          text: 'Morning Walk',
+          frequency: 'daily' as const,
+          priority: 'high' as const,
+          createdAt: '2026-11-18T08:00:00.000Z',
+        },
+        {
+          id: 'routine-remote-active',
+          text: 'Read 15 Pages',
+          frequency: 'daily' as const,
+          priority: 'low' as const,
+          createdAt: '2026-11-18T09:00:00.000Z',
+        },
+      ],
+      settings: {},
+    };
+
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
+    const routines = merged.routines || [];
+
+    // routine-deleted was tombstoned, so it MUST NOT resurrect from remote
+    expect(routines.find((r) => r.id === 'routine-deleted')).toBeUndefined();
+    expect(routines.length).toBe(2);
+    expect(routines.find((r) => r.id === 'routine-active')).toBeDefined();
+    expect(routines.find((r) => r.id === 'routine-remote-active')).toBeDefined();
+  });
 });
