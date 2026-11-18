@@ -66,6 +66,7 @@ import {
 import { normalizeUrl, generateSuggestedTitle, getFaviconUrl, extractDomain, formatRelativeTime } from './utils/urlHelper';
 import { triggerPartyPop, playPopSound } from './utils/delight';
 import { todayKey, addDays, toLocalDateKey } from './utils/dates';
+import { ensureRoutinesForDate } from './utils/routines';
 
 import { Header } from './components/Header';
 import { QuickAddBar } from './components/QuickAddBar';
@@ -261,7 +262,17 @@ export function App() {
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
-      setTodos(loadedTodos);
+      
+      const { updatedTodos: todosWithRoutines, createdCount: routineCreated } = ensureRoutinesForDate(
+        loadedTodos,
+        loadedRoutines,
+        todayKey()
+      );
+      setTodos(todosWithRoutines);
+      if (routineCreated > 0) {
+        await saveTodos(todosWithRoutines);
+      }
+
       setNotes(loadedNotes);
       setSketches(loadedSketches);
       setEvents(loadedEvents);
@@ -404,9 +415,19 @@ export function App() {
         if (cleanNotes.length !== loadedNotes.length) await saveNotes(cleanNotes);
         if (cleanEvents.length !== loadedEvents.length) await saveActivityEvents(cleanEvents);
 
+        // Ensure routines are present for today on initial startup
+        const { updatedTodos: initialTodosWithRoutines, createdCount: routineAdded } = ensureRoutinesForDate(
+          cleanTodos,
+          loadedRoutines,
+          todayKey()
+        );
+        if (routineAdded > 0) {
+          await saveTodos(initialTodosWithRoutines);
+        }
+
         setLinks(cleanLinks);
         setCategories(loadedCats);
-        setTodos(cleanTodos);
+        setTodos(initialTodosWithRoutines);
         setNotes(cleanNotes);
         setSketches(loadedSketches);
         setEvents(cleanEvents);
@@ -470,6 +491,19 @@ export function App() {
       clearInterval(interval);
     };
   }, [selectedDate]);
+
+  // Ensure scheduled routines are populated whenever selectedDate or routines change
+  useEffect(() => {
+    if (!routines || routines.length === 0) return;
+    setTodos((currentTodos) => {
+      const { updatedTodos, createdCount } = ensureRoutinesForDate(currentTodos, routines, selectedDate);
+      if (createdCount > 0) {
+        saveTodos(updatedTodos);
+        return updatedTodos;
+      }
+      return currentTodos;
+    });
+  }, [selectedDate, routines]);
 
   // Theme & Accent Sync to <html>
   useEffect(() => {
@@ -1031,6 +1065,12 @@ export function App() {
 
   // Delete Todo (removes task and cleans up any related activity events)
   const handleDeleteTodo = async (id: string) => {
+    const target = todos.find((t) => t.id === id);
+    if (target?.recurringId) {
+      showToast("Fixed Daily Routine cannot be deleted from today's list. Manage it in Fixed Routines! 🔄");
+      return;
+    }
+
     const updated = todos.filter((t) => t.id !== id);
     setTodos(updated);
     await saveTodos(updated);
@@ -1046,10 +1086,47 @@ export function App() {
     syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
+  // Fixed Routines Handlers
+  const handleSaveRoutine = async (routine: RoutineItem) => {
+    const existingIndex = routines.findIndex((r) => r.id === routine.id);
+    let updated: RoutineItem[];
+    if (existingIndex >= 0) {
+      updated = routines.map((r) => (r.id === routine.id ? routine : r));
+      showToast('Routine updated');
+    } else {
+      updated = [routine, ...routines];
+      showToast('Fixed routine created! 🔄');
+    }
+    setRoutines(updated);
+    await saveRoutines(updated);
+
+    // Immediately populate instance for current selected date if scheduled
+    const { updatedTodos, createdCount } = ensureRoutinesForDate(todos, updated, selectedDate);
+    if (createdCount > 0) {
+      setTodos(updatedTodos);
+      await saveTodos(updatedTodos);
+    }
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleDeleteRoutine = async (id: string) => {
+    const updated = routines.filter((r) => r.id !== id);
+    setRoutines(updated);
+    await saveRoutines(updated);
+    await recordTombstone(id);
+    showToast('Routine removed');
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
   // Archive completed daily tasks with 10-second Undo toast
   const handleArchiveCompletedDaily = async (dateKey: string) => {
     const toArchive = todos.filter(
-      (t) => (t.type || 'permanent') === 'daily' && (t.date === dateKey || (!t.date && dateKey === todayKey())) && t.completed && t.status !== 'archived'
+      (t) =>
+        (t.type || 'permanent') === 'daily' &&
+        (t.date === dateKey || (!t.date && dateKey === todayKey())) &&
+        t.completed &&
+        t.status !== 'archived' &&
+        !t.recurringId
     );
     if (toArchive.length === 0) return;
 
@@ -2106,6 +2183,9 @@ export function App() {
                   onInspectDay={(dateKey) => setInspectingDateKey(dateKey)}
                   onOpenInsights={() => setIsInsightsOpen(true)}
                   onOpenWeeklyReview={() => setIsWeeklyReviewOpen(true)}
+                  routines={routines}
+                  onSaveRoutine={handleSaveRoutine}
+                  onDeleteRoutine={handleDeleteRoutine}
                   onAddNote={handleAddNote}
                   onUpdateNote={handleUpdateNote}
                   onDeleteNote={handleDeleteNote}

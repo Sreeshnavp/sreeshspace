@@ -4,7 +4,7 @@ export type TodoType = 'daily' | 'permanent';
 export type PriorityLevel = 'low' | 'medium' | 'high';
 export type GoalStatus = 'active' | 'completed' | 'archived';
 export type ProgressMode = 'checklist' | 'manual';
-export type RoutineFrequency = 'daily' | 'weekdays' | 'custom';
+export type RoutineFrequency = 'daily' | 'weekdays' | 'weekends' | 'custom' | 'period';
 export type MoodScore = 1 | 2 | 3 | 4 | 5; // 1: 😞, 2: 🙁, 3: 😐, 4: 🙂, 5: 🌸
 
 export interface SubTask {
@@ -106,6 +106,9 @@ export interface RoutineItem {
   priority: PriorityLevel;
   frequency: RoutineFrequency;
   daysOfWeek?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  active?: boolean;
   tags?: string[];
   createdAt: string;
 }

@@ -8,7 +8,8 @@ import type {
   Attachment, 
   ActivityEvent, 
   StreakState, 
-  DayLog 
+  DayLog,
+  RoutineItem
 } from '../types';
 
 interface NotebookAreaProps {
@@ -38,6 +39,9 @@ interface NotebookAreaProps {
   onInspectDay?: (dateKey: string) => void;
   onOpenInsights?: () => void;
   onOpenWeeklyReview?: () => void;
+  routines?: RoutineItem[];
+  onSaveRoutine?: (routine: RoutineItem) => void;
+  onDeleteRoutine?: (id: string) => void;
   onAddNote: (note: { title: string; content: string; highlight?: string; color: string; pinned: boolean; attachments?: Attachment[] }) => void;
   onUpdateNote: (note: NoteItem) => void;
   onDeleteNote: (id: string) => void;
@@ -72,6 +76,9 @@ export const NotebookArea: React.FC<NotebookAreaProps> = ({
   onInspectDay,
   onOpenInsights,
   onOpenWeeklyReview,
+  routines = [],
+  onSaveRoutine,
+  onDeleteRoutine,
   onAddNote,
   onUpdateNote,
   onDeleteNote,
@@ -115,6 +122,9 @@ export const NotebookArea: React.FC<NotebookAreaProps> = ({
         onToggleSubtask={onToggleSubtask}
         onCopyYesterdayList={onCopyYesterdayList}
         onClearAllGoals={onClearAllGoals}
+        routines={routines}
+        onSaveRoutine={onSaveRoutine}
+        onDeleteRoutine={onDeleteRoutine}
       />
 
     </div>

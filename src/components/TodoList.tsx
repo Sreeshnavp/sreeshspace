@@ -16,14 +16,16 @@ import {
   BarChart2,
   Sliders,
   Archive,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from 'lucide-react';
-import type { TodoItem, DayLog, GoalHealthStatus } from '../types';
+import type { TodoItem, DayLog, GoalHealthStatus, RoutineItem } from '../types';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
 import { DateNavigator } from './DateNavigator';
 import { DailyReflectionCard } from './DailyReflectionCard';
 import { GoalCard } from './GoalCard';
 import { GanttTimelineView } from './GanttTimelineView';
+import { DailyRoutinesModal } from './DailyRoutinesModal';
 import { parseNaturalLanguageTodo } from '../utils/nlpTodoParser';
 import { todayKey, addDays } from '../utils/dates';
 
@@ -47,6 +49,9 @@ interface TodoListProps {
   onToggleSubtask: (goalId: string, subtaskId: string) => void;
   onCopyYesterdayList?: () => void;
   onClearAllGoals?: () => void;
+  routines?: RoutineItem[];
+  onSaveRoutine?: (routine: RoutineItem) => void;
+  onDeleteRoutine?: (id: string) => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -69,6 +74,9 @@ export const TodoList: React.FC<TodoListProps> = ({
   onToggleSubtask,
   onCopyYesterdayList,
   onClearAllGoals,
+  routines = [],
+  onSaveRoutine,
+  onDeleteRoutine,
 }) => {
   // Mobile tab state: 'daily' vs 'goals' vs 'timeline'
   const [mobileTab, setMobileTab] = useState<'daily' | 'goals'>('daily');
@@ -78,6 +86,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   // Daily task quick add
   const [dailyInput, setDailyInput] = useState('');
   const [isPastReadOnly, setIsPastReadOnly] = useState(true);
+  const [isRoutinesModalOpen, setIsRoutinesModalOpen] = useState(false);
 
   // Drag and drop state
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
@@ -268,10 +277,30 @@ export const TodoList: React.FC<TodoListProps> = ({
               </div>
             </div>
 
-            {/* Progress Badge */}
-            <span className="px-2.5 py-1 rounded-full bg-accent-soft text-accent-text text-xs font-black font-mono border border-accent/20">
-              {dailyProgress}%
-            </span>
+            {/* Right Header Controls: Fixed Routines Button + Progress Badge */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  setIsRoutinesModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main transition active:scale-95 cursor-pointer shadow-2xs"
+                title="Fixed Daily Routines & Scheduled Habits"
+              >
+                <RotateCcw size={12} className="text-accent" />
+                <span className="hidden sm:inline">Fixed</span>
+                <span>Routines</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent-soft text-accent font-bold font-mono">
+                  {routines.filter((r) => r.active !== false).length}
+                </span>
+              </button>
+
+              {/* Progress Badge */}
+              <span className="px-2.5 py-1 rounded-full bg-accent-soft text-accent-text text-xs font-black font-mono border border-accent/20">
+                {dailyProgress}%
+              </span>
+            </div>
           </div>
 
           {/* Date Navigator with Calendar Popover & Keyboard Shortcuts */}
@@ -286,23 +315,44 @@ export const TodoList: React.FC<TodoListProps> = ({
 
           {/* Natural Language Task Input (Disabled if past day is locked) */}
           {!isLocked && (
-            <form onSubmit={handleAddDailySubmit} className="relative">
-              <input
-                type="text"
-                value={dailyInput}
-                onChange={(e) => setDailyInput(e.target.value)}
-                placeholder="Add daily task (try: read book !high #study)..."
-                className="w-full min-h-[44px] text-xs sm:text-sm pl-3.5 pr-11 py-2.5 rounded-2xl bg-sunken border border-border-input text-main placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ring transition shadow-2xs font-medium"
-              />
-              <button
-                type="submit"
-                disabled={!dailyInput.trim()}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent text-on-accent disabled:opacity-40 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-soft"
-                aria-label="Add task"
-              >
-                <Plus size={16} className="stroke-[2.5]" />
-              </button>
-            </form>
+            <div className="space-y-1.5">
+              <form onSubmit={handleAddDailySubmit} className="relative">
+                <input
+                  type="text"
+                  value={dailyInput}
+                  onChange={(e) => setDailyInput(e.target.value)}
+                  placeholder="Add daily task (try: read book !high #study)..."
+                  className="w-full min-h-[44px] text-xs sm:text-sm pl-3.5 pr-11 py-2.5 rounded-2xl bg-sunken border border-border-input text-main placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ring transition shadow-2xs font-medium"
+                />
+                <button
+                  type="submit"
+                  disabled={!dailyInput.trim()}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-accent text-on-accent disabled:opacity-40 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-soft"
+                  aria-label="Add task"
+                >
+                  <Plus size={16} className="stroke-[2.5]" />
+                </button>
+              </form>
+
+              {/* Quick Option Row: Fixed Routine Shortcut */}
+              <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-muted">
+                <span className="flex items-center gap-1 text-muted">
+                  <RotateCcw size={11} className="text-accent" />
+                  <span>Routines auto-appear in daily list</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsRoutinesModalOpen(true);
+                  }}
+                  className="text-accent hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                >
+                  <Plus size={11} className="stroke-[3]" />
+                  <span>+ Set Fixed Routine</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Tasks List */}
@@ -390,8 +440,22 @@ export const TodoList: React.FC<TodoListProps> = ({
                             {todo.text}
                           </span>
 
-                          {/* Chips row: carried badge, tags, subtasks */}
+                          {/* Chips row: routine badge, carried badge, tags, subtasks */}
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {todo.recurringId && (
+                              <span
+                                className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-accent-soft text-accent border border-accent/20 flex items-center gap-1 cursor-pointer"
+                                title="Fixed Daily Routine: Automatically added each scheduled day"
+                                onClick={() => {
+                                  playPopSound();
+                                  setIsRoutinesModalOpen(true);
+                                }}
+                              >
+                                <RotateCcw size={9} />
+                                <span>Fixed Routine</span>
+                              </span>
+                            )}
+
                             {todo.carriedFrom && (
                               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-warning-soft text-warning-text border border-warning/20">
                                 Carried
@@ -427,14 +491,27 @@ export const TodoList: React.FC<TodoListProps> = ({
                         )}
 
                         {!isLocked && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteTodo(todo.id)}
-                            className="p-1.5 rounded-lg text-faint hover:text-danger hover:bg-sunken opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                            title="Delete task"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          todo.recurringId ? (
+                            <span
+                              className="p-1.5 rounded-lg text-accent/70 hover:text-accent hover:bg-sunken transition cursor-help shrink-0"
+                              title="Fixed Daily Routine: Automatically appears each scheduled day and cannot be deleted from the daily list. Manage routines in Fixed Routines."
+                              onClick={() => {
+                                playPopSound();
+                                setIsRoutinesModalOpen(true);
+                              }}
+                            >
+                              <Lock size={12} className="text-accent" />
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteTodo(todo.id)}
+                              className="p-1.5 rounded-lg text-faint hover:text-danger hover:bg-sunken opacity-0 group-hover:opacity-100 transition cursor-pointer shrink-0"
+                              title="Delete task"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
@@ -625,6 +702,15 @@ export const TodoList: React.FC<TodoListProps> = ({
         </div>
 
       </div>
+
+      {/* FIXED DAILY ROUTINES MODAL */}
+      <DailyRoutinesModal
+        isOpen={isRoutinesModalOpen}
+        onClose={() => setIsRoutinesModalOpen(false)}
+        routines={routines}
+        onSaveRoutine={onSaveRoutine || (() => {})}
+        onDeleteRoutine={onDeleteRoutine || (() => {})}
+      />
     </div>
   );
 };
