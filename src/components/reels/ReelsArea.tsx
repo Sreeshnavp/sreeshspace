@@ -15,24 +15,35 @@ import {
   Clipboard,
   Info,
   ArrowUpDown,
-  GripVertical
+  FolderPlus,
+  Folder
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
-import type { ReelItem } from '../../types/reels';
+import type { ReelItem, CategoryInfo } from '../../types';
 import { ReelCard } from './ReelCard';
 import { ReelListItem } from './ReelListItem';
+import { ReelCategoryBundleSquare } from './ReelCategoryBundleSquare';
+import { ReelFolderModal } from './ReelFolderModal';
+import { EditReelCategoryModal } from './EditReelCategoryModal';
 import { ReelSequencePlayer } from './ReelSequencePlayer';
 import { ReelModal } from './ReelModal';
+import { DEFAULT_REEL_CATEGORIES } from '../../services/storage';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
 
 interface ReelsAreaProps {
   reels: ReelItem[];
+  categories?: CategoryInfo[];
   onSaveReel: (reel: ReelItem) => void;
   onDeleteReel: (id: string) => void;
   onToggleFavoriteReel: (id: string) => void;
   onReorderReels?: (reels: ReelItem[]) => void;
+  onSaveCategory?: (category: CategoryInfo) => void;
+  onDeleteCategory?: (id: string) => void;
+  onReorderCategories?: (fromIndex: number, toIndex: number) => void;
+  onMoveReelCategory?: (reelId: string, newCategoryName: string) => void;
 }
 
+type ReelViewTab = 'folders' | 'all' | 'starred';
 type ReelLayoutMode = 'grid' | 'list';
 type ReelSortMode = 'manual' | 'newest' | 'favorites' | 'collection';
 
@@ -43,7 +54,7 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: '5-Minute Morning Mobility Routine 🧘',
     author: '@movewithalec',
     takeaway: 'Key exercises:\n1. Cat-cow stretches (10 reps)\n2. Deep squat hold (60s)\n3. Thoracic rotations',
-    collection: 'Fitness & Gym 💪',
+    collection: 'Fitness & Gym',
     tags: ['morning', 'mobility', 'stretch'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&auto=format&fit=crop&q=80',
     order: 0,
@@ -55,7 +66,7 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: 'Creamy Iced Matcha Cloud Latte 🍵',
     author: '@cafe_aesthetic',
     takeaway: 'Ingredients:\n- 2 tsp ceremonial matcha\n- 60ml warm water (whisk 80°C)\n- Cold oat milk\n- Sweet vanilla cloud foam on top',
-    collection: 'Recipes 🍳',
+    collection: 'Recipes',
     tags: ['matcha', 'recipe', 'aesthetic'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&auto=format&fit=crop&q=80',
     order: 1,
@@ -67,7 +78,7 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: 'Top 3 Modern CSS Tricks for 2026 💻',
     author: '@frontend_ninja',
     takeaway: '1. `text-wrap: balance` for gorgeous headings\n2. `@container` queries for card grids\n3. `:has()` relational selector',
-    collection: 'Coding & Tech 💻',
+    collection: 'Coding & Tech',
     tags: ['css', 'webdev', 'frontend'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
     order: 2,
@@ -77,44 +88,62 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
 
 export const ReelsArea: React.FC<ReelsAreaProps> = ({
   reels,
+  categories = DEFAULT_REEL_CATEGORIES,
   onSaveReel,
   onDeleteReel,
   onToggleFavoriteReel,
   onReorderReels,
+  onSaveCategory,
+  onDeleteCategory,
+  onReorderCategories,
+  onMoveReelCategory,
 }) => {
+  const [viewTab, setViewTab] = useState<ReelViewTab>('folders');
   const [layoutMode, setLayoutMode] = useState<ReelLayoutMode>('grid');
   const [sortMode, setSortMode] = useState<ReelSortMode>('manual');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCollection, setSelectedCollection] = useState<string>('all');
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('all');
+  
+  // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReel, setEditingReel] = useState<ReelItem | null>(null);
+  const [modalInitialUrl, setModalInitialUrl] = useState('');
+  const [folderModalCategory, setFolderModalCategory] = useState<CategoryInfo | null>(null);
+  const [editingCategoryTarget, setEditingCategoryTarget] = useState<CategoryInfo | null>(null);
+  const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false);
+  
+  // Player state
   const [feedInitialId, setFeedInitialId] = useState<string | undefined>(undefined);
   const [isFeedFullscreen, setIsFeedFullscreen] = useState(false);
-  const [modalInitialUrl, setModalInitialUrl] = useState('');
   const [showMobileGuide, setShowMobileGuide] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
-  // Available collections from saved reels
-  const collections = useMemo(() => {
-    const set = new Set<string>();
-    reels.forEach((r) => {
-      if (r.collection) set.add(r.collection);
-    });
-    return Array.from(set);
-  }, [reels]);
+  // Effective categories list (custom + defaults)
+  const effectiveCategories = useMemo(() => {
+    return categories && categories.length > 0 ? categories : DEFAULT_REEL_CATEGORIES;
+  }, [categories]);
 
-  // Filtered & Sorted Reels
+  // Standalone / Loose Reels on canvas in Folders view
+  const standaloneReels = useMemo(() => {
+    const catNamesLower = new Set(effectiveCategories.map((c) => c.name.toLowerCase().trim()));
+    return reels.filter((r) => {
+      const col = (r.collection || '').toLowerCase().trim();
+      return !col || col === 'general' || col === 'uncategorized' || !catNamesLower.has(col);
+    });
+  }, [reels, effectiveCategories]);
+
+  // Filtered Reels for All / Starred views
   const filteredReels = useMemo(() => {
     let result = [...reels];
 
-    // Collection filter
-    if (selectedCollection === 'favorites') {
+    if (viewTab === 'starred') {
       result = result.filter((r) => r.favorite);
-    } else if (selectedCollection !== 'all') {
-      result = result.filter((r) => r.collection === selectedCollection);
+    } else if (selectedFilterCategory !== 'all') {
+      result = result.filter(
+        (r) => (r.collection || '').toLowerCase().trim() === selectedFilterCategory.toLowerCase().trim()
+      );
     }
 
-    // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -127,7 +156,6 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
       );
     }
 
-    // Sort order
     return result.sort((a, b) => {
       if (sortMode === 'manual') {
         const orderA = a.order ?? 999999;
@@ -155,13 +183,17 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
 
       return 0;
     });
-  }, [reels, selectedCollection, searchQuery, sortMode]);
+  }, [reels, viewTab, selectedFilterCategory, searchQuery, sortMode]);
 
-  const handleOpenAdd = () => {
+  // Modal handlers
+  const handleOpenAdd = (categoryName?: string) => {
     playPopSound();
     setEditingReel(null);
     setModalInitialUrl('');
     setIsModalOpen(true);
+    if (categoryName) {
+      // prefilled category will be saved with reel
+    }
   };
 
   const handlePasteClipboardAndAdd = async () => {
@@ -193,7 +225,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
     setIsFeedFullscreen(true);
   };
 
-  // Drag and drop reordering
+  // Drag and drop reel reordering / categorization
   const handleDragStart = (_e: React.DragEvent, id: string) => {
     setDraggedId(id);
   };
@@ -217,13 +249,10 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
     }));
 
     setSortMode('manual');
-    if (onReorderReels) {
-      onReorderReels(reordered);
-    }
+    if (onReorderReels) onReorderReels(reordered);
     setDraggedId(null);
   };
 
-  // Move Up / Move Down arranging
   const handleMoveUp = (id: string) => {
     const idx = reels.findIndex((r) => r.id === id);
     if (idx <= 0) return;
@@ -260,6 +289,18 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
     if (onReorderReels) onReorderReels(reordered);
   };
 
+  const handleDropReelOnCategory = (reelId: string, categoryName: string) => {
+    if (onMoveReelCategory) {
+      onMoveReelCategory(reelId, categoryName);
+    } else {
+      const updated = reels.map((r) =>
+        r.id === reelId ? { ...r, collection: categoryName } : r
+      );
+      const target = updated.find((r) => r.id === reelId);
+      if (target) onSaveReel(target);
+    }
+  };
+
   const handleAddSample = (sample: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     playPopSound();
     triggerPartyPop('single');
@@ -276,105 +317,141 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6">
       
-      {/* Top Banner Card */}
-      <div className="bg-surface rounded-3xl p-4 sm:p-6 border border-subtle shadow-soft space-y-4">
+      {/* Top Banner Card: Links-Style Header with Folders / All / Starred Tabs */}
+      <div className="bg-surface rounded-3xl p-4 sm:p-5 border border-subtle shadow-soft space-y-4">
         
-        {/* Header row */}
+        {/* Row 1: Title, View Switcher & Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shadow-soft shrink-0">
-              <Film size={22} className="stroke-[2.2]" />
+          
+          {/* Left: Icon, Title & View Tabs */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shadow-soft shrink-0">
+              <Film size={20} className="stroke-[2.2]" />
             </div>
+
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-lg sm:text-xl text-main leading-tight">
-                  Instagram Reels Vault
+                <h1 className="font-extrabold text-base sm:text-lg text-main leading-tight">
+                  Reels Vault
                 </h1>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 font-extrabold font-mono border border-rose-500/20">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 font-extrabold font-mono border border-rose-500/20">
                   {reels.length} {reels.length === 1 ? 'Reel' : 'Reels'}
                 </span>
               </div>
-              <p className="text-xs text-muted font-medium mt-0.5">
-                Compact view with default cover photo & custom drag arrangement • Watch in vertical sequence
-              </p>
+            </div>
+
+            {/* Segmented Control like Links Menu: [Folders] [All] [⭐ Starred] */}
+            <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle ml-1 sm:ml-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewTab('folders');
+                  playPopSound();
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewTab === 'folders'
+                    ? 'bg-surface text-main shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-main'
+                }`}
+                title="Categorized Collection Bundles (Drag & drop reels into folders)"
+              >
+                <Folder size={13} className="text-rose-500" />
+                <span>Folders</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setViewTab('all');
+                  playPopSound();
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewTab === 'all'
+                    ? 'bg-surface text-main shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-main'
+                }`}
+                title="All Reels as individual cards"
+              >
+                <span>All</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    viewTab === 'all' ? 'bg-rose-500 text-white' : 'bg-surface text-muted'
+                  }`}
+                >
+                  {reels.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setViewTab('starred');
+                  playPopSound();
+                }}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewTab === 'starred'
+                    ? 'bg-surface text-amber-500 shadow-2xs font-extrabold'
+                    : 'text-muted hover:text-amber-500'
+                }`}
+                title="Favorite Reels"
+              >
+                <Star
+                  size={13}
+                  className={
+                    viewTab === 'starred' ? 'fill-amber-400 text-amber-500' : 'text-faint hover:text-amber-500'
+                  }
+                />
+                <span className="hidden sm:inline">Starred</span>
+                {reels.filter((r) => r.favorite).length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {reels.filter((r) => r.favorite).length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Action Buttons: View Switcher, Reorder & Save */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
             
-            {/* View Mode Switcher: Grid vs List vs Reel Feed */}
-            <div className="flex items-center p-1 rounded-2xl bg-sunken border border-subtle">
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  setLayoutMode('grid');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  layoutMode === 'grid'
-                    ? 'bg-surface text-main shadow-2xs font-extrabold'
-                    : 'text-muted hover:text-main'
-                }`}
-                title="Grid View (Small cards like links tab)"
-              >
-                <LayoutGrid size={13} />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  setLayoutMode('list');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  layoutMode === 'list'
-                    ? 'bg-surface text-main shadow-2xs font-extrabold'
-                    : 'text-muted hover:text-main'
-                }`}
-                title="List View (Compact horizontal rows)"
-              >
-                <List size={13} />
-                <span className="hidden sm:inline">List</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  handlePlayInSequence();
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer text-rose-600 hover:bg-surface hover:shadow-2xs"
-                title="Watch Reels in Vertical Swipe Sequence"
-              >
-                <Smartphone size={13} className="stroke-[2.5]" />
-                <span>Reel Feed</span>
-              </button>
-            </div>
-
-            {/* Play All Sequence Button (if reels exist) */}
-            {reels.length > 0 && (
-              <button
-                type="button"
-                onClick={() => handlePlayInSequence()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs transition active:scale-95 shadow-2xs cursor-pointer"
-                title="Play in Fullscreen Sequence"
-              >
-                <Play size={13} className="fill-current text-rose-500" />
-                <span className="hidden sm:inline">Play Sequence</span>
-              </button>
-            )}
+            {/* New Folder Button (like Links tab) */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                setEditingCategoryTarget(null);
+                setIsNewCategoryModalOpen(true);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs transition active:scale-95 cursor-pointer"
+              title="Create a new collection folder"
+            >
+              <FolderPlus size={13} className="text-rose-500 stroke-[2.2]" />
+              <span className="hidden sm:inline">New Folder</span>
+            </button>
 
             {/* Quick Paste from Clipboard */}
             <button
               type="button"
               onClick={handlePasteClipboardAndAdd}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs transition active:scale-95 shadow-2xs cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs transition active:scale-95 cursor-pointer"
               title="Paste copied Instagram link from clipboard"
             >
               <Clipboard size={13} className="text-rose-500" />
               <span>Paste Reel</span>
+            </button>
+
+            {/* Reel Feed Fullscreen Sequence */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                handlePlayInSequence();
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-rose-600 transition active:scale-95 cursor-pointer shadow-2xs"
+              title="Watch reels in vertical swiper feed"
+            >
+              <Smartphone size={13} className="stroke-[2.5]" />
+              <span>Reel Feed</span>
             </button>
 
             {/* How to Share guide toggle */}
@@ -384,24 +461,23 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
                 playPopSound();
                 setShowMobileGuide((prev) => !prev);
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
+              className={`flex items-center gap-1 p-1.5 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
                 showMobileGuide
                   ? 'bg-rose-500/15 border-rose-500/30 text-rose-600'
                   : 'bg-sunken hover:bg-surface border-subtle text-muted hover:text-main'
               }`}
-              title="Show guide on sharing directly from Instagram app"
+              title="How to share directly from Instagram mobile app"
             >
-              <Instagram size={13} />
-              <span className="hidden sm:inline">Share Guide</span>
+              <Instagram size={14} />
             </button>
 
-            {/* Add Reel Button */}
+            {/* + Save Reel Button */}
             <button
               type="button"
-              onClick={handleOpenAdd}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-soft hover:opacity-95 transition active:scale-95 cursor-pointer ml-auto sm:ml-0"
+              onClick={() => handleOpenAdd()}
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-soft hover:opacity-95 transition active:scale-95 cursor-pointer"
             >
-              <Plus size={15} className="stroke-[2.5]" />
+              <Plus size={14} className="stroke-[2.5]" />
               <span>+ Save Reel</span>
             </button>
           </div>
@@ -445,35 +521,33 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
           </div>
         )}
 
-        {/* Search Bar, Sort Order & Collection Filter Chips */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search reels by headline, creator, takeaways, tags..."
-                className="w-full bg-sunken border border-subtle rounded-2xl pl-9 pr-8 py-2 text-xs font-medium text-main placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-main"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+        {/* Row 2: Search Bar, Layout Mode & Sort Order */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search reels by headline, creator, takeaways, tags..."
+              className="w-full bg-sunken border border-subtle rounded-2xl pl-9 pr-8 py-2 text-xs font-medium text-main placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-main"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
 
-            {/* Sort Order Selector (Arranging Mode) */}
-            <div className="flex items-center gap-1.5 shrink-0 bg-sunken border border-subtle rounded-2xl px-3 py-1.5">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Sort Selector */}
+            <div className="flex items-center gap-1.5 bg-sunken border border-subtle rounded-2xl px-3 py-1.5">
               <ArrowUpDown size={13} className="text-muted" />
-              <span className="text-[11px] font-bold text-muted hidden sm:inline">Order:</span>
               <select
                 value={sortMode}
                 onChange={(e) => {
@@ -482,115 +556,192 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
                 }}
                 className="bg-transparent text-xs font-bold text-main focus:outline-hidden cursor-pointer"
               >
-                <option value="manual">Custom Arrangement (Drag / Move)</option>
+                <option value="manual">Custom Order (Drag to Arrange)</option>
                 <option value="newest">Newest First</option>
                 <option value="favorites">Favorites First</option>
                 <option value="collection">By Collection</option>
               </select>
             </div>
-          </div>
 
-          {/* Collection Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+            {/* Layout Mode (Grid vs List) */}
+            <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle">
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  setLayoutMode('grid');
+                }}
+                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                  layoutMode === 'grid'
+                    ? 'bg-surface text-main shadow-2xs'
+                    : 'text-muted hover:text-main'
+                }`}
+                title="Grid View (Compact cards with cover photos)"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  setLayoutMode('list');
+                }}
+                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                  layoutMode === 'list'
+                    ? 'bg-surface text-main shadow-2xs'
+                    : 'text-muted hover:text-main'
+                }`}
+                title="List View (Compact horizontal rows)"
+              >
+                <List size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Drop Target Chips in 'all' view */}
+        {viewTab === 'all' && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs border-t border-subtle/50 pt-3">
+            <span className="text-[11px] font-bold text-muted uppercase tracking-wider shrink-0 mr-1">
+              Filter:
+            </span>
             <button
               type="button"
               onClick={() => {
                 playPopSound();
-                setSelectedCollection('all');
+                setSelectedFilterCategory('all');
               }}
               className={`px-3 py-1 rounded-full font-bold transition shrink-0 cursor-pointer ${
-                selectedCollection === 'all'
+                selectedFilterCategory === 'all'
                   ? 'bg-main text-page font-extrabold shadow-2xs'
                   : 'bg-sunken text-muted hover:text-main border border-subtle'
               }`}
             >
-              All Reels ({reels.length})
+              All ({reels.length})
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                playPopSound();
-                setSelectedCollection('favorites');
-              }}
-              className={`px-3 py-1 rounded-full font-bold transition shrink-0 flex items-center gap-1 cursor-pointer ${
-                selectedCollection === 'favorites'
-                  ? 'bg-amber-500 text-white font-extrabold shadow-2xs'
-                  : 'bg-sunken text-muted hover:text-amber-500 border border-subtle'
-              }`}
-            >
-              <Star size={11} className="fill-current" />
-              <span>Favorites ({reels.filter((r) => r.favorite).length})</span>
-            </button>
-
-            {collections.map((cat) => {
-              const count = reels.filter((r) => r.collection === cat).length;
+            {effectiveCategories.map((cat) => {
+              const count = reels.filter(
+                (r) => (r.collection || '').toLowerCase().trim() === cat.name.toLowerCase().trim()
+              ).length;
               return (
                 <button
-                  key={cat}
+                  key={cat.id || cat.name}
                   type="button"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const reelId =
+                      e.dataTransfer.getData('text/plain') ||
+                      e.dataTransfer.getData('application/reel-id') ||
+                      draggedId;
+                    if (reelId) handleDropReelOnCategory(reelId, cat.name);
+                  }}
                   onClick={() => {
                     playPopSound();
-                    setSelectedCollection(cat);
+                    setSelectedFilterCategory(cat.name);
                   }}
-                  className={`px-3 py-1 rounded-full font-bold transition shrink-0 cursor-pointer ${
-                    selectedCollection === cat
+                  className={`px-3 py-1 rounded-full font-bold transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                    selectedFilterCategory === cat.name
                       ? 'bg-rose-500 text-white font-extrabold shadow-2xs'
                       : 'bg-sunken text-muted hover:text-main border border-subtle'
                   }`}
+                  title={`Drop reel here to file into ${cat.name}`}
                 >
-                  <span>{cat}</span>
-                  <span className="opacity-70 ml-1 text-[10px]">({count})</span>
+                  <span>{cat.icon || '📁'}</span>
+                  <span>{cat.name}</span>
+                  <span className="opacity-70 text-[10px]">({count})</span>
                 </button>
               );
             })}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Main Content Area */}
-      {filteredReels.length === 0 ? (
-        <div className="bg-surface rounded-3xl p-8 sm:p-12 border border-subtle shadow-soft text-center space-y-4 max-w-lg mx-auto">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500/20 via-rose-500/20 to-purple-600/20 text-rose-500 flex items-center justify-center mx-auto shadow-soft">
-            <Film size={28} />
-          </div>
+      {/* Main Content Area based on View Tab */}
+      {viewTab === 'folders' ? (
+        /* 1. CATEGORIZED FOLDERS VIEW (Like Links Menu: Bundles + Canvas Reels) */
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+            {/* Category Bundle Squares with Symmetrical 2x2 Cover Photos */}
+            {effectiveCategories.map((category, index) => (
+              <ReelCategoryBundleSquare
+                key={category.id || category.name}
+                category={category}
+                reels={reels}
+                index={index}
+                activeDraggingReelId={draggedId}
+                onOpenFolder={(cat) => setFolderModalCategory(cat)}
+                onEditCategory={(cat) => setEditingCategoryTarget(cat)}
+                onDropReel={handleDropReelOnCategory}
+                onReorderCategory={(from, to) => {
+                  if (onReorderCategories) onReorderCategories(from, to);
+                }}
+              />
+            ))}
 
-          <div className="space-y-1.5">
-            <h3 className="font-extrabold text-base sm:text-lg text-main">
-              {searchQuery || selectedCollection !== 'all'
-                ? 'No matching reels found'
-                : 'Your Instagram Reels Vault is empty'}
-            </h3>
-            <p className="text-xs sm:text-sm text-muted max-w-md mx-auto leading-relaxed">
-              {searchQuery || selectedCollection !== 'all'
-                ? 'Try adjusting your search query or collection filter.'
-                : 'Save workout routines, recipes, coding tricks, and design inspiration directly from Instagram!'}
-            </p>
+            {/* Standalone / Unfiled Reels on canvas */}
+            {standaloneReels.map((reel, idx) => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                onPlayInSequence={handlePlayInSequence}
+                onToggleFavorite={onToggleFavoriteReel}
+                onEdit={handleOpenEdit}
+                onDelete={onDeleteReel}
+                onMoveUp={handleMoveUp}
+                onMoveDown={handleMoveDown}
+                canMoveUp={idx > 0}
+                canMoveDown={idx < standaloneReels.length - 1}
+                onDragStart={handleDragStart}
+                onDrop={handleDrop}
+              />
+            ))}
           </div>
 
           {reels.length === 0 && (
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <div className="bg-surface rounded-3xl p-8 text-center space-y-3 border border-subtle max-w-md mx-auto shadow-soft">
+              <Film size={28} className="mx-auto text-rose-500 opacity-60" />
+              <div className="space-y-1">
+                <h4 className="font-extrabold text-sm text-main">Your Reels Vault is empty</h4>
+                <p className="text-xs text-muted">
+                  Load starter inspiration reels to see categories, cover photos, and sequence playback in action!
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   STARTER_SAMPLE_REELS.forEach((s) => handleAddSample(s));
                 }}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-surface border border-subtle hover:bg-sunken text-main font-bold text-xs shadow-2xs transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-soft transition active:scale-95 cursor-pointer"
               >
-                <Sparkles size={13} className="text-rose-500" />
-                <span>Load Starter Inspiration (3 Reels)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleOpenAdd}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-soft transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Plus size={14} />
-                <span>Add Your First Reel</span>
+                Load Starter Inspiration (3 Reels)
               </button>
             </div>
           )}
+        </div>
+      ) : filteredReels.length === 0 ? (
+        /* Empty Filter State */
+        <div className="bg-surface rounded-3xl p-8 sm:p-12 border border-subtle shadow-soft text-center space-y-4 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-soft">
+            <Film size={28} />
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="font-extrabold text-base text-main">
+              {viewTab === 'starred'
+                ? 'No Favorite Reels Yet'
+                : 'No matching reels found'}
+            </h3>
+            <p className="text-xs text-muted max-w-xs mx-auto">
+              {viewTab === 'starred'
+                ? 'Tap the star ⭐ on any reel card to pin your favorites here for quick access!'
+                : 'Try adjusting your search query or collection filter.'}
+            </p>
+          </div>
         </div>
       ) : layoutMode === 'grid' ? (
         /* Small Compact Grid like Links Tab */
@@ -634,6 +785,46 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         </div>
       )}
 
+      {/* Reel Folder Modal: Displays all reels in selected category */}
+      <ReelFolderModal
+        category={folderModalCategory}
+        reels={reels}
+        isOpen={Boolean(folderModalCategory)}
+        onClose={() => setFolderModalCategory(null)}
+        onPlayInSequence={handlePlayInSequence}
+        onToggleFavorite={onToggleFavoriteReel}
+        onEdit={handleOpenEdit}
+        onDelete={onDeleteReel}
+        onAddReelToCategory={(catName) => {
+          setFolderModalCategory(null);
+          handleOpenAdd(catName);
+        }}
+        onEditCategory={(cat) => {
+          setEditingCategoryTarget(cat);
+          setFolderModalCategory(null);
+        }}
+        onMoveUp={handleMoveUp}
+        onMoveDown={handleMoveDown}
+        onDragStart={handleDragStart}
+        onDrop={handleDrop}
+      />
+
+      {/* Edit / New Reel Collection Modal */}
+      <EditReelCategoryModal
+        isOpen={Boolean(editingCategoryTarget) || isNewCategoryModalOpen}
+        category={editingCategoryTarget}
+        onClose={() => {
+          setEditingCategoryTarget(null);
+          setIsNewCategoryModalOpen(false);
+        }}
+        onSave={(cat) => {
+          if (onSaveCategory) onSaveCategory(cat);
+        }}
+        onDelete={(id) => {
+          if (onDeleteCategory) onDeleteCategory(id);
+        }}
+      />
+
       {/* Fullscreen Vertical Sequence Player (Feed Mode) */}
       {isFeedFullscreen && filteredReels.length > 0 && (
         <ReelSequencePlayer
@@ -652,6 +843,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         onClose={() => setIsModalOpen(false)}
         reel={editingReel}
         initialUrl={modalInitialUrl}
+        categories={effectiveCategories}
         onSave={onSaveReel}
       />
 

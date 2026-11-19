@@ -29,6 +29,8 @@ import {
   saveSketches,
   loadReels,
   saveReels,
+  loadReelCategories,
+  saveReelCategories,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -453,6 +455,16 @@ export function mergeVaultData(
     mergedTombstones
   );
 
+  // 14. Instagram Reel Categories / Collections
+  const localReelCats: any[] = (local.settings?.reelCategories as any[]) || [];
+  const remoteReelCats: any[] = (remote.settings?.reelCategories as any[]) || [];
+  const reelCategories = mergeItemsById(
+    localReelCats,
+    remoteReelCats,
+    (c) => new Date(c.updatedAt || c.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
@@ -462,6 +474,7 @@ export function mergeVaultData(
     financeCategories,
     sketches,
     reels,
+    reelCategories,
     ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
@@ -524,6 +537,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localFinanceCats,
       localSketches,
       localReels,
+      localReelCats,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -539,6 +553,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadFinanceCategories(),
       loadSketches(),
       loadReels(),
+      loadReelCategories(),
     ]);
 
     const localData = {
@@ -564,6 +579,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         financeCategories: localFinanceCats,
         sketches: localSketches,
         reels: localReels,
+        reelCategories: localReelCats,
         streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
@@ -620,6 +636,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         : Promise.resolve(),
       mergedPayload.settings?.reels
         ? saveReels(mergedPayload.settings.reels)
+        : Promise.resolve(),
+      mergedPayload.settings?.reelCategories
+        ? saveReelCategories(mergedPayload.settings.reelCategories)
         : Promise.resolve(),
     ]);
 

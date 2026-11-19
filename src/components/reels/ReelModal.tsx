@@ -14,7 +14,7 @@ import {
   Image
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
-import type { ReelItem } from '../../types/reels';
+import type { ReelItem, CategoryInfo } from '../../types';
 import { extractInstagramReelInfo } from '../../utils/instagramHelper';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
 
@@ -23,6 +23,8 @@ interface ReelModalProps {
   onClose: () => void;
   reel?: ReelItem | null;
   initialUrl?: string;
+  categories?: CategoryInfo[];
+  defaultCategory?: string;
   onSave: (reel: ReelItem) => void;
 }
 
@@ -42,6 +44,8 @@ export const ReelModal: React.FC<ReelModalProps> = ({
   onClose,
   reel,
   initialUrl = '',
+  categories,
+  defaultCategory,
   onSave,
 }) => {
   const [urlInput, setUrlInput] = useState('');
@@ -73,12 +77,13 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setUrlError('');
     } else {
       const startUrl = initialUrl.trim();
+      const initialCat = defaultCategory || (categories && categories[0] ? categories[0].name : 'General');
       setUrlInput(startUrl);
       setHeadline('');
       setCaption('');
       setTakeaway('');
       setAuthor('');
-      setCollection('General');
+      setCollection(initialCat);
       setTagInput('');
       setFavorite(false);
       setUrlError('');
@@ -332,11 +337,20 @@ export const ReelModal: React.FC<ReelModalProps> = ({
                 onChange={(e) => setCollection(e.target.value)}
                 className="w-full bg-sunken border border-subtle rounded-xl px-3 py-2 text-xs font-bold text-main focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs cursor-pointer"
               >
-                {DEFAULT_COLLECTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                <option value="General">General 📁</option>
+                {categories && categories.length > 0 ? (
+                  categories.map((c) => (
+                    <option key={c.id || c.name} value={c.name}>
+                      {c.name} {c.icon || ''}
+                    </option>
+                  ))
+                ) : (
+                  DEFAULT_COLLECTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>

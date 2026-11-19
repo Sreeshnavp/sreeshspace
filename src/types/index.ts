@@ -29,6 +29,8 @@ export interface CategoryInfo {
   color: string;
   icon: string;
   description?: string;
+  createdAt?: string;
+  order?: number;
 }
 
 export type MainTab = 'all' | 'categories';

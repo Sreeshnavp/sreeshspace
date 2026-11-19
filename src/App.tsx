@@ -49,6 +49,9 @@ import {
   saveFinanceCurrency,
   loadReels,
   saveReels,
+  loadReelCategories,
+  saveReelCategories,
+  DEFAULT_REEL_CATEGORIES,
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
@@ -140,6 +143,7 @@ export function App() {
   });
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
   const [reels, setReels] = useState<ReelItem[]>([]);
+  const [reelCategories, setReelCategories] = useState<CategoryInfo[]>(DEFAULT_REEL_CATEGORIES);
 
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
@@ -253,6 +257,7 @@ export function App() {
         loadedFinanceCats,
         loadedSketches,
         loadedReels,
+        loadedReelCats,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -267,6 +272,7 @@ export function App() {
         loadFinanceCategories(),
         loadSketches(),
         loadReels(),
+        loadReelCategories(),
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
@@ -284,6 +290,7 @@ export function App() {
       setNotes(loadedNotes);
       setSketches(loadedSketches);
       setReels(loadedReels);
+      setReelCategories(loadedReelCats);
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
       const hasValidCompletions = loadedEvents.some((e) =>
@@ -401,6 +408,7 @@ export function App() {
           loadedFinanceCats,
           loadedSketches,
           loadedReels,
+          loadedReelCats,
         ] = await Promise.all([
           loadLinks(),
           loadCategories(),
@@ -415,6 +423,7 @@ export function App() {
           loadFinanceCategories(),
           loadSketches(),
           loadReels(),
+          loadReelCategories(),
         ]);
         const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
         const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
@@ -442,6 +451,7 @@ export function App() {
         setNotes(cleanNotes);
         setSketches(loadedSketches);
         setReels(loadedReels);
+        setReelCategories(loadedReelCats);
         setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
         const hasValidCompletions = cleanEvents.some((e) =>
@@ -1252,6 +1262,61 @@ export function App() {
   const handleReorderReels = async (reordered: ReelItem[]) => {
     setReels(reordered);
     await saveReels(reordered);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleSaveReelCategory = async (cat: CategoryInfo) => {
+    let updated: CategoryInfo[];
+    const idx = reelCategories.findIndex((c) => c.id === cat.id);
+    if (idx >= 0) {
+      const oldCat = reelCategories[idx];
+      updated = reelCategories.map((c) => (c.id === cat.id ? cat : c));
+      if (oldCat.name !== cat.name) {
+        const updatedReels = reels.map((r) =>
+          r.collection === oldCat.name ? { ...r, collection: cat.name } : r
+        );
+        setReels(updatedReels);
+        await saveReels(updatedReels);
+      }
+      showToast(`Updated "${cat.name}" collection`);
+    } else {
+      updated = [...reelCategories, cat];
+      showToast(`Created "${cat.name}" collection ✨`);
+    }
+    setReelCategories(updated);
+    await saveReelCategories(updated);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleDeleteReelCategory = async (id: string) => {
+    const target = reelCategories.find((c) => c.id === id);
+    const updated = reelCategories.filter((c) => c.id !== id);
+    setReelCategories(updated);
+    await saveReelCategories(updated);
+    await recordTombstone(id);
+    showToast(target ? `Deleted "${target.name}" collection 🗑️` : 'Collection deleted');
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleReorderReelCategories = async (fromIndex: number, toIndex: number) => {
+    const list = [...reelCategories];
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, moved);
+    const updated = list.map((item, idx) => ({ ...item, order: idx }));
+    setReelCategories(updated);
+    await saveReelCategories(updated);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleMoveReelCategory = async (reelId: string, newCategoryName: string) => {
+    const updated = reels.map((r) =>
+      r.id === reelId ? { ...r, collection: newCategoryName, updatedAt: new Date().toISOString() } : r
+    );
+    setReels(updated);
+    await saveReels(updated);
+    showToast(`Filed reel into ${newCategoryName} 🎬✨`);
+    triggerPartyPop('single');
+    playPopSound();
     syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
@@ -2353,10 +2418,15 @@ export function App() {
               <div className="pt-2">
                 <ReelsArea
                   reels={reels}
+                  categories={reelCategories}
                   onSaveReel={handleSaveReel}
                   onDeleteReel={handleDeleteReel}
                   onToggleFavoriteReel={handleToggleFavoriteReel}
                   onReorderReels={handleReorderReels}
+                  onSaveCategory={handleSaveReelCategory}
+                  onDeleteCategory={handleDeleteReelCategory}
+                  onReorderCategories={handleReorderReelCategories}
+                  onMoveReelCategory={handleMoveReelCategory}
                 />
               </div>
             )}
