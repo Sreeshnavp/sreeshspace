@@ -10,7 +10,9 @@ import {
   Smartphone,
   Share2,
   Filter,
-  X
+  X,
+  Clipboard,
+  Info
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem, ReelViewMode } from '../../types/reels';
@@ -72,6 +74,8 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const [editingReel, setEditingReel] = useState<ReelItem | null>(null);
   const [feedInitialId, setFeedInitialId] = useState<string | undefined>(undefined);
   const [isFeedFullscreen, setIsFeedFullscreen] = useState(false);
+  const [modalInitialUrl, setModalInitialUrl] = useState('');
+  const [showMobileGuide, setShowMobileGuide] = useState(false);
 
   // Available collections from saved reels
   const collections = useMemo(() => {
@@ -117,12 +121,30 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const handleOpenAdd = () => {
     playPopSound();
     setEditingReel(null);
+    setModalInitialUrl('');
+    setIsModalOpen(true);
+  };
+
+  const handlePasteClipboardAndAdd = async () => {
+    playPopSound();
+    setEditingReel(null);
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        setModalInitialUrl(text || '');
+      } else {
+        setModalInitialUrl('');
+      }
+    } catch {
+      setModalInitialUrl('');
+    }
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (reel: ReelItem) => {
     playPopSound();
     setEditingReel(reel);
+    setModalInitialUrl(reel.url);
     setIsModalOpen(true);
   };
 
@@ -224,6 +246,35 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
               </button>
             )}
 
+            {/* Quick Paste from Clipboard */}
+            <button
+              type="button"
+              onClick={handlePasteClipboardAndAdd}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs transition active:scale-95 shadow-2xs cursor-pointer"
+              title="Paste copied Instagram link from clipboard"
+            >
+              <Clipboard size={13} className="text-rose-500" />
+              <span>Paste Reel</span>
+            </button>
+
+            {/* How to Share guide toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                setShowMobileGuide((prev) => !prev);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
+                showMobileGuide
+                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-600'
+                  : 'bg-sunken hover:bg-surface border-subtle text-muted hover:text-main'
+              }`}
+              title="Show guide on sharing directly from Instagram app"
+            >
+              <Instagram size={13} />
+              <span className="hidden sm:inline">Share Guide</span>
+            </button>
+
             {/* Add Reel Button */}
             <button
               type="button"
@@ -235,6 +286,44 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Mobile Instagram Sharing Guide Banner */}
+        {showMobileGuide && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-purple-500/10 border border-rose-500/20 text-main space-y-2.5 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-main">
+                <Instagram size={16} className="text-rose-500" />
+                <span>How to send Instagram Reels directly to Orbit on Android</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileGuide(false)}
+                className="p-1 text-muted hover:text-main cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted pt-1">
+              <div className="p-2.5 rounded-xl bg-surface border border-subtle">
+                <span className="font-extrabold text-main block mb-1">1. In Instagram App</span>
+                Tap the <strong>Paper Plane / Share</strong> icon on any Reel you want to save.
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface border border-subtle">
+                <span className="font-extrabold text-main block mb-1">2. Tap "Share to..."</span>
+                In the bottom row of buttons (under your friends), tap <strong>"Share to..."</strong> (or share icon).
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface border border-subtle">
+                <span className="font-extrabold text-main block mb-1">3. Select Orbit</span>
+                Tap <strong>Orbit</strong> in Android's share list. It opens Orbit and auto-saves to your Vault!
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted border-t border-subtle/40 pt-2">
+              💡 <strong>Don't see Orbit in the share list?</strong> If Orbit was installed before this feature, uninstall Orbit once from your phone's home screen, open Chrome, and tap <strong>"Install app"</strong> so Android refreshes its share sheet! Alternatively, you can always tap <strong>"Copy link"</strong> in Instagram and tap <strong>"Paste Reel"</strong> above!
+            </p>
+          </div>
+        )}
 
         {/* Search Bar & Collection Filter Chips */}
         <div className="space-y-3">
@@ -416,6 +505,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         reel={editingReel}
+        initialUrl={modalInitialUrl}
         onSave={onSaveReel}
       />
 

@@ -71,13 +71,30 @@ export const PwaPrompt: React.FC<PwaPromptProps> = ({
           )}
 
           {/* Android */}
-          <div className="p-3.5 rounded-2xl border border-subtle bg-sunken">
-            <div className="flex items-center gap-2 font-bold text-main mb-1">
+          <div className="p-3.5 rounded-2xl border border-subtle bg-sunken space-y-2">
+            <div className="flex items-center gap-2 font-bold text-main">
               <span>🤖 Android (Chrome)</span>
             </div>
-            <p className="text-xs text-muted">
-              Tap the <strong>three dots menu (⋮)</strong> at top right &rarr; tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+            <p className="text-xs text-muted leading-relaxed">
+              Tap the <strong>three dots menu (⋮)</strong> at top right &rarr; tap <strong>"Install app"</strong>.
             </p>
+            <div className="p-2.5 rounded-xl bg-surface border border-subtle text-[11px] text-muted space-y-1">
+              <p className="font-bold text-main flex items-center gap-1.5">
+                <span>🎬 How to Share from Instagram:</span>
+              </p>
+              <p>
+                1. On any Reel, tap the <strong>Share / Send</strong> button.
+              </p>
+              <p>
+                2. In the bottom row (under friends), tap <strong>"Share to..."</strong> (or the share icon).
+              </p>
+              <p>
+                3. Select <strong>Orbit</strong> from the Android share sheet!
+              </p>
+              <p className="text-[10px] text-accent font-medium pt-0.5 border-t border-subtle/60 mt-1">
+                💡 <em>If already installed before:</em> Uninstall Orbit once and tap "Install app" to refresh Android's share list.
+              </p>
+            </div>
           </div>
 
           {/* iOS */}
