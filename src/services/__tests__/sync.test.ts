@@ -523,4 +523,55 @@ describe('syncService - merge algorithms', () => {
     expect(routines.find((r) => r.id === 'routine-active')).toBeDefined();
     expect(routines.find((r) => r.id === 'routine-remote-active')).toBeDefined();
   });
+
+  it('merges reels and honors tombstones for deleted reels', () => {
+    const localVault = {
+      settings: {
+        tombstones: {
+          'reel-deleted': '2026-11-19T10:00:00.000Z',
+        },
+        reels: [
+          {
+            id: 'reel-local-active',
+            shortcode: 'ABC123xyz',
+            url: 'https://www.instagram.com/reel/ABC123xyz/',
+            headline: 'Matcha Latte 🍵',
+            createdAt: '2026-11-19T09:00:00.000Z',
+            updatedAt: '2026-11-19T09:00:00.000Z',
+          },
+        ],
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        reels: [
+          {
+            id: 'reel-deleted',
+            shortcode: 'DEL123',
+            url: 'https://www.instagram.com/reel/DEL123/',
+            headline: 'Deleted Reel',
+            createdAt: '2026-11-19T08:00:00.000Z',
+            updatedAt: '2026-11-19T08:00:00.000Z',
+          },
+          {
+            id: 'reel-remote-active',
+            shortcode: 'REM456',
+            url: 'https://www.instagram.com/reel/REM456/',
+            headline: 'Mobility Stretch 🧘',
+            createdAt: '2026-11-19T09:30:00.000Z',
+            updatedAt: '2026-11-19T09:30:00.000Z',
+          },
+        ],
+      },
+    };
+
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
+    const reels = merged.settings?.reels || [];
+
+    expect(reels.find((r: any) => r.id === 'reel-deleted')).toBeUndefined();
+    expect(reels.length).toBe(2);
+    expect(reels.find((r: any) => r.id === 'reel-local-active')).toBeDefined();
+    expect(reels.find((r: any) => r.id === 'reel-remote-active')).toBeDefined();
+  });
 });

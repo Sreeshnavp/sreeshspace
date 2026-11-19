@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet, Palette } from 'lucide-react';
+import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet, Palette, Film } from 'lucide-react';
 
 import type { 
   LinkItem, 
@@ -16,7 +16,8 @@ import type {
   RoutineItem,
   FinanceTransaction,
   FinanceCategory,
-  TransactionType
+  TransactionType,
+  ReelItem
 } from './types';
 import { DEFAULT_FINANCE_CATEGORIES } from './types/finance';
 import { 
@@ -46,6 +47,8 @@ import {
   saveFinanceCategories,
   loadFinanceCurrency,
   saveFinanceCurrency,
+  loadReels,
+  saveReels,
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
@@ -67,6 +70,7 @@ import { normalizeUrl, generateSuggestedTitle, getFaviconUrl, extractDomain, for
 import { triggerPartyPop, playPopSound } from './utils/delight';
 import { todayKey, addDays, toLocalDateKey } from './utils/dates';
 import { ensureRoutinesForDate } from './utils/routines';
+import { extractInstagramReelInfo, isInstagramReelUrl } from './utils/instagramHelper';
 
 import { Header } from './components/Header';
 import { QuickAddBar } from './components/QuickAddBar';
@@ -80,6 +84,7 @@ import { ExportImportModal } from './components/ExportImportModal';
 import { PwaPrompt } from './components/PwaPrompt';
 import { AttachmentViewerModal } from './components/AttachmentViewerModal';
 import { NotebookArea } from './components/NotebookArea';
+import { ReelsArea } from './components/reels/ReelsArea';
 import { DesignGuideModal } from './components/DesignGuideModal';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
@@ -134,6 +139,7 @@ export function App() {
     frozenDates: [],
   });
   const [routines, setRoutines] = useState<RoutineItem[]>([]);
+  const [reels, setReels] = useState<ReelItem[]>([]);
 
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
@@ -246,6 +252,7 @@ export function App() {
         loadedFinances,
         loadedFinanceCats,
         loadedSketches,
+        loadedReels,
       ] = await Promise.all([
         loadLinks(),
         loadCategories(),
@@ -259,6 +266,7 @@ export function App() {
         loadFinanceTransactions(),
         loadFinanceCategories(),
         loadSketches(),
+        loadReels(),
       ]);
       setLinks(loadedLinks);
       setCategories(loadedCats.filter((c) => !isPreinstalledCategory(c)));
@@ -275,6 +283,7 @@ export function App() {
 
       setNotes(loadedNotes);
       setSketches(loadedSketches);
+      setReels(loadedReels);
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
       const hasValidCompletions = loadedEvents.some((e) =>
@@ -391,6 +400,7 @@ export function App() {
           loadedFinances,
           loadedFinanceCats,
           loadedSketches,
+          loadedReels,
         ] = await Promise.all([
           loadLinks(),
           loadCategories(),
@@ -404,6 +414,7 @@ export function App() {
           loadFinanceTransactions(),
           loadFinanceCategories(),
           loadSketches(),
+          loadReels(),
         ]);
         const cleanLinks = loadedLinks.filter((l) => !isSampleItem(l));
         const cleanTodos = loadedTodos.filter((t) => !isSampleItem(t));
@@ -430,6 +441,7 @@ export function App() {
         setTodos(initialTodosWithRoutines);
         setNotes(cleanNotes);
         setSketches(loadedSketches);
+        setReels(loadedReels);
         setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
         const hasValidCompletions = cleanEvents.some((e) =>
@@ -546,15 +558,67 @@ export function App() {
     return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
+  // 📲 Mobile PWA Share Target Handler (Instagram Reels & Posts shared to Orbit)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get('url') || '';
+    const sharedText = params.get('text') || '';
+    const sharedTitle = params.get('title') || '';
+    const combined = `${sharedTitle} ${sharedText} ${sharedUrl}`.trim();
+
+    if (combined && (sharedUrl || sharedText)) {
+      // Check if it's an Instagram Reel or Post
+      if (isInstagramReelUrl(combined) || isInstagramReelUrl(sharedUrl) || isInstagramReelUrl(sharedText)) {
+        const targetString = sharedUrl && isInstagramReelUrl(sharedUrl) ? `${sharedText} ${sharedUrl}` : combined;
+        const parsed = extractInstagramReelInfo(targetString);
+        if (parsed) {
+          const nowIso = new Date().toISOString();
+          const newReel: ReelItem = {
+            id: `reel_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            url: parsed.canonicalUrl,
+            shortcode: parsed.shortcode,
+            headline: parsed.suggestedHeadline || sharedTitle || 'Shared Instagram Reel',
+            caption: parsed.suggestedCaption || sharedText || undefined,
+            author: parsed.author,
+            collection: 'General',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          };
+
+          setReels((prev) => {
+            const exists = prev.some((r) => r.shortcode === parsed.shortcode);
+            if (exists) return prev;
+            const updated = [newReel, ...prev];
+            saveReels(updated);
+            return updated;
+          });
+
+          setWorkspaceView('reels');
+          showToast('Saved Instagram Reel to your Vault! 🎬✨');
+          triggerPartyPop('single');
+          playPopSound();
+        }
+      }
+
+      // Clean query params from URL bar cleanly without refreshing
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch {}
+    }
+  }, []);
+
   // ==========================================
-  // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> FINANCES <-> NOTES & SKETCHPAD)
+  // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> REELS <-> FINANCES <-> NOTES & SKETCHPAD)
   // ==========================================
-  const WORKSPACE_SECTIONS: WorkspaceView[] = ['links', 'notebook', 'finance', 'notes'];
+  const WORKSPACE_SECTIONS: WorkspaceView[] = ['links', 'notebook', 'reels', 'finance', 'notes'];
 
   const showSwipePill = (section: WorkspaceView) => {
     const config: Record<WorkspaceView, { label: string; icon: string }> = {
       links: { label: 'Links', icon: '🔗' },
       notebook: { label: 'Habits & Tasks', icon: '📖' },
+      reels: { label: 'Reels Vault', icon: '🎬' },
       finance: { label: 'Finances', icon: '💳' },
       notes: { label: 'Notes & Sketchpad', icon: '🎨' },
       both: { label: 'Workspace', icon: '✨' },
@@ -1150,6 +1214,39 @@ export function App() {
 
     showToast('Fixed routine deleted permanently 🗑️');
     syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  // Instagram Reels Handlers
+  const handleSaveReel = async (reel: ReelItem) => {
+    const existingIndex = reels.findIndex((r) => r.id === reel.id);
+    let updated: ReelItem[];
+    if (existingIndex >= 0) {
+      updated = reels.map((r) => (r.id === reel.id ? reel : r));
+      showToast('Reel updated 🎬');
+    } else {
+      updated = [reel, ...reels];
+      showToast('Saved reel to your Vault! 🎬✨');
+    }
+    setReels(updated);
+    await saveReels(updated);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleDeleteReel = async (id: string) => {
+    const updated = reels.filter((r) => r.id !== id);
+    setReels(updated);
+    await saveReels(updated);
+    await recordTombstone(id);
+    showToast('Reel removed from Vault 🗑️');
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleToggleFavoriteReel = async (id: string) => {
+    const updated = reels.map((r) => (r.id === id ? { ...r, favorite: !r.favorite } : r));
+    setReels(updated);
+    await saveReels(updated);
+    const target = updated.find((r) => r.id === id);
+    showToast(target?.favorite ? 'Added to favorites ⭐' : 'Removed from favorites');
   };
 
   // Archive completed daily tasks with 10-second Undo toast
@@ -1926,6 +2023,21 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    setWorkspaceView('reels');
+                    playPopSound();
+                  }}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
+                    workspaceView === 'reels'
+                      ? 'bg-surface text-rose-600 shadow-2xs font-extrabold'
+                      : 'text-muted hover:text-main'
+                  }`}
+                >
+                  <Film size={13} className="stroke-[2.2] text-rose-500" />
+                  <span>Reels ({reels.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     setWorkspaceView('finance');
                     playPopSound();
                   }}
@@ -2230,7 +2342,19 @@ export function App() {
               </div>
             )}
 
-            {/* 3. FINANCE & EXPENSES SECTION: Minimal Mibu Tracker */}
+            {/* 3. INSTAGRAM REELS VAULT SECTION: Saved Reels & Fullscreen Swiper Sequence */}
+            {workspaceView === 'reels' && (
+              <div className="pt-2">
+                <ReelsArea
+                  reels={reels}
+                  onSaveReel={handleSaveReel}
+                  onDeleteReel={handleDeleteReel}
+                  onToggleFavoriteReel={handleToggleFavoriteReel}
+                />
+              </div>
+            )}
+
+            {/* 4. FINANCE & EXPENSES SECTION: Minimal Mibu Tracker */}
             {workspaceView === 'finance' && (
               <div className="pt-2">
                 <FinanceDashboard

@@ -27,6 +27,8 @@ import {
   saveFinanceCategories,
   loadSketches,
   saveSketches,
+  loadReels,
+  saveReels,
   isSampleItem,
   isPreinstalledCategory,
 } from './storage';
@@ -441,6 +443,16 @@ export function mergeVaultData(
     mergedTombstones
   );
 
+  // 13. Instagram Reels Vault
+  const localReels: any[] = (local.settings?.reels as any[]) || [];
+  const remoteReels: any[] = (remote.settings?.reels as any[]) || [];
+  const reels = mergeItemsById(
+    localReels,
+    remoteReels,
+    (r) => new Date(r.updatedAt || r.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
@@ -449,6 +461,7 @@ export function mergeVaultData(
     finances,
     financeCategories,
     sketches,
+    reels,
     ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
@@ -510,6 +523,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localFinances,
       localFinanceCats,
       localSketches,
+      localReels,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -524,6 +538,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadFinanceTransactions(),
       loadFinanceCategories(),
       loadSketches(),
+      loadReels(),
     ]);
 
     const localData = {
@@ -548,6 +563,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         finances: localFinances,
         financeCategories: localFinanceCats,
         sketches: localSketches,
+        reels: localReels,
         streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
@@ -601,6 +617,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         : Promise.resolve(),
       mergedPayload.settings?.sketches
         ? saveSketches(mergedPayload.settings.sketches)
+        : Promise.resolve(),
+      mergedPayload.settings?.reels
+        ? saveReels(mergedPayload.settings.reels)
         : Promise.resolve(),
     ]);
 

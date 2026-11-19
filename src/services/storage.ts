@@ -10,7 +10,8 @@ import type {
   StreakState,
   FinanceTransaction,
   FinanceCategory,
-  SketchItem
+  SketchItem,
+  ReelItem
 } from '../types';
 import { DEFAULT_FINANCE_CATEGORIES } from '../types/finance';
 import { toLocalDateKey, todayKey, addDays } from '../utils/dates';
@@ -23,6 +24,7 @@ export const STORAGE_KEY_NOTES = 'sreeshspace_notes_v1';
 export const STORAGE_KEY_EVENTS = 'sreeshspace_activity_events_v1';
 export const STORAGE_KEY_DAYLOGS = 'sreeshspace_daylogs_v1';
 export const STORAGE_KEY_ROUTINES = 'sreeshspace_routines_v1';
+export const STORAGE_KEY_REELS = 'orbit_reels_v1';
 export const STORAGE_KEY_STREAK = 'sreeshspace_streak_v1';
 export const STORAGE_KEY_BACKUP_PRE_V3 = 'sreeshspace_backup_pre_v3';
 export const STORAGE_KEY_SCHEMA_VERSION = 'sreeshspace_schema_version';
@@ -946,5 +948,34 @@ export async function saveSketches(sketches: SketchItem[]): Promise<void> {
     localStorage.setItem(STORAGE_KEY_SKETCHES, JSON.stringify(sketches));
   } catch (err) {
     console.error('Error saving sketches:', err);
+  }
+}
+
+// ==========================================
+// 🎬 INSTAGRAM REELS VAULT STORAGE (V1)
+// ==========================================
+
+export async function loadReels(): Promise<ReelItem[]> {
+  try {
+    const data = await get<ReelItem[]>(STORAGE_KEY_REELS);
+    if (data && Array.isArray(data)) {
+      return data;
+    }
+    const local = localStorage.getItem(STORAGE_KEY_REELS);
+    if (local) {
+      return JSON.parse(local);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveReels(reels: ReelItem[]): Promise<void> {
+  try {
+    await set(STORAGE_KEY_REELS, reels);
+    localStorage.setItem(STORAGE_KEY_REELS, JSON.stringify(reels));
+  } catch (err) {
+    console.error('Error saving reels:', err);
   }
 }

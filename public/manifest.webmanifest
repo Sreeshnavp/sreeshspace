@@ -39,5 +39,14 @@
       "type": "image/png"
     }
   ],
-  "categories": ["productivity", "utilities"]
+  "categories": ["productivity", "utilities"],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

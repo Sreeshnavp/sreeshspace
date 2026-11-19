@@ -33,11 +33,12 @@ export interface CategoryInfo {
 
 export type MainTab = 'all' | 'categories';
 export type ViewMode = 'grid' | 'list';
-export type WorkspaceView = 'links' | 'notebook' | 'finance' | 'notes' | 'both';
+export type WorkspaceView = 'links' | 'notebook' | 'reels' | 'finance' | 'notes' | 'both';
 export type AccentTheme = 'sage' | 'peach' | 'wisteria' | 'sky' | 'honey';
 
 export * from './todo';
 export * from './finance';
+export * from './reels';
 
 export interface NoteItem {
   id: string;
