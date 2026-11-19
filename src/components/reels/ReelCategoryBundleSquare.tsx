@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Edit3, Sparkles, Play } from 'lucide-react';
 import type { CategoryInfo, ReelItem } from '../../types';
 import { getCategoryToken } from '../../utils/themeColors';
-import { getInstagramThumbnailUrl } from '../../utils/instagramHelper';
+import { getInstagramThumbnailUrl, isValidCoverUrl, getSafeCoverPhotoUrl } from '../../utils/instagramHelper';
 
 interface ReelCategoryBundleSquareProps {
   category: CategoryInfo;
@@ -165,7 +165,10 @@ export const ReelCategoryBundleSquare: React.FC<ReelCategoryBundleSquareProps> =
               const isOverflowTile = slotIndex === 3 && bundleReels.length > 4;
 
               if (reel) {
-                const cover = reel.thumbnailUrl || getInstagramThumbnailUrl(reel.shortcode, 'm');
+                const rawCover = isValidCoverUrl(reel.thumbnailUrl)
+                  ? reel.thumbnailUrl!
+                  : getInstagramThumbnailUrl(reel.shortcode, 'm');
+                const cover = getSafeCoverPhotoUrl(rawCover) || rawCover;
 
                 return (
                   <div

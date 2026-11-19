@@ -74,7 +74,13 @@ import { normalizeUrl, generateSuggestedTitle, getFaviconUrl, extractDomain, for
 import { triggerPartyPop, playPopSound } from './utils/delight';
 import { todayKey, addDays, toLocalDateKey } from './utils/dates';
 import { ensureRoutinesForDate } from './utils/routines';
-import { extractInstagramReelInfo, isInstagramReelUrl } from './utils/instagramHelper';
+import {
+  extractInstagramReelInfo,
+  isInstagramReelUrl,
+  batchResolveReelCovers,
+  resolveInstagramCover,
+  isValidCoverUrl
+} from './utils/instagramHelper';
 
 import { Header } from './components/Header';
 import { QuickAddBar } from './components/QuickAddBar';
@@ -291,6 +297,12 @@ export function App() {
       setNotes(loadedNotes);
       setSketches(loadedSketches);
       setReels(loadedReels);
+      batchResolveReelCovers(loadedReels).then(async ({ updated, reels: resolvedReels }) => {
+        if (updated) {
+          setReels(resolvedReels);
+          await saveReels(resolvedReels);
+        }
+      });
       setReelCategories(loadedReelCats.filter((c) => !isPreinstalledReelCategory(c)));
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
@@ -452,6 +464,13 @@ export function App() {
         setNotes(cleanNotes);
         setSketches(loadedSketches);
         setReels(loadedReels);
+        batchResolveReelCovers(loadedReels).then(async ({ updated, reels: resolvedReels }) => {
+          if (updated) {
+            setReels(resolvedReels);
+            await saveReels(resolvedReels);
+            syncWithCloud({ onMerged: refreshDataFromStorage });
+          }
+        });
         const cleanReelCats = loadedReelCats.filter((c) => !isPreinstalledReelCategory(c));
         setReelCategories(cleanReelCats);
         if (cleanReelCats.length !== loadedReelCats.length) {
@@ -596,7 +615,8 @@ export function App() {
             headline: parsed.suggestedHeadline || sharedTitle || 'Shared Instagram Reel',
             caption: parsed.suggestedCaption || sharedText || undefined,
             author: parsed.author,
-            collection: 'General',
+            thumbnailUrl: isValidCoverUrl(parsed.thumbnailUrl) ? parsed.thumbnailUrl : undefined,
+            collection: undefined,
             createdAt: nowIso,
             updatedAt: nowIso,
           };
@@ -607,6 +627,31 @@ export function App() {
             const updated = [newReel, ...prev];
             saveReels(updated);
             return updated;
+          });
+
+          // Resolve cover photo immediately in background
+          resolveInstagramCover(parsed.shortcode).then((meta) => {
+            if (meta && isValidCoverUrl(meta.thumbnailUrl)) {
+              setReels((prev) => {
+                const updated = prev.map((r) =>
+                  r.shortcode === parsed.shortcode
+                    ? {
+                        ...r,
+                        thumbnailUrl: meta.thumbnailUrl,
+                        author: r.author || meta.author,
+                        headline:
+                          !r.headline || r.headline.startsWith('Instagram Reel') || r.headline === 'Shared Instagram Reel'
+                            ? meta.title?.slice(0, 50) || r.headline
+                            : r.headline,
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : r
+                );
+                saveReels(updated);
+                syncWithCloud({ onMerged: refreshDataFromStorage });
+                return updated;
+              });
+            }
           });
 
           setWorkspaceView('reels');

@@ -11,11 +11,18 @@ import {
   Clipboard,
   ExternalLink,
   Play,
-  Image
+  Image as ImageIcon,
+  RefreshCw
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem, CategoryInfo } from '../../types';
-import { extractInstagramReelInfo } from '../../utils/instagramHelper';
+import {
+  extractInstagramReelInfo,
+  resolveInstagramCover,
+  isValidCoverUrl,
+  getInstagramThumbnailUrl,
+  getSafeCoverPhotoUrl,
+} from '../../utils/instagramHelper';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
 
 interface ReelModalProps {
@@ -47,7 +54,24 @@ export const ReelModal: React.FC<ReelModalProps> = ({
   const [favorite, setFavorite] = useState(false);
   const [parsedShortcode, setParsedShortcode] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [isResolvingCover, setIsResolvingCover] = useState(false);
+  const [showCustomCoverInput, setShowCustomCoverInput] = useState(false);
   const [urlError, setUrlError] = useState('');
+
+  const autoFetchCover = (code: string) => {
+    if (!code) return;
+    setIsResolvingCover(true);
+    resolveInstagramCover(code).then((meta) => {
+      setIsResolvingCover(false);
+      if (meta && isValidCoverUrl(meta.thumbnailUrl)) {
+        setThumbnailUrl(meta.thumbnailUrl);
+        setHeadline((prev) => (!prev || prev.startsWith('Instagram Reel') ? meta.title?.slice(0, 50) || prev : prev));
+        setAuthor((prev) => (!prev && meta.author ? meta.author : prev));
+      }
+    }).catch(() => {
+      setIsResolvingCover(false);
+    });
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,8 +86,14 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setTagInput(reel.tags ? reel.tags.join(', ') : '');
       setFavorite(Boolean(reel.favorite));
       setParsedShortcode(reel.shortcode);
-      setThumbnailUrl(reel.thumbnailUrl || `https://www.instagram.com/p/${reel.shortcode}/media/?size=l`);
+      const existingThumb = isValidCoverUrl(reel.thumbnailUrl)
+        ? reel.thumbnailUrl!
+        : getInstagramThumbnailUrl(reel.shortcode, 'l');
+      setThumbnailUrl(existingThumb);
       setUrlError('');
+      if (!isValidCoverUrl(reel.thumbnailUrl)) {
+        autoFetchCover(reel.shortcode);
+      }
     } else {
       const startUrl = initialUrl.trim();
       const initialCat = defaultCategory || '';
@@ -76,6 +106,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setTagInput('');
       setFavorite(false);
       setUrlError('');
+      setShowCustomCoverInput(false);
 
       if (startUrl) {
         const parsed = extractInstagramReelInfo(startUrl);
@@ -85,6 +116,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
           if (parsed.author) setAuthor(parsed.author);
           if (parsed.suggestedCaption) setCaption(parsed.suggestedCaption);
           if (parsed.suggestedHeadline) setHeadline(parsed.suggestedHeadline);
+          autoFetchCover(parsed.shortcode);
         }
       } else {
         setParsedShortcode('');
@@ -106,6 +138,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       if (!author && parsed.author) setAuthor(parsed.author);
       if (!caption && parsed.suggestedCaption) setCaption(parsed.suggestedCaption);
       if (!headline && parsed.suggestedHeadline) setHeadline(parsed.suggestedHeadline);
+      autoFetchCover(parsed.shortcode);
     } else if (val.trim().length > 0) {
       setParsedShortcode('');
       setThumbnailUrl('');
@@ -245,29 +278,77 @@ export const ReelModal: React.FC<ReelModalProps> = ({
                 </div>
 
                 {/* Default Reel Cover Photo in Modal */}
-                <div className="p-3 rounded-2xl bg-surface border border-subtle flex items-center gap-3 shadow-2xs">
-                  <div className="w-16 h-20 rounded-xl overflow-hidden border border-subtle bg-sunken shrink-0 relative">
-                    <img
-                      src={thumbnailUrl || `https://www.instagram.com/p/${parsedShortcode}/media/?size=l`}
-                      alt="Reel Cover"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                <div className="p-3 rounded-2xl bg-surface border border-subtle flex flex-col sm:flex-row items-start sm:items-center gap-3 shadow-2xs">
+                  <div className="w-16 h-20 rounded-xl overflow-hidden border border-subtle bg-sunken shrink-0 relative group/preview">
+                    {isValidCoverUrl(thumbnailUrl) ? (
+                      <img
+                        src={getSafeCoverPhotoUrl(thumbnailUrl) || thumbnailUrl}
+                        alt="Reel Cover"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-rose-500/10 text-rose-500 p-1 text-center">
+                        <Instagram size={18} />
+                        <span className="text-[8px] font-mono mt-1">Reel</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                       <Play size={14} className="fill-white text-white" />
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-main">
-                      <Sparkles size={12} className="text-rose-500" />
-                      <span>Default Reel Cover Photo</span>
+
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-main">
+                        <Sparkles size={12} className="text-rose-500" />
+                        <span>Reel Cover Photo</span>
+                        {isResolvingCover ? (
+                          <span className="text-[10px] text-accent font-medium flex items-center gap-1 animate-pulse">
+                            <RefreshCw size={10} className="animate-spin" /> Fetching cover...
+                          </span>
+                        ) : isValidCoverUrl(thumbnailUrl) ? (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
+                            <Check size={10} className="stroke-[3]" /> Original cover ready
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => autoFetchCover(parsedShortcode)}
+                        className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                        title="Re-fetch cover photo"
+                      >
+                        <RefreshCw size={11} className={isResolvingCover ? 'animate-spin' : ''} />
+                        <span>Re-fetch</span>
+                      </button>
                     </div>
+
                     <p className="text-[11px] text-muted leading-tight">
-                      Shows as default cover photo on card and in the sequence feed.
+                      This cover photo is shown on cards and in your reels feed.
                     </p>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomCoverInput(!showCustomCoverInput)}
+                      className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1 cursor-pointer pt-0.5"
+                    >
+                      <ImageIcon size={10} />
+                      <span>{showCustomCoverInput ? 'Hide Cover URL' : 'Custom Cover Image URL...'}</span>
+                    </button>
+
+                    {showCustomCoverInput && (
+                      <div className="pt-1">
+                        <input
+                          type="text"
+                          value={thumbnailUrl}
+                          onChange={(e) => setThumbnailUrl(e.target.value)}
+                          placeholder="https://... cover image URL"
+                          className="w-full bg-sunken border border-subtle rounded-xl px-2.5 py-1 text-[11px] font-mono text-main placeholder:text-muted focus:outline-hidden focus:ring-1 focus:ring-ring/40"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

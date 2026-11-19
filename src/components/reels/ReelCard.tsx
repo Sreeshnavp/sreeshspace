@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play,
   Star,
@@ -13,7 +13,13 @@ import {
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem } from '../../types/reels';
-import { getInstagramDirectUrl, getInstagramThumbnailUrl } from '../../utils/instagramHelper';
+import {
+  getInstagramDirectUrl,
+  getInstagramThumbnailUrl,
+  resolveInstagramCover,
+  isValidCoverUrl,
+  getSafeCoverPhotoUrl,
+} from '../../utils/instagramHelper';
 import { formatRelativeTime } from '../../utils/urlHelper';
 import { playPopSound } from '../../utils/delight';
 
@@ -46,11 +52,49 @@ export const ReelCard: React.FC<ReelCardProps> = ({
   onDragOver,
   onDrop,
 }) => {
+  const [coverUrl, setCoverUrl] = useState<string>(() => {
+    if (isValidCoverUrl(reel.thumbnailUrl)) return getSafeCoverPhotoUrl(reel.thumbnailUrl);
+    return getSafeCoverPhotoUrl(getInstagramThumbnailUrl(reel.shortcode, 'l'));
+  });
   const [imgError, setImgError] = useState(false);
+  const [retryAttempted, setRetryAttempted] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  useEffect(() => {
+    if (isValidCoverUrl(reel.thumbnailUrl)) {
+      setCoverUrl(getSafeCoverPhotoUrl(reel.thumbnailUrl));
+      setImgError(false);
+      return;
+    }
+    let isMounted = true;
+    resolveInstagramCover(reel.shortcode).then((meta) => {
+      if (isMounted && meta && isValidCoverUrl(meta.thumbnailUrl)) {
+        setCoverUrl(getSafeCoverPhotoUrl(meta.thumbnailUrl));
+        setImgError(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [reel.thumbnailUrl, reel.shortcode]);
+
+  const handleImageError = () => {
+    if (!retryAttempted) {
+      setRetryAttempted(true);
+      resolveInstagramCover(reel.shortcode, true).then((meta) => {
+        if (meta && isValidCoverUrl(meta.thumbnailUrl)) {
+          setCoverUrl(getSafeCoverPhotoUrl(meta.thumbnailUrl));
+          setImgError(false);
+          return;
+        }
+        setImgError(true);
+      });
+    } else {
+      setImgError(true);
+    }
+  };
+
   const directUrl = getInstagramDirectUrl(reel.shortcode);
-  const coverUrl = reel.thumbnailUrl || getInstagramThumbnailUrl(reel.shortcode, 'l');
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', reel.id);
@@ -140,7 +184,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({
               className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform duration-300"
               loading="lazy"
               referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
+              onError={handleImageError}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-rose-500/15 via-amber-500/10 to-purple-500/15 p-4 text-center">
