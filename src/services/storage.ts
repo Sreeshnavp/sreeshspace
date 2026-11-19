@@ -27,13 +27,34 @@ export const STORAGE_KEY_ROUTINES = 'sreeshspace_routines_v1';
 export const STORAGE_KEY_REELS = 'orbit_reels_v1';
 export const STORAGE_KEY_REEL_CATEGORIES = 'orbit_reel_categories_v1';
 
-export const DEFAULT_REEL_CATEGORIES: CategoryInfo[] = [
-  { id: 'reel_cat_fitness', name: 'Fitness & Gym', color: 'rose', icon: '💪', createdAt: new Date().toISOString(), order: 0 },
-  { id: 'reel_cat_recipes', name: 'Recipes', color: 'honey', icon: '🍳', createdAt: new Date().toISOString(), order: 1 },
-  { id: 'reel_cat_coding', name: 'Coding & Tech', color: 'sky', icon: '💻', createdAt: new Date().toISOString(), order: 2 },
-  { id: 'reel_cat_aesthetic', name: 'Aesthetic & Vibe', color: 'lavender', icon: '✨', createdAt: new Date().toISOString(), order: 3 },
-  { id: 'reel_cat_travel', name: 'Travel & Trips', color: 'teal', icon: '✈️', createdAt: new Date().toISOString(), order: 4 },
-];
+export const DEFAULT_REEL_CATEGORIES: CategoryInfo[] = [];
+
+export const PREINSTALLED_REEL_CATEGORY_IDS = new Set([
+  'reel_cat_fitness',
+  'reel_cat_recipes',
+  'reel_cat_coding',
+  'reel_cat_aesthetic',
+  'reel_cat_travel',
+]);
+
+export const PREINSTALLED_REEL_CATEGORY_NAMES = new Set([
+  'fitness & gym',
+  'recipes',
+  'coding & tech',
+  'aesthetic & vibe',
+  'travel & trips',
+  'travel',
+  'fitness',
+  'coding',
+  'aesthetic',
+]);
+
+export function isPreinstalledReelCategory(cat: any): boolean {
+  if (!cat) return false;
+  const id = String(cat.id || '').toLowerCase();
+  const name = String(cat.name || '').trim().toLowerCase();
+  return PREINSTALLED_REEL_CATEGORY_IDS.has(id) || PREINSTALLED_REEL_CATEGORY_NAMES.has(name);
+}
 export const STORAGE_KEY_STREAK = 'sreeshspace_streak_v1';
 export const STORAGE_KEY_BACKUP_PRE_V3 = 'sreeshspace_backup_pre_v3';
 export const STORAGE_KEY_SCHEMA_VERSION = 'sreeshspace_schema_version';
@@ -992,24 +1013,27 @@ export async function saveReels(reels: ReelItem[]): Promise<void> {
 export async function loadReelCategories(): Promise<CategoryInfo[]> {
   try {
     const data = await get<CategoryInfo[]>(STORAGE_KEY_REEL_CATEGORIES);
-    if (data && Array.isArray(data) && data.length > 0) {
-      return data;
+    if (data && Array.isArray(data)) {
+      return data.filter((c) => !isPreinstalledReelCategory(c));
     }
     const local = localStorage.getItem(STORAGE_KEY_REEL_CATEGORIES);
     if (local) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c) => !isPreinstalledReelCategory(c));
+      }
     }
-    return DEFAULT_REEL_CATEGORIES;
+    return [];
   } catch {
-    return DEFAULT_REEL_CATEGORIES;
+    return [];
   }
 }
 
 export async function saveReelCategories(categories: CategoryInfo[]): Promise<void> {
   try {
-    await set(STORAGE_KEY_REEL_CATEGORIES, categories);
-    localStorage.setItem(STORAGE_KEY_REEL_CATEGORIES, JSON.stringify(categories));
+    const clean = categories.filter((c) => !isPreinstalledReelCategory(c));
+    await set(STORAGE_KEY_REEL_CATEGORIES, clean);
+    localStorage.setItem(STORAGE_KEY_REEL_CATEGORIES, JSON.stringify(clean));
   } catch (err) {
     console.error('Error saving reel categories:', err);
   }

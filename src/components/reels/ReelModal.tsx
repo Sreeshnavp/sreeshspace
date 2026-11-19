@@ -28,17 +28,6 @@ interface ReelModalProps {
   onSave: (reel: ReelItem) => void;
 }
 
-const DEFAULT_COLLECTIONS = [
-  'General',
-  'Recipes 🍳',
-  'Fitness & Gym 💪',
-  'Coding & Tech 💻',
-  'Aesthetic & Vibe ✨',
-  'Travel ✈️',
-  'Productivity 🎯',
-  'Humor & Memes 😂'
-];
-
 export const ReelModal: React.FC<ReelModalProps> = ({
   isOpen,
   onClose,
@@ -53,7 +42,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
   const [caption, setCaption] = useState('');
   const [takeaway, setTakeaway] = useState('');
   const [author, setAuthor] = useState('');
-  const [collection, setCollection] = useState('General');
+  const [collection, setCollection] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [favorite, setFavorite] = useState(false);
   const [parsedShortcode, setParsedShortcode] = useState('');
@@ -69,7 +58,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setCaption(reel.caption || '');
       setTakeaway(reel.takeaway || '');
       setAuthor(reel.author || '');
-      setCollection(reel.collection || 'General');
+      setCollection(reel.collection || '');
       setTagInput(reel.tags ? reel.tags.join(', ') : '');
       setFavorite(Boolean(reel.favorite));
       setParsedShortcode(reel.shortcode);
@@ -77,7 +66,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setUrlError('');
     } else {
       const startUrl = initialUrl.trim();
-      const initialCat = defaultCategory || (categories && categories[0] ? categories[0].name : 'General');
+      const initialCat = defaultCategory || '';
       setUrlInput(startUrl);
       setHeadline('');
       setCaption('');
@@ -161,7 +150,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       caption: caption.trim() || undefined,
       takeaway: takeaway.trim() || undefined,
       author: author.trim() || parsed.author || undefined,
-      collection: collection.trim() || 'General',
+      collection: collection.trim() || undefined,
       tags: tags.length > 0 ? tags : undefined,
       favorite,
       thumbnailUrl: thumbnailUrl || (parsed ? parsed.thumbnailUrl : undefined),
@@ -337,20 +326,14 @@ export const ReelModal: React.FC<ReelModalProps> = ({
                 onChange={(e) => setCollection(e.target.value)}
                 className="w-full bg-sunken border border-subtle rounded-xl px-3 py-2 text-xs font-bold text-main focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs cursor-pointer"
               >
-                <option value="General">General 📁</option>
+                <option value="">No Collection (Loose Reel)</option>
                 {categories && categories.length > 0 ? (
                   categories.map((c) => (
                     <option key={c.id || c.name} value={c.name}>
                       {c.name} {c.icon || ''}
                     </option>
                   ))
-                ) : (
-                  DEFAULT_COLLECTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))
-                )}
+                ) : null}
               </select>
             </div>
           </div>

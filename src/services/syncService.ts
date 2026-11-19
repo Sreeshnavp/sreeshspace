@@ -33,6 +33,7 @@ import {
   saveReelCategories,
   isSampleItem,
   isPreinstalledCategory,
+  isPreinstalledReelCategory,
 } from './storage';
 import type {
   LinkItem,
@@ -456,8 +457,12 @@ export function mergeVaultData(
   );
 
   // 14. Instagram Reel Categories / Collections
-  const localReelCats: any[] = (local.settings?.reelCategories as any[]) || [];
-  const remoteReelCats: any[] = (remote.settings?.reelCategories as any[]) || [];
+  const localReelCats: any[] = ((local.settings?.reelCategories as any[]) || []).filter(
+    (c) => !isPreinstalledReelCategory(c)
+  );
+  const remoteReelCats: any[] = ((remote.settings?.reelCategories as any[]) || []).filter(
+    (c) => !isPreinstalledReelCategory(c)
+  );
   const reelCategories = mergeItemsById(
     localReelCats,
     remoteReelCats,

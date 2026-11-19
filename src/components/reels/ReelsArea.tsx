@@ -54,7 +54,6 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: '5-Minute Morning Mobility Routine 🧘',
     author: '@movewithalec',
     takeaway: 'Key exercises:\n1. Cat-cow stretches (10 reps)\n2. Deep squat hold (60s)\n3. Thoracic rotations',
-    collection: 'Fitness & Gym',
     tags: ['morning', 'mobility', 'stretch'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&auto=format&fit=crop&q=80',
     order: 0,
@@ -66,7 +65,6 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: 'Creamy Iced Matcha Cloud Latte 🍵',
     author: '@cafe_aesthetic',
     takeaway: 'Ingredients:\n- 2 tsp ceremonial matcha\n- 60ml warm water (whisk 80°C)\n- Cold oat milk\n- Sweet vanilla cloud foam on top',
-    collection: 'Recipes',
     tags: ['matcha', 'recipe', 'aesthetic'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&auto=format&fit=crop&q=80',
     order: 1,
@@ -78,7 +76,6 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
     headline: 'Top 3 Modern CSS Tricks for 2026 💻',
     author: '@frontend_ninja',
     takeaway: '1. `text-wrap: balance` for gorgeous headings\n2. `@container` queries for card grids\n3. `:has()` relational selector',
-    collection: 'Coding & Tech',
     tags: ['css', 'webdev', 'frontend'],
     thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
     order: 2,
@@ -88,7 +85,7 @@ const STARTER_SAMPLE_REELS: Omit<ReelItem, 'id' | 'createdAt' | 'updatedAt'>[] =
 
 export const ReelsArea: React.FC<ReelsAreaProps> = ({
   reels,
-  categories = DEFAULT_REEL_CATEGORIES,
+  categories = [],
   onSaveReel,
   onDeleteReel,
   onToggleFavoriteReel,
@@ -118,9 +115,9 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const [showMobileGuide, setShowMobileGuide] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
-  // Effective categories list (custom + defaults)
+  // User-created categories only (0 defaults)
   const effectiveCategories = useMemo(() => {
-    return categories && categories.length > 0 ? categories : DEFAULT_REEL_CATEGORIES;
+    return categories || [];
   }, [categories]);
 
   // Standalone / Loose Reels on canvas in Folders view
@@ -664,7 +661,27 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
       {/* Main Content Area based on View Tab */}
       {viewTab === 'folders' ? (
         /* 1. CATEGORIZED FOLDERS VIEW (Like Links Menu: Bundles + Canvas Reels) */
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
+          {effectiveCategories.length === 0 && reels.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-sunken border border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-center gap-2 text-muted">
+                <FolderPlus size={15} className="text-rose-500 shrink-0" />
+                <span>No custom folders created yet. All reels appear directly below. Tap <strong>+ New Folder</strong> to bundle reels!</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  setEditingCategoryTarget(null);
+                  setIsNewCategoryModalOpen(true);
+                }}
+                className="self-start sm:self-auto px-3 py-1 rounded-xl bg-surface border border-subtle text-main font-bold text-xs hover:bg-sunken shadow-2xs transition active:scale-95 cursor-pointer"
+              >
+                + New Folder
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
             {/* Category Bundle Squares with Symmetrical 2x2 Cover Photos */}
             {effectiveCategories.map((category, index) => (

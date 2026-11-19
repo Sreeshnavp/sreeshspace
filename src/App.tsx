@@ -52,6 +52,7 @@ import {
   loadReelCategories,
   saveReelCategories,
   DEFAULT_REEL_CATEGORIES,
+  isPreinstalledReelCategory,
   runDataMigration, 
   purgeAllSampleData, 
   isSampleItem, 
@@ -290,7 +291,7 @@ export function App() {
       setNotes(loadedNotes);
       setSketches(loadedSketches);
       setReels(loadedReels);
-      setReelCategories(loadedReelCats);
+      setReelCategories(loadedReelCats.filter((c) => !isPreinstalledReelCategory(c)));
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
       const hasValidCompletions = loadedEvents.some((e) =>
@@ -451,7 +452,11 @@ export function App() {
         setNotes(cleanNotes);
         setSketches(loadedSketches);
         setReels(loadedReels);
-        setReelCategories(loadedReelCats);
+        const cleanReelCats = loadedReelCats.filter((c) => !isPreinstalledReelCategory(c));
+        setReelCategories(cleanReelCats);
+        if (cleanReelCats.length !== loadedReelCats.length) {
+          await saveReelCategories(cleanReelCats);
+        }
         setEvents(cleanEvents);
         setDayLogs(loadedDayLogs);
         const hasValidCompletions = cleanEvents.some((e) =>
