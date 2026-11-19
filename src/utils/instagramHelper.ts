@@ -9,6 +9,7 @@ export interface ParsedInstagramReel {
   author?: string;
   suggestedCaption?: string;
   suggestedHeadline?: string;
+  thumbnailUrl: string;
 }
 
 // Regex matching various Instagram URL formats:
@@ -65,6 +66,8 @@ export function extractInstagramReelInfo(input: string): ParsedInstagramReel | n
     suggestedHeadline = `Instagram Reel (${shortcode.slice(0, 6)})`;
   }
 
+  const thumbnailUrl = `https://www.instagram.com/p/${shortcode}/media/?size=l`;
+
   return {
     canonicalUrl,
     embedUrl,
@@ -72,7 +75,16 @@ export function extractInstagramReelInfo(input: string): ParsedInstagramReel | n
     author,
     suggestedCaption,
     suggestedHeadline,
+    thumbnailUrl,
   };
+}
+
+/**
+ * Get Instagram cover photo / media thumbnail URL
+ * Instagram redirects /media/?size=l to the CDN image
+ */
+export function getInstagramThumbnailUrl(shortcode: string, size: 't' | 'm' | 'l' = 'l'): string {
+  return `https://www.instagram.com/p/${shortcode}/media/?size=${size}`;
 }
 
 /**

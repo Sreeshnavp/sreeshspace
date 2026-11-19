@@ -4,6 +4,7 @@ import {
   extractInstagramReelInfo,
   getInstagramDirectUrl,
   getInstagramEmbedUrl,
+  getInstagramThumbnailUrl,
 } from '../instagramHelper';
 
 describe('instagramHelper', () => {
@@ -26,10 +27,12 @@ describe('instagramHelper', () => {
     expect(parsed?.embedUrl).toBe('https://www.instagram.com/reel/C8xyz123/embed/');
     expect(parsed?.author).toBe('@fitness_pro');
     expect(parsed?.suggestedHeadline).toBeDefined();
+    expect(parsed?.thumbnailUrl).toBe('https://www.instagram.com/p/C8xyz123/media/?size=l');
   });
 
-  it('generates direct and embed URLs', () => {
+  it('generates direct, embed, and thumbnail URLs', () => {
     expect(getInstagramDirectUrl('ABC123xyz')).toBe('https://www.instagram.com/reel/ABC123xyz/');
     expect(getInstagramEmbedUrl('ABC123xyz')).toBe('https://www.instagram.com/reel/ABC123xyz/embed/');
+    expect(getInstagramThumbnailUrl('ABC123xyz', 'm')).toBe('https://www.instagram.com/p/ABC123xyz/media/?size=m');
   });
 });

@@ -9,7 +9,9 @@ import {
   Bookmark,
   FileText,
   Clipboard,
-  ExternalLink
+  ExternalLink,
+  Play,
+  Image
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem } from '../../types/reels';
@@ -51,6 +53,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
   const [tagInput, setTagInput] = useState('');
   const [favorite, setFavorite] = useState(false);
   const [parsedShortcode, setParsedShortcode] = useState('');
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [urlError, setUrlError] = useState('');
 
   useEffect(() => {
@@ -66,6 +69,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       setTagInput(reel.tags ? reel.tags.join(', ') : '');
       setFavorite(Boolean(reel.favorite));
       setParsedShortcode(reel.shortcode);
+      setThumbnailUrl(reel.thumbnailUrl || `https://www.instagram.com/p/${reel.shortcode}/media/?size=l`);
       setUrlError('');
     } else {
       const startUrl = initialUrl.trim();
@@ -83,12 +87,14 @@ export const ReelModal: React.FC<ReelModalProps> = ({
         const parsed = extractInstagramReelInfo(startUrl);
         if (parsed) {
           setParsedShortcode(parsed.shortcode);
+          setThumbnailUrl(parsed.thumbnailUrl);
           if (parsed.author) setAuthor(parsed.author);
           if (parsed.suggestedCaption) setCaption(parsed.suggestedCaption);
           if (parsed.suggestedHeadline) setHeadline(parsed.suggestedHeadline);
         }
       } else {
         setParsedShortcode('');
+        setThumbnailUrl('');
       }
     }
   }, [isOpen, reel, initialUrl]);
@@ -102,11 +108,13 @@ export const ReelModal: React.FC<ReelModalProps> = ({
     const parsed = extractInstagramReelInfo(val);
     if (parsed) {
       setParsedShortcode(parsed.shortcode);
+      setThumbnailUrl(parsed.thumbnailUrl);
       if (!author && parsed.author) setAuthor(parsed.author);
       if (!caption && parsed.suggestedCaption) setCaption(parsed.suggestedCaption);
       if (!headline && parsed.suggestedHeadline) setHeadline(parsed.suggestedHeadline);
     } else if (val.trim().length > 0) {
       setParsedShortcode('');
+      setThumbnailUrl('');
     }
   };
 
@@ -151,6 +159,8 @@ export const ReelModal: React.FC<ReelModalProps> = ({
       collection: collection.trim() || 'General',
       tags: tags.length > 0 ? tags : undefined,
       favorite,
+      thumbnailUrl: thumbnailUrl || (parsed ? parsed.thumbnailUrl : undefined),
+      order: reel?.order,
       createdAt: reel ? reel.createdAt : nowIso,
       updatedAt: nowIso,
     };
@@ -231,12 +241,41 @@ export const ReelModal: React.FC<ReelModalProps> = ({
             )}
 
             {parsedShortcode && (
-              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                <Check size={12} className="stroke-[3]" />
-                <span>Detected Instagram Reel:</span>
-                <span className="font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px]">
-                  {parsedShortcode}
-                </span>
+              <div className="space-y-2 mt-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <Check size={12} className="stroke-[3]" />
+                  <span>Detected Instagram Reel:</span>
+                  <span className="font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px]">
+                    {parsedShortcode}
+                  </span>
+                </div>
+
+                {/* Default Reel Cover Photo in Modal */}
+                <div className="p-3 rounded-2xl bg-surface border border-subtle flex items-center gap-3 shadow-2xs">
+                  <div className="w-16 h-20 rounded-xl overflow-hidden border border-subtle bg-sunken shrink-0 relative">
+                    <img
+                      src={thumbnailUrl || `https://www.instagram.com/p/${parsedShortcode}/media/?size=l`}
+                      alt="Reel Cover"
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                      <Play size={14} className="fill-white text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-main">
+                      <Sparkles size={12} className="text-rose-500" />
+                      <span>Default Reel Cover Photo</span>
+                    </div>
+                    <p className="text-[11px] text-muted leading-tight">
+                      Shows as default cover photo on card and in the sequence feed.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

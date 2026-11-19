@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem } from '../../types/reels';
-import { getInstagramEmbedUrl, getInstagramDirectUrl } from '../../utils/instagramHelper';
+import { getInstagramEmbedUrl, getInstagramDirectUrl, getInstagramThumbnailUrl } from '../../utils/instagramHelper';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
 
 interface ReelSequencePlayerProps {
@@ -155,6 +155,16 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
         {/* Centered Reel 9:16 Video Player Container */}
         <div className="relative w-full max-w-[420px] h-full max-h-[760px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between">
           
+          {/* Cover photo backdrop while iframe loads */}
+          <div className="absolute inset-0 z-0 bg-zinc-950 flex items-center justify-center overflow-hidden">
+            <img
+              src={currentReel.thumbnailUrl || getInstagramThumbnailUrl(currentReel.shortcode, 'l')}
+              alt=""
+              className="w-full h-full object-cover blur-sm opacity-35"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
           {/* Instagram Embed iframe */}
           <iframe
             key={currentReel.shortcode}

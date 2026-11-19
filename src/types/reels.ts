@@ -10,6 +10,7 @@ export interface ReelItem {
   collection?: string; // e.g. 'Recipes', 'Fitness', 'Coding', 'Aesthetic', 'Inspo'
   favorite?: boolean;
   thumbnailUrl?: string; // Optional custom or fallback poster image
+  order?: number; // Custom arrangement order
   createdAt: string; // ISO string
   updatedAt?: string; // ISO string
 }

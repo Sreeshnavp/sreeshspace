@@ -1249,6 +1249,12 @@ export function App() {
     showToast(target?.favorite ? 'Added to favorites ⭐' : 'Removed from favorites');
   };
 
+  const handleReorderReels = async (reordered: ReelItem[]) => {
+    setReels(reordered);
+    await saveReels(reordered);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
   // Archive completed daily tasks with 10-second Undo toast
   const handleArchiveCompletedDaily = async (dateKey: string) => {
     const toArchive = todos.filter(
@@ -2350,6 +2356,7 @@ export function App() {
                   onSaveReel={handleSaveReel}
                   onDeleteReel={handleDeleteReel}
                   onToggleFavoriteReel={handleToggleFavoriteReel}
+                  onReorderReels={handleReorderReels}
                 />
               </div>
             )}
