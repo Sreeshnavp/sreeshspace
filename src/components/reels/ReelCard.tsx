@@ -9,7 +9,8 @@ import {
   GripVertical,
   ChevronUp,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { InstagramIcon as Instagram } from './InstagramIcon';
 import type { ReelItem } from '../../types/reels';
@@ -58,7 +59,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({
   });
   const [imgError, setImgError] = useState(false);
   const [retryAttempted, setRetryAttempted] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     if (isValidCoverUrl(reel.thumbnailUrl)) {
@@ -100,279 +101,294 @@ export const ReelCard: React.FC<ReelCardProps> = ({
     e.dataTransfer.setData('text/plain', reel.id);
     e.dataTransfer.setData('application/reel-id', reel.id);
     e.dataTransfer.effectAllowed = 'move';
-    if (onDragStart) {
-      onDragStart(e, reel.id);
-    }
+    if (onDragStart) onDragStart(e, reel.id);
   };
 
   return (
-    <div
-      draggable
-      onDragStart={handleDragStart}
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (onDragOver) onDragOver(e);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (onDrop) onDrop(e, reel.id);
-      }}
-      onClick={() => onPlayInSequence(reel)}
-      className="group relative flex flex-col justify-between bg-surface rounded-3xl p-4 sm:p-5 border border-subtle shadow-soft hover:shadow-soft-hover hover:border-strong transition-all duration-200 cursor-pointer active:cursor-grabbing text-main"
-    >
-      <div>
-        {/* Top Meta Bar */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Drag Handle Indicator for Arranging */}
-            <span
-              className="text-faint hover:text-muted cursor-grab active:cursor-grabbing -ml-1 p-0.5"
-              title="Drag to rearrange order"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical size={14} />
-            </span>
+    <>
+      <div
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={onDragOver}
+        onDrop={(e) => {
+          if (onDrop) onDrop(e, reel.id);
+        }}
+        onClick={() => onPlayInSequence(reel)}
+        className="group relative flex flex-col justify-between bg-white rounded-[24px] p-4 sm:p-5 border border-[#EFE5CC] shadow-[0_1px_2px_rgba(60,45,10,.05),0_8px_24px_rgba(60,45,10,.06)] hover:shadow-[0_12px_28px_rgba(60,45,10,.09)] hover:-translate-y-1 transition-all duration-200 cursor-pointer text-[#1F2A24]"
+      >
+        <div>
+          {/* Top Meta Bar */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              {/* Drag Handle Indicator */}
+              <span
+                className="text-[#9AA39C] hover:text-[#1F2A24] cursor-grab active:cursor-grabbing -ml-1 p-0.5"
+                title="Drag to rearrange order"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical size={14} />
+              </span>
 
-            {/* Instagram Gradient Icon Badge */}
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <Instagram size={13} className="stroke-[2.5]" />
+              {/* Category Pill (Pink badge matching design) */}
+              <span 
+                className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
+                style={{ background: '#FFE1EA', color: '#DE3B78' }}
+              >
+                {reel.collection || 'Coding & Tech'}
+              </span>
+
+              {/* Author Handle Pill (Soft cream badge) */}
+              {reel.author && (
+                <span 
+                  className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0 border border-[#EFE5CC] truncate max-w-[130px]"
+                  style={{ background: '#FFF5E5', color: '#6E7A72' }}
+                >
+                  {reel.author}
+                </span>
+              )}
             </div>
 
-            {/* Collection Pill */}
-            {reel.collection && (
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 flex items-center gap-1 border border-subtle bg-rose-500/10 text-rose-600">
-                <span>{reel.collection}</span>
-              </span>
-            )}
-
-            {/* Author Handle */}
-            {reel.author && (
-              <span className="text-[11px] text-faint truncate font-medium">
-                {reel.author}
-              </span>
-            )}
+            {/* Star Favorite Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                playPopSound();
+                onToggleFavorite(reel.id);
+              }}
+              className="p-1.5 rounded-full hover:bg-black/5 transition cursor-pointer text-amber-500 shrink-0"
+              title={reel.favorite ? 'Favorited' : 'Add to favorites'}
+            >
+              <Star
+                size={18}
+                className={reel.favorite ? 'fill-amber-500 text-amber-500' : 'text-[#B0BAAF] hover:text-amber-500'}
+              />
+            </button>
           </div>
 
-          {/* Star Favorite Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              playPopSound();
-              onToggleFavorite(reel.id);
-            }}
-            className={`p-1.5 rounded-xl transition cursor-pointer ${
-              reel.favorite
-                ? 'text-amber-500 hover:scale-110'
-                : 'text-faint hover:text-muted'
-            }`}
-            title={reel.favorite ? 'Favorited' : 'Add to favorites'}
-          >
-            <Star
-              size={18}
-              className={reel.favorite ? 'fill-amber-500 text-amber-500' : ''}
-            />
-          </button>
-        </div>
-
-        {/* Default Reel Cover Photo / Thumbnail */}
-        <div className="relative w-full h-40 sm:h-44 rounded-2xl overflow-hidden mb-3 border border-subtle bg-sunken group/cover">
-          {!imgError ? (
-            <img
-              src={coverUrl}
-              alt={reel.headline || 'Reel cover'}
-              className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform duration-300"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={handleImageError}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-rose-500/15 via-amber-500/10 to-purple-500/15 p-4 text-center">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center shadow-soft mb-1.5">
-                <Play size={16} className="fill-current translate-x-0.5" />
+          {/* Video Preview Box (16:9 / 44 height) */}
+          <div className="relative w-full h-44 sm:h-48 rounded-[18px] overflow-hidden mb-3 border border-[#EFE5CC] bg-[#1C3325] group/cover">
+            {!imgError ? (
+              <img
+                src={coverUrl}
+                alt={reel.headline || 'Reel cover'}
+                className="w-full h-full object-cover group-hover/cover:scale-105 transition-transform duration-300"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={handleImageError}
+              />
+            ) : (
+              <div 
+                className="w-full h-full flex flex-col items-center justify-center p-4 text-center"
+                style={{ background: 'linear-gradient(135deg, #1C3325, #4A3E1B)' }}
+              >
+                <div className="w-10 h-10 rounded-2xl bg-white/10 text-white flex items-center justify-center mb-1.5 backdrop-blur-xs">
+                  <Play size={16} className="fill-current translate-x-0.5" />
+                </div>
+                <span className="text-xs font-bold text-white">Instagram Reel</span>
+                <span className="text-[10px] text-white/70 font-mono">{reel.shortcode}</span>
               </div>
-              <span className="text-[11px] font-extrabold text-main">Instagram Reel</span>
-              <span className="text-[10px] text-muted font-mono">{reel.shortcode}</span>
+            )}
+
+            {/* Gradient Overlay & Center Play Button */}
+            <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-90 group-hover/cover:opacity-100 transition-opacity">
+              <div className="w-12 h-12 rounded-full bg-white text-[#DE3B78] flex items-center justify-center shadow-lg group-hover/cover:scale-110 transition-transform">
+                <Play size={18} className="fill-current translate-x-0.5" />
+              </div>
+            </div>
+
+            {/* Top Left Badge: Watch Reel */}
+            <div className="absolute top-2.5 left-2.5">
+              <span className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
+                <Instagram size={11} className="stroke-[2.5]" />
+                <span>Watch Reel</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Title / Headline */}
+          <h3 className="font-['Fredoka',sans-serif] font-semibold text-base sm:text-[17px] text-[#1F2A24] leading-snug group-hover:text-[#DE3B78] transition-colors mb-2 line-clamp-2">
+            {reel.headline || 'Instagram Reel'}
+          </h3>
+
+          {/* Key Highlights / Takeaway Preview */}
+          {reel.takeaway && (
+            <div className="bg-[#FFF8ED] rounded-xl p-2.5 mb-3 border border-[#EFE5CC]">
+              <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#DE3B78] mb-1">
+                <Sparkles size={11} />
+                <span>Key Highlights</span>
+              </div>
+              <p className="text-xs text-[#6E7A72] leading-relaxed line-clamp-2 whitespace-pre-line font-normal">
+                {reel.takeaway}
+              </p>
             </div>
           )}
 
-          {/* Gradient Overlay & Center Play Button */}
-          <div className="absolute inset-0 bg-gradient-to-t from-main/60 via-main/20 to-transparent flex items-center justify-center opacity-85 group-hover/cover:opacity-100 transition-opacity">
-            <div className="w-12 h-12 rounded-full bg-surface/90 backdrop-blur-md text-main flex items-center justify-center shadow-raised group-hover/cover:scale-110 transition-transform">
-              <Play size={18} className="fill-current translate-x-0.5 text-rose-500" />
+          {/* Tags */}
+          {reel.tags && reel.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {reel.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-[#FFF5E5] text-[#6E7A72] text-[10px] font-medium border border-[#EFE5CC]"
+                >
+                  <Tag size={9} className="opacity-60" />
+                  <span>{tag}</span>
+                </span>
+              ))}
             </div>
-          </div>
-
-          {/* Top Left Badge */}
-          <div className="absolute top-2.5 left-2.5">
-            <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-extrabold flex items-center gap-1">
-              <Instagram size={10} className="stroke-[2.5]" />
-              <span>Watch Reel</span>
-            </span>
-          </div>
-
-          {/* Bottom Right Shortcode Indicator */}
-          <div className="absolute bottom-2.5 right-2.5">
-            <span className="px-1.5 py-0.5 rounded-md bg-black/50 backdrop-blur-md text-white/90 text-[9px] font-mono">
-              ▶ Feed Sequence
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* Title / Headline */}
-        <h3 className="font-bold text-sm sm:text-base text-main leading-snug group-hover:text-rose-600 transition-colors mb-2 line-clamp-2">
-          {reel.headline || 'Instagram Reel'}
-        </h3>
+        {/* Card Footer: Relative Time + 4 Action Buttons */}
+        <div className="pt-3 border-t border-[#EFE5CC] flex items-center justify-between text-xs text-[#6E7A72]">
+          
+          {/* Left: Relative Time + Up/Down Controls */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-[#6E7A72]">
+              {formatRelativeTime(reel.createdAt)}
+            </span>
 
-        {/* Key Highlights / Takeaway Preview */}
-        {reel.takeaway && (
-          <div className="bg-sunken rounded-2xl p-3 mb-3 border border-subtle">
-            <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-rose-500 mb-1">
-              <Sparkles size={11} />
-              <span>Key Highlights</span>
-            </div>
-            <p className="text-xs text-muted leading-relaxed line-clamp-3 whitespace-pre-line font-normal">
-              {reel.takeaway}
-            </p>
-          </div>
-        )}
-
-        {/* Tags */}
-        {reel.tags && reel.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {reel.tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-sunken text-muted text-[10px] font-medium border border-subtle"
+            {/* Mobile reordering arrows */}
+            {(onMoveUp || onMoveDown) && (
+              <div
+                className="flex items-center ml-1 bg-[#FFF5E5] border border-[#EFE5CC] rounded-lg p-0.5"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Tag size={9} className="opacity-60" />
-                <span>{tag}</span>
-              </span>
-            ))}
+                <button
+                  type="button"
+                  disabled={!canMoveUp}
+                  onClick={() => {
+                    playPopSound();
+                    if (onMoveUp) onMoveUp(reel.id);
+                  }}
+                  className={`p-1 rounded transition ${
+                    canMoveUp ? 'hover:bg-white text-[#6E7A72] hover:text-[#1F2A24] cursor-pointer' : 'opacity-25 cursor-not-allowed'
+                  }`}
+                  title="Move up"
+                >
+                  <ChevronUp size={11} />
+                </button>
+                <button
+                  type="button"
+                  disabled={!canMoveDown}
+                  onClick={() => {
+                    playPopSound();
+                    if (onMoveDown) onMoveDown(reel.id);
+                  }}
+                  className={`p-1 rounded transition ${
+                    canMoveDown ? 'hover:bg-white text-[#6E7A72] hover:text-[#1F2A24] cursor-pointer' : 'opacity-25 cursor-not-allowed'
+                  }`}
+                  title="Move down"
+                >
+                  <ChevronDown size={11} />
+                </button>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Right: Group of 4 Action Buttons */}
+          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {/* Play Button */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                onPlayInSequence(reel);
+              }}
+              className="w-8 h-8 rounded-xl bg-[#FFF5E5] border border-[#EFE5CC] text-[#DE3B78] hover:bg-[#FFE1EA] flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
+              title="Watch reel"
+            >
+              <Play size={13} className="fill-current" />
+            </button>
+
+            {/* Edit Button */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                onEdit(reel);
+              }}
+              className="w-8 h-8 rounded-xl bg-[#FFF5E5] border border-[#EFE5CC] text-[#1F2A24] hover:bg-[#FFE3D2] flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
+              title="Edit reel details"
+            >
+              <Edit3 size={13} />
+            </button>
+
+            {/* Delete Button */}
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                setIsDeleteModalOpen(true);
+              }}
+              className="w-8 h-8 rounded-xl bg-[#FFF5E5] border border-[#EFE5CC] text-[#1F2A24] hover:text-red-500 hover:bg-[#FFE1EA] flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
+              title="Delete reel"
+            >
+              <Trash2 size={13} />
+            </button>
+
+            {/* Open Externally */}
+            <a
+              href={directUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 rounded-xl bg-[#FFF5E5] border border-[#EFE5CC] text-[#1F2A24] hover:bg-[#FFE3D2] flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
+              title="Open in Instagram"
+            >
+              <ExternalLink size={13} />
+            </a>
+          </div>
+        </div>
       </div>
 
-      {/* Card Footer: Clear Actions & Reordering */}
-      <div className="pt-3 border-t border-subtle flex items-center justify-between text-xs text-faint">
-        
-        {/* Left: Relative Time + Arranging Arrows (Move Up / Down) */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-medium">
-            {formatRelativeTime(reel.createdAt)}
-          </span>
-
-          {/* Mobile-friendly Reorder Buttons */}
-          {(onMoveUp || onMoveDown) && (
-            <div
-              className="flex items-center ml-1 bg-sunken border border-subtle rounded-lg p-0.5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                disabled={!canMoveUp}
-                onClick={() => {
-                  playPopSound();
-                  if (onMoveUp) onMoveUp(reel.id);
-                }}
-                className={`p-1 rounded transition ${
-                  canMoveUp ? 'hover:bg-surface text-muted hover:text-main cursor-pointer' : 'opacity-25 cursor-not-allowed'
-                }`}
-                title="Move up in order"
-              >
-                <ChevronUp size={12} />
-              </button>
-              <button
-                type="button"
-                disabled={!canMoveDown}
-                onClick={() => {
-                  playPopSound();
-                  if (onMoveDown) onMoveDown(reel.id);
-                }}
-                className={`p-1 rounded transition ${
-                  canMoveDown ? 'hover:bg-surface text-muted hover:text-main cursor-pointer' : 'opacity-25 cursor-not-allowed'
-                }`}
-                title="Move down in order"
-              >
-                <ChevronDown size={12} />
-              </button>
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsDeleteModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-[24px] p-6 border border-[#EFE5CC] shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 text-[#1F2A24]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#FFE1EA] text-[#DE3B78] flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h4 className="font-['Fredoka',sans-serif] font-bold text-base leading-tight">Delete Reel?</h4>
+                <p className="text-xs text-[#6E7A72] mt-0.5">Are you sure you want to remove this reel from your vault?</p>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          
-          {/* Play Sequence */}
-          <button
-            type="button"
-            onClick={() => {
-              playPopSound();
-              onPlayInSequence(reel);
-            }}
-            className="p-1.5 text-rose-500 hover:text-rose-600 rounded-xl hover:bg-rose-500/10 transition cursor-pointer"
-            title="Watch in Sequence"
-          >
-            <Play size={14} className="fill-current" />
-          </button>
+            <p className="text-xs bg-[#FFF8ED] p-3 rounded-xl border border-[#EFE5CC] text-[#1F2A24] font-medium line-clamp-2">
+              "{reel.headline || 'Instagram Reel'}"
+            </p>
 
-          {/* Edit */}
-          <button
-            type="button"
-            onClick={() => {
-              playPopSound();
-              onEdit(reel);
-            }}
-            className="p-1.5 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
-            title="Edit highlights & details"
-          >
-            <Edit3 size={14} />
-          </button>
-
-          {/* Delete with 2-step confirmation */}
-          {isDeleting ? (
-            <div className="flex items-center gap-1 animate-in fade-in">
+            <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  playPopSound();
-                  onDelete(reel.id);
-                }}
-                className="px-2 py-0.5 rounded-lg bg-danger text-white text-[10px] font-bold shadow-2xs hover:opacity-90 cursor-pointer"
-              >
-                Delete?
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsDeleting(false)}
-                className="px-1.5 py-0.5 rounded-lg bg-sunken text-muted text-[10px] hover:text-main cursor-pointer"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#6E7A72] hover:bg-[#FFF5E5] border border-[#EFE5CC] transition cursor-pointer"
               >
                 Cancel
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  setIsDeleteModalOpen(false);
+                  onDelete(reel.id);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#DE3B78] hover:bg-[#C22964] text-white shadow-md transition cursor-pointer"
+              >
+                Delete Reel
+              </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsDeleting(true)}
-              className="p-1.5 text-faint hover:text-danger rounded-xl hover:bg-sunken transition cursor-pointer"
-              title="Delete reel"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-
-          {/* Open in Instagram */}
-          <a
-            href={directUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 text-faint hover:text-rose-500 rounded-xl hover:bg-sunken transition cursor-pointer"
-            title="Open in Instagram app"
-          >
-            <ExternalLink size={14} />
-          </a>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };

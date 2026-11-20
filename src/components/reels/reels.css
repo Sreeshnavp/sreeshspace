@@ -1,0 +1,173 @@
+/* ==========================================================================
+   REELS VAULT · ORBIT DESIGN SYSTEM
+   Exact match to Orbit Reels Vault design prototype
+   ========================================================================== */
+
+.reels-container {
+  --bg: #FBF4E4;
+  --bg2: #F3E9D0;
+  --card: #ffffff;
+  --ink: #1F2A24;
+  --mute: #6E7A72;
+  --line: #EFE5CC;
+  --rose: #DE3B78;
+  --rose-grad: linear-gradient(135deg, #DE3B78, #9B2896);
+  --shadow: 0 1px 2px rgba(60,45,10,.05), 0 8px 24px rgba(60,45,10,.06);
+  font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: radial-gradient(900px 400px at 10% -10%, var(--bg2), transparent 70%), var(--bg);
+  min-height: 100vh;
+  border-radius: 28px;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 90px;
+}
+
+@media(prefers-color-scheme: dark) {
+  :root[data-theme="dark"] .reels-container {
+    --bg: #15201B;
+    --bg2: #1B2923;
+    --card: #1E2C26;
+    --ink: #F2EBD9;
+    --mute: #9DAEA4;
+    --line: #2B3B34;
+    --shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+}
+
+.reels-container .wrap {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 16px 14px 60px;
+}
+
+@media(min-width: 900px) {
+  .reels-container .wrap {
+    padding: 24px 20px 80px;
+  }
+}
+
+.reels-container h1,
+.reels-container h2,
+.reels-container h3,
+.reels-container .font-fredoka {
+  font-family: 'Fredoka', system-ui, -apple-system, sans-serif;
+}
+
+/* Header Card */
+.reels-container .header-card {
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+}
+
+/* Action Pill Buttons */
+.reels-container .btn-pill {
+  font-family: 'Figtree', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #FFF8ED;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.reels-container .btn-pill:hover {
+  background: #FFF2DF;
+}
+
+.reels-container .btn-pill:active {
+  transform: scale(0.96);
+}
+
+.reels-container .btn-pill-rose {
+  background: #FFE1EA;
+  border-color: #F7D1DC;
+  color: #DE3B78;
+}
+
+.reels-container .btn-pill-rose:hover {
+  background: #FFD4E1;
+}
+
+.reels-container .btn-pill-primary {
+  background: var(--rose-grad);
+  border: none;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(222, 59, 120, 0.3);
+}
+
+.reels-container .btn-pill-primary:hover {
+  opacity: 0.95;
+  box-shadow: 0 6px 18px rgba(222, 59, 120, 0.4);
+}
+
+/* Stats Cards */
+.reels-container .stat-card {
+  border-radius: 20px;
+  padding: 14px 18px;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.reels-container .stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Folder Card & Reel Card */
+.reels-container .orbit-card {
+  background: var(--card);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  padding: 18px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reels-container .orbit-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(60, 45, 10, 0.08);
+}
+
+/* New Folder Dashed Card */
+.reels-container .new-folder-dashed {
+  border: 2px dashed #E5CDB2;
+  background: #FFF8ED;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.reels-container .new-folder-dashed:hover {
+  background: #FFF5E5;
+  border-color: #D4B695;
+  transform: translateY(-2px);
+}
+
+/* Mobile Optimizations */
+@media(max-width: 640px) {
+  .reels-container .header-card {
+    padding: 16px;
+    border-radius: 22px;
+  }
+  .reels-container .orbit-card {
+    padding: 14px;
+    border-radius: 20px;
+  }
+}

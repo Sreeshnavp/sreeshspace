@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Edit3, Sparkles, Play } from 'lucide-react';
+import { Edit3, Sparkles, Play, Folder } from 'lucide-react';
 import type { CategoryInfo, ReelItem } from '../../types';
-import { getCategoryToken } from '../../utils/themeColors';
 import { getInstagramThumbnailUrl, isValidCoverUrl, getSafeCoverPhotoUrl } from '../../utils/instagramHelper';
 
 interface ReelCategoryBundleSquareProps {
@@ -35,8 +34,6 @@ export const ReelCategoryBundleSquare: React.FC<ReelCategoryBundleSquareProps> =
   const bundleReels = reels.filter(
     (r) => (r.collection || '').toLowerCase().trim() === category.name.toLowerCase().trim()
   );
-
-  const catToken = getCategoryToken(category.color || category.name);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -104,35 +101,35 @@ export const ReelCategoryBundleSquare: React.FC<ReelCategoryBundleSquareProps> =
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={() => onOpenFolder(category)}
-      className={`group relative flex flex-col justify-between p-3.5 sm:p-4.5 rounded-3xl cursor-pointer transition-all duration-300 ease-out select-none border h-[210px] sm:h-[220px] overflow-hidden ${
+      className={`group relative flex flex-col justify-between bg-white rounded-[24px] p-5 border border-[#EFE5CC] shadow-[0_1px_2px_rgba(60,45,10,.05),0_8px_24px_rgba(60,45,10,.06)] hover:shadow-[0_12px_28px_rgba(60,45,10,.09)] hover:-translate-y-1 transition-all duration-200 cursor-pointer select-none min-h-[220px] text-[#1F2A24] ${
         isDragOver
-          ? 'border-rose-500 bg-rose-500/10 ring-4 ring-rose-500/30 scale-[1.03] -translate-y-1'
-          : 'bg-surface border-subtle shadow-soft hover:shadow-soft-hover hover:border-strong hover:-translate-y-1'
+          ? 'ring-4 ring-[#DE3B78]/40 border-[#DE3B78] scale-[1.02]'
+          : ''
       }`}
     >
       {/* Liquid drop animation overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gradient-to-tr from-rose-500 to-purple-600 text-white font-bold text-xs sm:text-sm animate-in fade-in zoom-in-95 pointer-events-none p-4 text-center">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gradient-to-tr from-[#DE3B78] to-[#9B2896] text-white font-bold text-xs sm:text-sm rounded-[24px] pointer-events-none p-4 text-center animate-in fade-in">
           <Sparkles size={28} className="mb-1.5 animate-bounce" />
           <span>Drop to file into {category.name}! 🎬✨</span>
         </div>
       )}
 
-      {/* 1. Header: Icon, Category Name, Reel Count & Edit */}
-      <div className="flex items-center justify-between gap-2 h-8 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* 1. Header: Purple squircle icon, Title, Reel Count & Edit Pen */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shrink-0 shadow-2xs transition-transform group-hover:scale-110"
-            style={{ backgroundColor: catToken.softVar, color: catToken.textVar }}
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs transition-transform group-hover:scale-105"
+            style={{ background: '#EDE7FD', color: '#8B5CF6' }}
           >
-            {category.icon || '🎬'}
+            <Folder size={17} className="stroke-[2.2]" />
           </div>
 
           <div className="min-w-0">
-            <h3 className="font-extrabold text-xs sm:text-sm text-main truncate leading-tight group-hover:text-rose-600 transition-colors">
+            <h3 className="font-['Fredoka',sans-serif] font-semibold text-base text-[#1F2A24] truncate leading-tight group-hover:text-[#DE3B78] transition-colors">
               {category.name}
             </h3>
-            <span className="text-[10px] text-faint font-medium">
+            <span className="text-xs text-[#6E7A72] font-medium">
               {bundleReels.length} {bundleReels.length === 1 ? 'reel' : 'reels'}
             </span>
           </div>
@@ -144,7 +141,7 @@ export const ReelCategoryBundleSquare: React.FC<ReelCategoryBundleSquareProps> =
             e.stopPropagation();
             onEditCategory(category);
           }}
-          className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
+          className="w-8 h-8 rounded-xl bg-[#FFF5E5] border border-[#EFE5CC] text-[#1F2A24] hover:bg-[#FFE3D2] flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
           title="Edit collection"
         >
           <Edit3 size={13} />
@@ -152,71 +149,67 @@ export const ReelCategoryBundleSquare: React.FC<ReelCategoryBundleSquareProps> =
       </div>
 
       {/* 2. SYMMETRICAL 2x2 MINI GRID PREVIEW OF REEL COVER PHOTOS */}
-      <div className="my-auto h-[100px] p-2 rounded-2xl bg-sunken border border-subtle flex items-center justify-center transition-colors group-hover:border-strong overflow-hidden">
-        {bundleReels.length === 0 ? (
-          <div className="text-center space-y-1 p-2">
-            <span className="text-xs text-muted block">Empty collection</span>
-            <span className="text-[10px] text-faint block">Drag reels here</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 grid-rows-2 gap-1.5 w-full h-full">
-            {[0, 1, 2, 3].map((slotIndex) => {
-              const reel = bundleReels[slotIndex];
-              const isOverflowTile = slotIndex === 3 && bundleReels.length > 4;
+      <div className="my-3 h-[115px] sm:h-[120px] grid grid-cols-2 grid-rows-2 gap-2 w-full">
+        {[0, 1, 2, 3].map((slotIndex) => {
+          const reel = bundleReels[slotIndex];
+          const isOverflowTile = slotIndex === 3 && bundleReels.length > 4;
 
-              if (reel) {
-                const rawCover = isValidCoverUrl(reel.thumbnailUrl)
-                  ? reel.thumbnailUrl!
-                  : getInstagramThumbnailUrl(reel.shortcode, 'm');
-                const cover = getSafeCoverPhotoUrl(rawCover) || rawCover;
+          if (reel) {
+            const rawCover = isValidCoverUrl(reel.thumbnailUrl)
+              ? reel.thumbnailUrl!
+              : getInstagramThumbnailUrl(reel.shortcode, 'm');
+            const cover = getSafeCoverPhotoUrl(rawCover) || rawCover;
 
-                return (
-                  <div
-                    key={reel.id || slotIndex}
-                    className="relative rounded-xl overflow-hidden border border-subtle shadow-2xs h-full w-full bg-surface group/tile"
-                    title={reel.headline || 'Reel'}
-                  >
-                    <img
-                      src={cover}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                      <Play size={10} className="fill-white text-white" />
-                    </div>
-
-                    {isOverflowTile && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-[10px] font-bold text-white font-mono">
-                        +{bundleReels.length - 3}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              // Empty slot placeholder
-              return (
-                <div
-                  key={`empty-${slotIndex}`}
-                  className="rounded-xl border border-dashed border-subtle/70 bg-surface/40 flex items-center justify-center"
-                >
-                  <span className="text-[10px] text-faint opacity-40">🎬</span>
+            return (
+              <div
+                key={reel.id || slotIndex}
+                className="relative rounded-xl overflow-hidden border border-[#EFE5CC] shadow-2xs h-full w-full bg-[#1C3325] group/tile"
+                title={reel.headline || 'Reel'}
+              >
+                <img
+                  src={cover}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    // Fallback to green gradient matching Image 1
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    if (target.parentElement) {
+                      target.parentElement.style.background = 'linear-gradient(135deg, #5C824E, #3D5931)';
+                    }
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                  <Play size={10} className="fill-white text-white" />
                 </div>
-              );
-            })}
-          </div>
-        )}
+
+                {isOverflowTile && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-[10px] font-bold text-white font-mono">
+                    +{bundleReels.length - 3}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // Empty slot placeholder (soft warm cream box matching Image 1)
+          return (
+            <div
+              key={`empty-${slotIndex}`}
+              className="rounded-xl border border-[#EFE5CC] bg-[#FFF5E5] flex items-center justify-center"
+            >
+              <span className="text-[10px] text-[#C4B7A6] opacity-60">🎬</span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* 3. Footer: Tap to open folder notice */}
-      <div className="flex items-center justify-between text-[10px] text-faint pt-1">
+      {/* 3. Footer: Tap to explore folder notice */}
+      <div className="flex items-center justify-between text-xs font-semibold text-[#6E7A72] pt-2 border-t border-[#EFE5CC]">
         <span className="truncate">Tap to explore folder</span>
-        <span className="font-extrabold text-rose-500 group-hover:translate-x-0.5 transition-transform">
+        <span className="text-sm font-bold text-[#DE3B78] group-hover:translate-x-1 transition-transform">
           &rarr;
         </span>
       </div>
