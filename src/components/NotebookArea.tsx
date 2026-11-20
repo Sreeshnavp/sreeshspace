@@ -1,6 +1,5 @@
 import React from 'react';
-import { StreakHeroCommandCenter } from './StreakHeroCommandCenter';
-import { TodoList } from './TodoList';
+import { HabitsDashboard } from './habits/HabitsDashboard';
 import type { 
   LinkItem, 
   TodoItem, 
@@ -28,12 +27,12 @@ interface NotebookAreaProps {
   onArchiveCompletedDaily?: (dateKey: string) => void;
   onArchiveCompletedPermanent?: () => void;
   onReorderTodos?: (reordered: TodoItem[]) => void;
-  onOpenHistoryTimeline: () => void;
-  onOpenCreateGoal: () => void;
-  onOpenEditGoal: (goal: TodoItem) => void;
-  onOpenExtendGoal: (goal: TodoItem) => void;
-  onStartFocusSession: (task: TodoItem) => void;
-  onToggleSubtask: (goalId: string, subtaskId: string) => void;
+  onOpenHistoryTimeline?: () => void;
+  onOpenCreateGoal?: () => void;
+  onOpenEditGoal?: (goal: TodoItem) => void;
+  onOpenExtendGoal?: (goal: TodoItem) => void;
+  onStartFocusSession?: (task: TodoItem) => void;
+  onToggleSubtask?: (goalId: string, subtaskId: string) => void;
   onCopyYesterdayList?: () => void;
   onClearAllGoals?: () => void;
   onInspectDay?: (dateKey: string) => void;
@@ -42,91 +41,37 @@ interface NotebookAreaProps {
   routines?: RoutineItem[];
   onSaveRoutine?: (routine: RoutineItem) => void;
   onDeleteRoutine?: (id: string) => void;
-  onAddNote: (note: { title: string; content: string; highlight?: string; color: string; pinned: boolean; attachments?: Attachment[] }) => void;
-  onUpdateNote: (note: NoteItem) => void;
-  onDeleteNote: (id: string) => void;
+  onAddNote?: (note: { title: string; content: string; highlight?: string; color: string; pinned: boolean; attachments?: Attachment[] }) => void;
+  onUpdateNote?: (note: NoteItem) => void;
+  onDeleteNote?: (id: string) => void;
   onOpenAttachment?: (attachment: Attachment) => void;
   onReorderNotes?: (reordered: NoteItem[]) => void;
 }
 
-export const NotebookArea: React.FC<NotebookAreaProps> = ({
-  links,
-  todos,
-  notes,
-  events,
-  streakState,
-  selectedDate,
-  onSelectDate,
-  dayLogs,
-  onSaveDayLog,
-  onAddTodo,
-  onToggleTodo,
-  onDeleteTodo,
-  onArchiveCompletedDaily,
-  onArchiveCompletedPermanent,
-  onReorderTodos,
-  onOpenHistoryTimeline,
-  onOpenCreateGoal,
-  onOpenEditGoal,
-  onOpenExtendGoal,
-  onStartFocusSession,
-  onToggleSubtask,
-  onCopyYesterdayList,
-  onClearAllGoals,
-  onInspectDay,
-  onOpenInsights,
-  onOpenWeeklyReview,
-  routines = [],
-  onSaveRoutine,
-  onDeleteRoutine,
-  onAddNote,
-  onUpdateNote,
-  onDeleteNote,
-  onOpenAttachment,
-  onReorderNotes,
-}) => {
+export const NotebookArea: React.FC<NotebookAreaProps> = (props) => {
   return (
     <div className="space-y-6">
-      
-      {/* 1. TOP MAIN: STREAK HERO COMMAND CENTER & DETAILED GITHUB ACTIVITY INSIGHTS */}
-      <StreakHeroCommandCenter
-        links={links}
-        todos={todos}
-        notes={notes}
-        events={events}
-        streakState={streakState}
-        selectedDate={selectedDate}
-        onInspectDay={onInspectDay}
-        onOpenInsights={onOpenInsights}
-        onOpenWeeklyReview={onOpenWeeklyReview}
+      <HabitsDashboard
+        todos={props.todos}
+        routines={props.routines}
+        streakState={props.streakState}
+        events={props.events}
+        selectedDate={props.selectedDate}
+        onSelectDate={props.onSelectDate}
+        dayLogs={props.dayLogs}
+        onSaveDayLog={props.onSaveDayLog}
+        onAddTodo={props.onAddTodo}
+        onToggleTodo={props.onToggleTodo}
+        onDeleteTodo={props.onDeleteTodo}
+        onArchiveCompletedDaily={props.onArchiveCompletedDaily}
+        onArchiveCompletedPermanent={props.onArchiveCompletedPermanent}
+        onSaveRoutine={props.onSaveRoutine}
+        onDeleteRoutine={props.onDeleteRoutine}
+        onOpenCreateGoal={props.onOpenCreateGoal}
+        onOpenEditGoal={props.onOpenEditGoal}
+        onOpenInsights={props.onOpenInsights}
+        onOpenWeeklyReview={props.onOpenWeeklyReview}
       />
-
-      {/* 2. SIDE-BY-SIDE OR MOBILE TABS TO-DO LISTS: DAILY FOCUS & PERMANENT GOALS */}
-      <TodoList
-        todos={todos}
-        selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
-        dayLogs={dayLogs}
-        onSaveDayLog={onSaveDayLog}
-        onAddTodo={onAddTodo}
-        onToggleTodo={onToggleTodo}
-        onDeleteTodo={onDeleteTodo}
-        onArchiveCompletedDaily={onArchiveCompletedDaily}
-        onArchiveCompletedPermanent={onArchiveCompletedPermanent}
-        onReorderTodos={onReorderTodos}
-        onOpenHistoryTimeline={onOpenHistoryTimeline}
-        onOpenCreateGoal={onOpenCreateGoal}
-        onOpenEditGoal={onOpenEditGoal}
-        onOpenExtendGoal={onOpenExtendGoal}
-        onStartFocusSession={onStartFocusSession}
-        onToggleSubtask={onToggleSubtask}
-        onCopyYesterdayList={onCopyYesterdayList}
-        onClearAllGoals={onClearAllGoals}
-        routines={routines}
-        onSaveRoutine={onSaveRoutine}
-        onDeleteRoutine={onDeleteRoutine}
-      />
-
     </div>
   );
 };
