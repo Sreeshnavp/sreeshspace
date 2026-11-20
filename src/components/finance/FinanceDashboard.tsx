@@ -91,6 +91,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
+  const [deletingRow, setDeletingRow] = useState<typeof allRows[0] | null>(null);
 
   const showToast = (msg: string, label?: string, onClick?: () => void) => {
     setToastMessage(msg);
@@ -436,18 +437,24 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     triggerPartyPop('stars');
   };
 
-  // Delete entry with undo
-  const handleDeleteRow = (e: React.MouseEvent, row: typeof allRows[0]) => {
+  // Delete prompt & confirmation
+  const promptDeleteRow = (e: React.MouseEvent, row: typeof allRows[0]) => {
     e.stopPropagation();
-    const originalTx = transactions.find((t) => t.id === row.id);
-    if (!originalTx) return;
+    setDeletingRow(row);
+  };
+
+  const confirmDeleteRow = () => {
+    if (!deletingRow) return;
+    const rowToDelete = deletingRow;
+    const originalTx = transactions.find((t) => t.id === rowToDelete.id);
+    setDeletingRow(null);
 
     if (onDeleteTransaction) {
-      onDeleteTransaction(row.id);
+      onDeleteTransaction(rowToDelete.id);
     }
 
     showToast('Entry deleted', 'Undo', () => {
-      if (onQuickAdd) {
+      if (onQuickAdd && originalTx) {
         onQuickAdd({
           type: originalTx.type,
           amount: originalTx.amount,
@@ -661,8 +668,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 ) : (
                   insightsList.map(([icon, textNode], idx) => (
                     <div key={idx} className="it">
-                      <span>{icon}</span>
-                      <p>{textNode}</p>
+                      <span className="it-icon">{icon}</span>
+                      <p className="it-text">{textNode}</p>
                     </div>
                   ))
                 )}
@@ -891,7 +898,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                           </div>
                           <button
                             className="del"
-                            onClick={(e) => handleDeleteRow(e, row)}
+                            onClick={(e) => promptDeleteRow(e, row)}
                             aria-label="Delete entry"
                           >
                             ✕
@@ -1158,6 +1165,106 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 }}
               >
                 Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Sheet */}
+      {deletingRow && (
+        <div
+          className="sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeletingRow(null);
+          }}
+        >
+          <div className="panel animate-in slide-in-from-bottom duration-200" style={{ maxWidth: '400px' }}>
+            <div className="hrow">
+              <h2>Delete transaction? 🗑️</h2>
+              <button className="icon" onClick={() => setDeletingRow(null)} aria-label="Cancel">✕</button>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              borderRadius: '16px',
+              background: 'var(--sun)',
+              border: '1px solid var(--line)',
+              margin: '4px 0'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: 'var(--card)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '20px',
+                flex: 'none',
+                boxShadow: 'var(--shadow)'
+              }}>
+                {emojis[deletingRow.c] || '🏷️'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>{deletingRow.c}</div>
+                <div style={{ fontSize: '12px', color: 'var(--mute)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {deletingRow.n ? `${deletingRow.n} • ${deletingRow.d}` : deletingRow.d}
+                </div>
+              </div>
+              <div style={{
+                fontWeight: 700,
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: '16px',
+                color: deletingRow.t === 'inc' ? 'var(--inc)' : 'var(--rose)'
+              }}>
+                {deletingRow.t === 'inc' ? '+' : '−'}{inr(deletingRow.a)}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: 'var(--mute)', margin: '2px 0 6px', lineHeight: 1.45 }}>
+              Are you sure you want to delete this {deletingRow.t === 'inc' ? 'income' : 'expense'}?
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setDeletingRow(null)}
+                style={{
+                  font: 'inherit',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  padding: '12px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--bg)',
+                  color: 'var(--ink)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteRow}
+                style={{
+                  font: 'inherit',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  padding: '12px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #F59AB1, #D6456B)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(214, 69, 107, 0.35)'
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>

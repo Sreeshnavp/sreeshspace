@@ -560,7 +560,8 @@
   border-top: 0;
 }
 
-.finance-container .it span {
+.finance-container .it > span:first-child,
+.finance-container .it .it-icon {
   width: 34px;
   height: 34px;
   border-radius: 12px;
@@ -571,11 +572,29 @@
   flex: none;
 }
 
-.finance-container .it p {
+.finance-container .it p,
+.finance-container .it .it-text {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   line-height: 1.45;
-  padding-top: 6px;
+  padding-top: 5px;
   color: var(--ink);
+  margin: 0;
+}
+
+.finance-container .it p span,
+.finance-container .it .it-text span,
+.finance-container .it p b,
+.finance-container .it .it-text b {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  display: inline;
+  place-items: unset;
+  font-size: inherit;
+  flex: initial;
 }
 
 .finance-container #cfil {
