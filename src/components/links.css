@@ -1,50 +1,50 @@
 /* ==========================================================================
-   LINKS TAB · ORBIT DESIGN SYSTEM
-   Exact match to Orbit reference HTML prototype
+   LINKS TAB · SREESHSPACE DESIGN SYSTEM
+   Harmonized with Home Page Lilac/Purple aesthetic
    ========================================================================== */
 
 :root {
-  --orbit-bg: #f6f0e2;
-  --orbit-surface: #fffdf8;
-  --orbit-cream: #fdf0cd;
-  --orbit-ink: #24312b;
-  --orbit-muted: #7a8178;
-  --orbit-green: #2f6048;
-  --orbit-green-soft: #dcebe2;
-  --orbit-pink: #f7d6d9;
-  --orbit-sky: #d8e8f3;
-  --orbit-line: #eadfc6;
-  --orbit-shadow: 0 6px 24px rgba(70,60,30,.08);
+  --orbit-bg: #f8f6fc;
+  --orbit-surface: #ffffff;
+  --orbit-cream: #f1edfe;
+  --orbit-ink: #20183b;
+  --orbit-muted: #6b6382;
+  --orbit-green: #6c5ce7;
+  --orbit-green-soft: #f1edfe;
+  --orbit-pink: #f7d6e6;
+  --orbit-sky: #deeffd;
+  --orbit-line: #ede8f5;
+  --orbit-shadow: 0 4px 20px rgba(108, 92, 231, 0.07);
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="dark"] {
-    --orbit-bg: #141b17;
-    --orbit-surface: #1c2621;
-    --orbit-cream: #2a3028;
-    --orbit-ink: #eef0e6;
-    --orbit-muted: #9aa69c;
-    --orbit-green: #7fc79f;
-    --orbit-green-soft: #26382e;
-    --orbit-pink: #4a2f35;
-    --orbit-sky: #26394a;
-    --orbit-line: #33403a;
-    --orbit-shadow: 0 6px 24px rgba(0,0,0,.35);
+    --orbit-bg: #110e1c;
+    --orbit-surface: #1e1930;
+    --orbit-cream: #282142;
+    --orbit-ink: #f3f0fa;
+    --orbit-muted: #aba3c4;
+    --orbit-green: #8b7cf7;
+    --orbit-green-soft: #282142;
+    --orbit-pink: #442636;
+    --orbit-sky: #192e47;
+    --orbit-line: #2c2545;
+    --orbit-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   }
 }
 
 :root[data-theme="dark"] {
-  --orbit-bg: #141b17;
-  --orbit-surface: #1c2621;
-  --orbit-cream: #2a3028;
-  --orbit-ink: #eef0e6;
-  --orbit-muted: #9aa69c;
-  --orbit-green: #7fc79f;
-  --orbit-green-soft: #26382e;
-  --orbit-pink: #4a2f35;
-  --orbit-sky: #26394a;
-  --orbit-line: #33403a;
-  --orbit-shadow: 0 6px 24px rgba(0,0,0,.35);
+  --orbit-bg: #110e1c;
+  --orbit-surface: #1e1930;
+  --orbit-cream: #282142;
+  --orbit-ink: #f3f0fa;
+  --orbit-muted: #aba3c4;
+  --orbit-green: #8b7cf7;
+  --orbit-green-soft: #282142;
+  --orbit-pink: #442636;
+  --orbit-sky: #192e47;
+  --orbit-line: #2c2545;
+  --orbit-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
 }
 
 /* ==========================================================================

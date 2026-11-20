@@ -3,52 +3,52 @@
 @tailwind utilities;
 
 @layer base {
-  /* LIGHT THEME (Warm Cream & Radiant Yellow — inspired by zerotoinfinitywithai.com) */
+  /* LIGHT THEME (Harmonized Sreeshnav Lilac/Purple Home Palette) */
   :root {
-    --cream: 255 250 240;
-    --cream-2: 255 243 214;
+    --cream: 248 246 252;
+    --cream-2: 241 237 254;
     --white: 255 255 255;
-    --ink: 28 25 23;
-    --ink-soft: 68 64 60;
-    --muted: 120 113 108;
+    --ink: 32 24 59;
+    --ink-soft: 107 99 130;
+    --muted: 156 148 179;
     --yellow: 253 224 71;
     --yellow-soft: 254 249 195;
     --yellow-deep: 250 204 21;
-    --violet: 124 58 237;
+    --violet: 108 92 231;
 
-    --page: 255 250 240;       /* #fffaf0 signature cream */
+    --page: 248 246 252;       /* #f8f6fc signature home page lavender */
     --surface: 255 255 255;    /* pure white cards */
     --raised: 255 255 255;
-    --sunken: 255 243 214;     /* #fff3d6 cream-2 sunken */
-    --border-subtle: 231 223 205; /* subtle warm border */
-    --border-strong: 28 25 23;    /* #1c1917 ink border */
-    --border-input: 120 113 108;  /* #78716c input border */
-    --text-main: 28 25 23;     /* #1c1917 ink text */
-    --text-muted: 68 64 60;    /* #44403c ink-soft */
-    --text-faint: 120 113 108; /* #78716c muted */
-    --ring: 250 204 21;        /* #facc15 */
-    --success: 47 125 79;
-    --success-soft: 231 243 235;
-    --success-text: 33 90 56;
-    --warning: 154 87 8;
-    --warning-soft: 249 239 226;
-    --warning-text: 116 62 2;
-    --danger: 185 60 46;
-    --danger-soft: 251 236 233;
-    --danger-text: 137 39 28;
-    --info: 47 111 159;
-    --info-soft: 230 240 247;
-    --info-text: 30 77 113;
-    --accent: 250 204 21;       /* #facc15 radiant gold */
-    --accent-hover: 234 179 8;
-    --accent-soft: 254 249 195; /* #fef9c3 soft yellow */
-    --accent-text: 28 25 23;    /* #1c1917 */
-    --on-accent: 28 25 23;      /* #1c1917 */
-    --heatmap-0: 255 243 214;
-    --heatmap-1: 254 240 138;
-    --heatmap-2: 253 224 71;
-    --heatmap-3: 250 204 21;
-    --heatmap-4: 202 138 4;
+    --sunken: 241 237 254;     /* #f1edfe soft lavender sunken */
+    --border-subtle: 237 232 245; /* #ede8f5 subtle home border */
+    --border-strong: 32 24 59;    /* #20183b ink border */
+    --border-input: 107 99 130;  /* #6b6382 input border */
+    --text-main: 32 24 59;     /* #20183b ink text */
+    --text-muted: 107 99 130;    /* #6b6382 ink-soft */
+    --text-faint: 156 148 179; /* #9c94b3 muted */
+    --ring: 108 92 231;        /* #6c5ce7 purple */
+    --success: 0 184 148;
+    --success-soft: 237 250 243;
+    --success-text: 0 184 148;
+    --warning: 245 158 11;
+    --warning-soft: 255 251 235;
+    --warning-text: 180 83 9;
+    --danger: 231 76 60;
+    --danger-soft: 253 237 236;
+    --danger-text: 192 57 43;
+    --info: 9 132 227;
+    --info-soft: 237 247 254;
+    --info-text: 9 132 227;
+    --accent: 108 92 231;       /* #6c5ce7 signature purple */
+    --accent-hover: 88 68 224;
+    --accent-soft: 241 237 254; /* #f1edfe soft purple */
+    --accent-text: 108 92 231;  /* #6c5ce7 */
+    --on-accent: 255 255 255;
+    --heatmap-0: 241 237 254;
+    --heatmap-1: 220 210 252;
+    --heatmap-2: 178 160 248;
+    --heatmap-3: 139 124 247;
+    --heatmap-4: 108 92 231;
     --cat-sage-solid: 72 122 100;
     --cat-sage-soft: 231 240 235;
     --cat-sage-text: 42 82 64;
@@ -77,34 +77,34 @@
 
   /* Explicit light theme */
   [data-theme="light"] {
-    --page: 255 250 240;       /* #fffaf0 signature cream */
+    --page: 248 246 252;       /* #f8f6fc signature home page lavender */
     --surface: 255 255 255;    /* pure white cards */
     --raised: 255 255 255;
-    --sunken: 255 243 214;     /* #fff3d6 cream-2 sunken */
-    --border-subtle: 231 223 205; /* subtle warm border */
-    --border-strong: 28 25 23;    /* #1c1917 ink border */
-    --border-input: 120 113 108;  /* #78716c input border */
-    --text-main: 28 25 23;     /* #1c1917 ink text */
-    --text-muted: 68 64 60;    /* #44403c ink-soft */
-    --text-faint: 120 113 108; /* #78716c muted */
-    --ring: 250 204 21;        /* #facc15 */
-    --success: 47 125 79;
-    --success-soft: 231 243 235;
-    --success-text: 33 90 56;
-    --warning: 154 87 8;
-    --warning-soft: 249 239 226;
-    --warning-text: 116 62 2;
-    --danger: 185 60 46;
-    --danger-soft: 251 236 233;
-    --danger-text: 137 39 28;
-    --info: 47 111 159;
-    --info-soft: 230 240 247;
-    --info-text: 30 77 113;
-    --accent: 250 204 21;       /* #facc15 radiant gold */
-    --accent-hover: 234 179 8;
-    --accent-soft: 254 249 195; /* #fef9c3 soft yellow */
-    --accent-text: 28 25 23;    /* #1c1917 */
-    --on-accent: 28 25 23;      /* #1c1917 */
+    --sunken: 241 237 254;     /* #f1edfe soft lavender sunken */
+    --border-subtle: 237 232 245; /* subtle warm border */
+    --border-strong: 32 24 59;    /* #20183b ink border */
+    --border-input: 107 99 130;  /* #6b6382 input border */
+    --text-main: 32 24 59;     /* #20183b ink text */
+    --text-muted: 107 99 130;    /* #6b6382 ink-soft */
+    --text-faint: 156 148 179; /* #9c94b3 muted */
+    --ring: 108 92 231;        /* #6c5ce7 purple */
+    --success: 0 184 148;
+    --success-soft: 237 250 243;
+    --success-text: 0 184 148;
+    --warning: 245 158 11;
+    --warning-soft: 255 251 235;
+    --warning-text: 180 83 9;
+    --danger: 231 76 60;
+    --danger-soft: 253 237 236;
+    --danger-text: 192 57 43;
+    --info: 9 132 227;
+    --info-soft: 237 247 254;
+    --info-text: 9 132 227;
+    --accent: 108 92 231;       /* #6c5ce7 signature purple */
+    --accent-hover: 88 68 224;
+    --accent-soft: 241 237 254; /* #f1edfe soft yellow */
+    --accent-text: 108 92 231;  /* #6c5ce7 */
+    --on-accent: 255 255 255;
     --cat-sage-solid: 72 122 100;
     --cat-sage-soft: 231 240 235;
     --cat-sage-text: 42 82 64;
@@ -131,38 +131,38 @@
     --cat-stone-text: 67 63 56;
   }
 
-  /* DARK THEME (Warm Ink & Radiant Gold — inspired by zerotoinfinitywithai.com) */
+  /* DARK THEME (Harmonized Sreeshnav Deep Lilac & Radiant Purple) */
   :root[data-theme="dark"],
   .dark:not([data-theme="light"]),
   [data-theme="dark"] {
-    --page: 20 18 16;         /* #141210 deep warm ink */
-    --surface: 28 25 23;      /* #1c1917 */
-    --raised: 38 34 30;       /* #26221e */
-    --sunken: 15 13 12;       /* #0f0d0c */
-    --border-subtle: 52 47 42;
-    --border-strong: 78 71 64;
-    --border-input: 120 113 108;
-    --text-main: 255 250 240; /* #fffaf0 warm cream text */
-    --text-muted: 168 162 158;
-    --text-faint: 120 113 108;
-    --ring: 250 204 21;
-    --success: 108 196 141;
+    --page: 17 14 28;         /* #110e1c signature deep purple */
+    --surface: 30 25 48;      /* #1e1930 */
+    --raised: 37 29 61;       /* #251d3d */
+    --sunken: 25 21 40;       /* #191528 */
+    --border-subtle: 44 37 69; /* #2c2545 */
+    --border-strong: 139 124 247;
+    --border-input: 119 110 148;
+    --text-main: 243 240 250; /* #f3f0fa text */
+    --text-muted: 171 163 196; /* #aba3c4 */
+    --text-faint: 119 110 148;
+    --ring: 139 124 247;
+    --success: 85 239 196;
     --success-soft: 22 43 31;
-    --success-text: 141 214 168;
-    --warning: 250 204 21;
+    --success-text: 85 239 196;
+    --warning: 254 202 87;
     --warning-soft: 46 35 15;
     --warning-text: 254 240 138;
-    --danger: 240 135 122;
+    --danger: 255 118 117;
     --danger-soft: 48 25 22;
-    --danger-text: 245 169 160;
-    --info: 125 180 224;
+    --danger-text: 255 118 117;
+    --info: 116 185 255;
     --info-soft: 24 37 48;
-    --info-text: 161 203 235;
-    --accent: 250 204 21;     /* #facc15 radiant gold */
-    --accent-hover: 253 224 71;
-    --accent-soft: 45 38 15;
-    --accent-text: 254 240 138;
-    --on-accent: 20 18 16;
+    --info-text: 116 185 255;
+    --accent: 139 124 247;     /* #8b7cf7 signature purple */
+    --accent-hover: 157 144 255;
+    --accent-soft: 40 33 66;   /* #282142 */
+    --accent-text: 255 255 255;
+    --on-accent: 17 14 28;
     --heatmap-0: 15 13 12;
     --heatmap-1: 60 48 18;
     --heatmap-2: 110 88 28;

@@ -1025,26 +1025,120 @@
 }
 
 /* ==========================================================================
-   MOBILE BOTTOM NAVIGATION DOCK (FIXED AT SCREEN BOTTOM)
+   NAVIGATION DOCK (CLEAN FLOATING DOCK ON DESKTOP, FIXED AT BOTTOM ON MOBILE)
    ========================================================================== */
 .sreesh-mobile-dock {
-  display: none; /* Hidden on desktop */
+  display: flex;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9990;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--home-border);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  box-shadow: 0 10px 36px rgba(108, 92, 231, 0.16);
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  max-width: 580px;
+}
+
+.dark .sreesh-mobile-dock {
+  background: rgba(26, 21, 43, 0.94);
+  border-color: rgba(60, 50, 90, 0.85);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  color: var(--home-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-dock-item:hover {
+  color: var(--home-purple);
+  background: var(--home-purple-soft);
+}
+
+.mobile-dock-item:active {
+  transform: scale(0.92);
+}
+
+.mobile-dock-item.active {
+  color: var(--home-purple);
+}
+
+.mobile-dock-icon-wrap {
+  position: relative;
+  font-size: 19px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-dock-item.active .mobile-dock-icon-wrap {
+  transform: translateY(-2px);
+}
+
+.mobile-dock-badge {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  background: #e74c3c;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.4);
+}
+
+.mobile-dock-pill-indicator {
+  width: 16px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--home-purple);
+  margin-top: 1px;
+  transition: all 0.2s ease;
+}
+
+/* Add padding to all pages to prevent dock overlap */
+body,
+.sreesh-home-wrap,
+.links-container,
+.finance-container,
+.reels-vault-container,
+.notes-sketchpad-container {
+  padding-bottom: 92px !important;
 }
 
 @media (max-width: 768px) {
   /* Hide desktop top nav switcher */
   .orbit-nav-tabs {
     display: none !important;
-  }
-
-  /* Add padding to prevent bottom dock overlap */
-  body,
-  .sreesh-home-wrap,
-  .links-container,
-  .finance-container,
-  .reels-vault-container,
-  .notes-sketchpad-container {
-    padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* Adjust mobile FAB positioning above bottom dock */
@@ -1054,97 +1148,28 @@
     bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* Show mobile dock */
+  /* Full-width docked at bottom on mobile */
   .sreesh-mobile-dock {
-    display: flex;
-    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 9990;
-    background: rgba(255, 253, 248, 0.94);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(234, 223, 198, 0.85);
+    transform: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    width: 100%;
+    max-width: none;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
     justify-content: space-around;
-    align-items: center;
-  }
-
-  .dark .sreesh-mobile-dock {
-    background: rgba(22, 18, 36, 0.94);
-    border-top-color: rgba(60, 50, 90, 0.85);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    gap: 2px;
   }
 
   .mobile-dock-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
     padding: 4px 6px;
-    border-radius: 12px;
-    background: transparent;
-    border: none;
-    color: var(--home-muted);
     font-size: 10.5px;
-    font-weight: 600;
-    cursor: pointer;
-    position: relative;
     flex: 1;
-    max-width: 65px;
-    transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .mobile-dock-item:active {
-    transform: scale(0.92);
-  }
-
-  .mobile-dock-item.active {
-    color: var(--home-purple);
-  }
-
-  .mobile-dock-icon-wrap {
-    position: relative;
-    font-size: 18px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mobile-dock-item.active .mobile-dock-icon-wrap {
-    transform: translateY(-2px);
-  }
-
-  .mobile-dock-badge {
-    position: absolute;
-    top: -5px;
-    right: -10px;
-    background: #e74c3c;
-    color: #ffffff;
-    font-size: 9px;
-    font-weight: 800;
-    min-width: 15px;
-    height: 15px;
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 3px;
-    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.4);
-  }
-
-  .mobile-dock-pill-indicator {
-    width: 14px;
-    height: 3px;
-    border-radius: 9999px;
-    background: var(--home-purple);
-    margin-top: 1px;
-    transition: all 0.2s ease;
+    max-width: 60px;
   }
 
   /* Responsive Hero */

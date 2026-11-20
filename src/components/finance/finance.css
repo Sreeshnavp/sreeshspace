@@ -1,19 +1,19 @@
-/* Personal Finance Scoped Styles - exact match to user's specification */
+/* Personal Finance Scoped Styles - harmonized with Sreeshnav Home theme */
 .finance-container {
-  --bg: #FBF4E4;
-  --bg2: #F3E9D0;
+  --bg: #f8f6fc;
+  --bg2: #f1edfe;
   --card: #FFFFFF;
-  --ink: #1F2A24;
-  --mute: #6E7A72;
-  --line: #EFE5CC;
-  --green: #2C5A45;
-  --green2: #1F4333;
-  --mint: #DDF0E5;
-  --inc: #17855A;
-  --rose: #D6456B;
-  --rosebg: #FCE6EC;
-  --sun: #FFF1CC;
-  --shadow: 0 1px 2px rgba(60,45,10,.05), 0 8px 24px rgba(60,45,10,.06);
+  --ink: #20183b;
+  --mute: #6b6382;
+  --line: #ede8f5;
+  --green: #6c5ce7;
+  --green2: #5844e0;
+  --mint: #ede8f5;
+  --inc: #00b894;
+  --rose: #e74c3c;
+  --rosebg: #fdedec;
+  --sun: #f1edfe;
+  --shadow: 0 4px 20px rgba(108, 92, 231, 0.07);
   font-family: 'Figtree', system-ui, -apple-system, sans-serif;
   color: var(--ink);
   background: radial-gradient(900px 400px at 10% -10%, var(--bg2), transparent 70%), var(--bg);
@@ -23,20 +23,20 @@
 }
 
 .dark .finance-container {
-  --bg: #15201B;
-  --bg2: #1B2923;
-  --card: #1E2C26;
-  --ink: #F2EBD9;
-  --mute: #9DAEA4;
-  --line: #2B3B34;
-  --green: #3F7D61;
-  --green2: #2F6149;
-  --mint: #21402F;
-  --inc: #59D19B;
-  --rose: #FF86A3;
-  --rosebg: #402630;
-  --sun: #3A3520;
-  --shadow: 0 8px 24px rgba(0,0,0,.3);
+  --bg: #110e1c;
+  --bg2: #1e1930;
+  --card: #1e1930;
+  --ink: #f3f0fa;
+  --mute: #aba3c4;
+  --line: #2c2545;
+  --green: #8b7cf7;
+  --green2: #9d90ff;
+  --mint: #282142;
+  --inc: #55efc4;
+  --rose: #ff7675;
+  --rosebg: #3a1d23;
+  --sun: #282142;
+  --shadow: 0 8px 30px rgba(0,0,0,.4);
 }
 
 .finance-container .wrap {

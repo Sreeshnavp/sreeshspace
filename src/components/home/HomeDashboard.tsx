@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { WorkspaceView, LinkItem, TodoItem, ReelItem, FinanceTransaction, NoteItem, SketchItem } from '../../types';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
+import avatarImg from '../../assets/avatar.png';
 import sreeshCharacterImg from '../../assets/sreesh_character.png';
 import quoteBgImg from '../../assets/quote_bg.png';
 import './home.css';
@@ -310,9 +311,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             }}
             title="Click for celebratory sparkles ✨"
           >
-            <div className="sreesh-logo-icon">S</div>
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-md group-hover:scale-105 active:scale-95 transition-all">
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-white dark:bg-gray-900 relative flex items-center justify-center">
+                <img 
+                  src={avatarImg} 
+                  alt="Sreeshnav" 
+                  className="w-full h-full object-cover rounded-[14px]" 
+                />
+                <span className="absolute -top-1 -right-1 text-[9px] animate-pulse select-none">✨</span>
+              </div>
+            </div>
             <div className="sreesh-logo-text">
-              Sreesh<span>Space</span>
+              Sreesh<span>nav</span>
             </div>
           </div>
 
@@ -387,7 +397,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
             
             <h1 className="hero-heading">
-              Hey, I'm <span className="name-accent">Sreesh!</span>
+              Hey, I'm <span className="name-accent">Sreeshnav!</span>
             </h1>
 
             <p className="hero-sub">
@@ -742,10 +752,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {/* ========================================================================== */}
         <footer className="sreesh-footer">
           <div className="footer-left">
-            <div className="w-6 h-6 rounded-lg bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
-              S
+            <div className="relative w-7 h-7 rounded-xl p-[1px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-sm overflow-hidden flex items-center justify-center">
+              <img 
+                src={avatarImg} 
+                alt="Sreeshnav" 
+                className="w-full h-full object-cover rounded-[10px]" 
+              />
             </div>
-            <span className="footer-brand">SreeshSpace</span>
+            <span className="footer-brand">Sreeshnav</span>
             <span className="footer-sub">· Your Personal Space</span>
           </div>
 
@@ -813,12 +827,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-bold flex items-center justify-center text-xl shadow-md">
-                S
+              <div className="relative w-10 h-10 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-md">
+                <div className="w-full h-full rounded-[14px] overflow-hidden bg-white dark:bg-gray-900 flex items-center justify-center">
+                  <img src={avatarImg} alt="Sreeshnav" className="w-full h-full object-cover" />
+                </div>
               </div>
               <div>
                 <h3 className="font-head font-extrabold text-xl text-gray-900 dark:text-white">
-                  About SreeshSpace
+                  About Sreeshnav
                 </h3>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold">
                   Personal Productivity &amp; Cozy Digital Oasis v2.4

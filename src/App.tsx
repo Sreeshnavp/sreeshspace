@@ -2131,35 +2131,10 @@ export function App() {
 
       {/* Main Content Layer */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header - shown on non-home tabs or when search is active */}
-        {(workspaceView !== 'home' || Boolean(searchQuery.trim())) && (
-          <Header
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onOpenAddModal={() => {
-              setEditingLink(null);
-              setPrefilledUrl('');
-              setPrefilledCategory('Uncategorized');
-              setIsAddModalOpen(true);
-            }}
-            onOpenBackupModal={() => setIsBackupModalOpen(true)}
-            onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
-            onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
-            onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
-            onLock={() => {
-              lockDevice();
-              setIsLocked(true);
-              showToast('Space locked 🔒');
-            }}
-            darkMode={darkMode}
-            onToggleDarkMode={() => setDarkMode(!darkMode)}
-            totalCount={links.length}
-          />
-        )}
 
       {/* Floating Toast Notification / Undo Toast */}
       {undoArchive ? (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2.5 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2.5 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <span>{undoArchive.message}</span>
           <button
             type="button"
@@ -2171,7 +2146,7 @@ export function App() {
           </button>
         </div>
       ) : toastMessage ? (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-raised text-main border border-border-strong px-4 py-2 rounded-2xl shadow-raised text-xs sm:text-sm font-semibold backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
           {toastMessage}
         </div>
       ) : null}
@@ -2195,144 +2170,10 @@ export function App() {
           onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
         />
       ) : (
-        <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-7 space-y-5 sm:space-y-6">
-        
-        {/* Quick Add Bar */}
-        <QuickAddBar
-          onQuickAdd={handleQuickAdd}
-          onOpenDetailedModal={(url) => {
-            setEditingLink(null);
-            setPrefilledUrl(url || '');
-            setPrefilledCategory('Uncategorized');
-            setIsAddModalOpen(true);
-          }}
-        />
-
-        {/* IF SEARCHING: Show Live Search Results */}
-        {searchQuery.trim() ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1 text-xs">
-              <span className="font-bold text-main">
-                Search results for "{searchQuery}" ({searchFilteredLinks.length})
-              </span>
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-accent font-semibold hover:underline"
-              >
-                Clear search
-              </button>
-            </div>
-
-            {searchFilteredLinks.length === 0 ? (
-              <div className="p-8 text-center rounded-3xl bg-surface border border-subtle">
-                <p className="text-sm font-bold text-main mb-1">
-                  No matching links found
-                </p>
-                <p className="text-xs text-faint">
-                  Try searching with a different keyword or clear search.
-                </p>
-              </div>
-            ) : (
-              <div className="orbit-links-grid">
-                {searchFilteredLinks.map((link) => (
-                  <StandaloneLinkCard
-                    key={link.id}
-                    link={link}
-                    onSelect={(l) => setDetailLink(l)}
-                    onTogglePin={handleTogglePin}
-                    onVisit={handleVisitLink}
-                    onOpenAttachment={(att) => setActiveAttachment(att)}
-                    onDragStart={(e, id) => {
-                      setActiveDraggingLinkId(id);
-                      e.dataTransfer.setData('text/plain', id);
-                      e.dataTransfer.setData('application/link-id', id);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragEnd={() => setActiveDraggingLinkId(null)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          /* MAIN WORKSPACE CANVAS: VIEW SWITCHER + LINKS + NOTEBOOK & TASKS */
-          <div className="space-y-5 sm:space-y-6">
-
-            {/* Workspace View Switcher (Desktop): Home vs Links vs Habits & Tasks vs Reels vs Finances vs Notes */}
-            <nav className="orbit-nav-tabs" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'home'}
-                onClick={() => {
-                  navigateToView('home');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'home' ? 'active' : ''}`}
-              >
-                <span>🏠 Home</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'links'}
-                onClick={() => {
-                  navigateToView('links');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'links' ? 'active' : ''}`}
-              >
-                <span>🔗 Links ({links.length})</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'notebook'}
-                onClick={() => {
-                  navigateToView('notebook');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'notebook' ? 'active' : ''}`}
-              >
-                <span>📖 Habits &amp; Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'reels'}
-                onClick={() => {
-                  navigateToView('reels');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'reels' ? 'active' : ''}`}
-              >
-                <span>🎞️ Reels ({reels.length})</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'finance'}
-                onClick={() => {
-                  navigateToView('finance');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'finance' ? 'active' : ''}`}
-              >
-                <span>👛 Finances ({transactions.length})</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={workspaceView === 'notes'}
-                onClick={() => {
-                  navigateToView('notes');
-                  playPopSound();
-                }}
-                className={`orbit-nav-tab ${workspaceView === 'notes' ? 'active' : ''}`}
-              >
-                <span>🎨 Notes &amp; Sketch ({notes.length + sketches.length})</span>
-              </button>
-            </nav>
+        <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
+          
+          {/* TAB STARTS DIRECTLY WITH ITS OWN CONTENT */}
+          <div className="space-y-4">
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'links' || workspaceView === 'both') && (
@@ -2375,25 +2216,38 @@ export function App() {
                     </button>
                   </div>
 
-                  <div className="sp" />
-
-                  {/* Ghost + New Folder Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const name = prompt('Folder name');
-                      if (name && name.trim()) {
-                        handleAddCategory({
-                          name: name.trim(),
-                          color: 'sage',
-                          icon: '📁',
-                        });
-                      }
-                    }}
-                    className="ghost-btn"
-                  >
-                    + New folder
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = prompt('Folder name');
+                        if (name && name.trim()) {
+                          handleAddCategory({
+                            name: name.trim(),
+                            color: 'sage',
+                            icon: '📁',
+                          });
+                        }
+                      }}
+                      className="ghost-btn"
+                    >
+                      + New folder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingLink(null);
+                        setPrefilledUrl('');
+                        setPrefilledCategory('Uncategorized');
+                        setIsAddModalOpen(true);
+                        playPopSound();
+                      }}
+                      className="ghost-btn"
+                      style={{ background: 'var(--home-purple)', color: '#ffffff', borderColor: 'transparent' }}
+                    >
+                      + Add link
+                    </button>
+                  </div>
                 </div>
 
                 {/* CONTENT AREA: Folders vs All (Flat Unbundled) vs Starred */}
@@ -2615,7 +2469,6 @@ export function App() {
             )}
 
           </div>
-        )}
 
       </main>
       )}
@@ -2658,6 +2511,8 @@ export function App() {
         reelsCount={reels.length}
         financeCount={transactions.length}
         notesCount={notes.length + sketches.length}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
       />
 
       {/* MODALS */}

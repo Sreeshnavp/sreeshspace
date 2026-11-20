@@ -10,6 +10,8 @@ interface MobileBottomNavProps {
   reelsCount: number;
   financeCount: number;
   notesCount: number;
+  darkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -20,6 +22,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   reelsCount,
   financeCount,
   notesCount,
+  darkMode,
+  onToggleDarkMode,
 }) => {
   const tabs: Array<{
     view: WorkspaceView;
@@ -36,7 +40,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ];
 
   return (
-    <nav className="sreesh-mobile-dock" aria-label="Mobile Navigation Dock">
+    <nav className="sreesh-mobile-dock" aria-label="Navigation Dock">
       {tabs.map((tab) => {
         const isActive = currentView === tab.view;
         return (
@@ -64,6 +68,24 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         );
       })}
+
+      {onToggleDarkMode && (
+        <button
+          type="button"
+          className="mobile-dock-item"
+          onClick={() => {
+            onToggleDarkMode();
+            playPopSound();
+          }}
+          title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle Theme"
+        >
+          <div className="mobile-dock-icon-wrap">
+            <span>{darkMode ? '☀️' : '🌙'}</span>
+          </div>
+          <span>{darkMode ? 'Light' : 'Dark'}</span>
+        </button>
+      )}
     </nav>
   );
 };
