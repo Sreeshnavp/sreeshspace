@@ -59,12 +59,63 @@
 .habits-container .wrap {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 20px 16px 60px;
+  padding: 16px 12px 60px;
 }
 
 @media(min-width: 900px) {
   .habits-container .wrap {
     padding: 36px 32px 60px;
+  }
+}
+
+@media(max-width: 899px) {
+  .habits-container .hero {
+    padding: 18px 16px;
+    border-radius: 24px;
+    gap: 14px;
+  }
+  .habits-container .top {
+    gap: 12px;
+  }
+  .habits-container .flame {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+    border-radius: 16px;
+  }
+  .habits-container .big {
+    font-size: 32px;
+  }
+  .habits-container .acts {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .habits-container .acts .btn,
+  .habits-container .acts .pill {
+    flex: 1;
+    font-size: 13px;
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+  .habits-container .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .habits-container .st {
+    padding: 12px;
+    border-radius: 18px;
+  }
+  .habits-container .st b {
+    font-size: 22px;
+  }
+  .habits-container .card {
+    border-radius: 24px;
+    padding: 18px 16px;
+  }
+  .habits-container .dnav {
+    border-radius: 18px;
+    padding: 8px 10px;
   }
 }
 

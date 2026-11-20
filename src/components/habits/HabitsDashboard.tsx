@@ -32,6 +32,13 @@ export interface HabitsDashboardProps {
   onOpenWeeklyReview?: () => void;
 }
 
+interface HabitReward {
+  id: string;
+  n: string;
+  p: number;
+  c?: string;
+}
+
 const MS: Array<[number, string, number]> = [
   [3, 'Starter', 30],
   [7, 'Week Warrior', 70],
@@ -50,13 +57,6 @@ const LV: Array<[number, string, string]> = [
   [1500, 'Evergreen', '🌲']
 ];
 
-interface HabitReward {
-  id: string;
-  n: string;
-  p: number;
-  c?: string;
-}
-
 const MOOD_MAP: Array<{ emoji: string; label: string; score: 2 | 3 | 4 | 5 }> = [
   { emoji: '🌿', label: 'Steady', score: 4 },
   { emoji: '🌞', label: 'Great', score: 5 },
@@ -69,8 +69,6 @@ const HABITS_STORAGE_KEY = 'orbit-habits-v1';
 export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
   routines = [],
-  streakState,
-  events = [],
   selectedDate,
   onSelectDate,
   dayLogs = {},
@@ -131,11 +129,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [addMode, setAddMode] = useState<'once' | 'routine'>('once');
   const [newTaskInput, setNewTaskInput] = useState('');
   const [isManageRoutinesOpen, setIsManageRoutinesOpen] = useState(false);
-  const [showInsightsCard, setShowInsightsCard] = useState(false);
-  const [timelineHint, setTimelineHint] = useState('Tap a square to see that day.');
+  const [isInsightsModalOpen, setIsInsightsModalOpen] = useState(false);
+  const [reflectionSavedNotice, setReflectionSavedNotice] = useState(false);
+  const [timelineHint, setTimelineHint] = useState<string>('');
   const [goalsView, setGoalsView] = useState<'cards' | 'time'>('cards');
   const [goalsFilter, setGoalsFilter] = useState<'all' | 'active' | 'done'>('all');
   
+  // Heatmap scroll ref to automatically show current day
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
+
   // New reward inputs
   const [newRewardName, setNewRewardName] = useState('');
   const [newRewardPts, setNewRewardPts] = useState('');
@@ -159,9 +161,69 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     } catch {}
   };
 
-  // Streaks calculation
-  const curStreak = streakState?.currentStreak || 0;
-  const bestStreak = streakState?.longestStreak || curStreak;
+  // =========================================================================
+  // PURE HABIT & TASK STREAK CALCULATION (NO EXTERNAL MENUS / LINKS / NOTES)
+  // =========================================================================
+  const { curStreak, bestStreak, totalActiveDays, isTodayActive, activeDatesSet } = useMemo(() => {
+    const activeDates = new Set<string>();
+
+    // 1. Completed daily tasks
+    todos.forEach((t) => {
+      if (t.completed && (t.type === 'daily' || !t.type) && t.status !== 'archived') {
+        const d = t.completedAt?.slice(0, 10) || t.date || t.createdAt.slice(0, 10);
+        if (d) activeDates.add(d);
+      }
+    });
+
+    // 2. DayLogs completed counts
+    Object.entries(dayLogs).forEach(([k, log]) => {
+      if (log.completed && log.completed > 0) {
+        activeDates.add(k);
+      }
+    });
+
+    const isTodayActive = activeDates.has(TODAY);
+
+    // Calculate current streak
+    let cur = 0;
+    let checkDate = TODAY;
+    if (!isTodayActive) {
+      // If not active today, check if yesterday was active to keep streak alive
+      const yesterday = new Date(Date.now() - 864e5).toLocaleDateString('en-CA');
+      checkDate = yesterday;
+    }
+
+    while (activeDates.has(checkDate)) {
+      cur++;
+      const prevDate = new Date(new Date(checkDate).getTime() - 864e5).toLocaleDateString('en-CA');
+      checkDate = prevDate;
+    }
+
+    // Calculate best streak
+    const sortedDates = Array.from(activeDates).sort();
+    let best = 0;
+    let run = 0;
+    let prev: string | null = null;
+
+    sortedDates.forEach((d) => {
+      if (prev) {
+        const expectedNext = new Date(new Date(prev).getTime() + 864e5).toLocaleDateString('en-CA');
+        run = d === expectedNext ? run + 1 : 1;
+      } else {
+        run = 1;
+      }
+      prev = d;
+      if (run > best) best = run;
+    });
+
+    return {
+      curStreak: cur,
+      bestStreak: Math.max(best, cur),
+      totalActiveDays: activeDates.size,
+      isTodayActive,
+      activeDatesSet: activeDates
+    };
+  }, [todos, dayLogs, TODAY]);
 
   // Milestone info
   const nextMilestone = MS.find((m) => m[0] > curStreak) || MS[MS.length - 1];
@@ -179,21 +241,30 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   }, [dailyTodos, selectedDate, TODAY]);
 
-  // Routines active: matched with daily tasks having recurringId or existing todo
+  // =========================================================================
+  // FIXED ROUTINES: ONLY SHOW ON OR AFTER THE DAY THEY WERE ADDED (from <= selectedDate)
+  // =========================================================================
   const routineTasks = useMemo(() => {
-    return routines.map((r) => {
-      const existingDaily = dailyTodos.find((t) => t.recurringId === r.id && (t.date === selectedDate || t.createdAt.slice(0, 10) === selectedDate));
-      return {
-        id: existingDaily ? existingDaily.id : r.id,
-        routineId: r.id,
-        text: r.text,
-        completed: existingDaily ? existingDaily.completed : false,
-        priority: r.priority || 'medium',
-        isRoutine: true,
-        tag: r.tags?.[0] || 'routine',
-        carried: false
-      };
-    });
+    return routines
+      .filter((r) => {
+        const fromDate = r.startDate || r.createdAt.slice(0, 10);
+        return fromDate <= selectedDate;
+      })
+      .map((r) => {
+        const existingDaily = dailyTodos.find(
+          (t) => t.recurringId === r.id && (t.date === selectedDate || t.createdAt.slice(0, 10) === selectedDate)
+        );
+        return {
+          id: existingDaily ? existingDaily.id : r.id,
+          routineId: r.id,
+          text: r.text,
+          completed: existingDaily ? existingDaily.completed : false,
+          priority: r.priority || 'medium',
+          isRoutine: true,
+          tag: r.tags?.[0] || 'routine',
+          carried: false
+        };
+      });
   }, [routines, dailyTodos, selectedDate]);
 
   // Combined visible tasks
@@ -265,17 +336,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const timelineWeeks = useMemo(() => {
     const now = new Date(TODAY);
     const dayOfWeek = now.getDay(); // 0 is Sunday
-    // Start Sunday 17 weeks ago
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek - 17 * 7);
     const weeks: Array<Array<{ dateKey: string; actsCount: number; isToday: boolean; isFuture: boolean }>> = [];
 
-    // Map completed acts per date from events or completed todos
+    // Map completed acts per date from completed tasks & dayLogs
     const actsMap: Record<string, number> = {};
-    events.forEach((ev) => {
-      const k = ev.date;
-      if (k) actsMap[k] = (actsMap[k] || 0) + 1;
+    todos.forEach((t) => {
+      if (t.completed && (t.type === 'daily' || !t.type) && t.status !== 'archived') {
+        const k = t.completedAt?.slice(0, 10) || t.date || t.createdAt.slice(0, 10);
+        if (k) actsMap[k] = (actsMap[k] || 0) + 1;
+      }
     });
-    // Also include completed todos from dayLogs
     Object.entries(dayLogs).forEach(([k, log]) => {
       if (log.completed) {
         actsMap[k] = Math.max(actsMap[k] || 0, log.completed);
@@ -299,24 +370,43 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       weeks.push(days);
     }
     return weeks;
-  }, [TODAY, events, dayLogs]);
+  }, [TODAY, todos, dayLogs]);
+
+  // Set default timeline hint to CURRENT DAY (Today)
+  useEffect(() => {
+    const todayTasksDone = todos.filter((t) => 
+      t.completed && (t.type === 'daily' || !t.type) && 
+      (t.completedAt?.slice(0, 10) === TODAY || t.date === TODAY || t.createdAt.slice(0, 10) === TODAY)
+    ).length;
+    const dObj = new Date(TODAY);
+    setTimelineHint(
+      `${dObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })} · ${todayTasksDone > 0 ? `${todayTasksDone} tasks logged` : 'No activity yet'} (Today)`
+    );
+  }, [TODAY, todos]);
+
+  // Scroll heatmap to right on initial mount so today is visible
+  useEffect(() => {
+    if (heatmapScrollRef.current) {
+      heatmapScrollRef.current.scrollLeft = heatmapScrollRef.current.scrollWidth;
+    }
+  }, []);
 
   // Overall statistics for the 6 cards
   const totalLoggedActs = useMemo(() => {
-    return Object.values(dayLogs).reduce((acc, log) => acc + (log.completed || 0), 0) + events.length;
-  }, [dayLogs, events]);
+    return todos.filter((t) => t.completed).length;
+  }, [todos]);
 
   const consistencyRate = useMemo(() => {
     let activeDays = 0;
     const now = new Date(TODAY);
     for (let i = 0; i < 30; i++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i).toLocaleDateString('en-CA');
-      if (dayLogs[d]?.completed || events.some((ev) => ev.date === d)) {
+      if (activeDatesSet.has(d)) {
         activeDays++;
       }
     }
     return Math.round((activeDays / 30) * 100);
-  }, [TODAY, dayLogs, events]);
+  }, [TODAY, activeDatesSet]);
 
   // Insights computations
   const insightsData = useMemo(() => {
@@ -324,15 +414,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     let totalActive = 0;
     let totalTasks = 0;
 
-    events.forEach((ev) => {
-      const k = ev.date;
-      if (k) {
-        const [y, m, d] = k.split('-').map(Number);
-        const dayIdx = new Date(y, m - 1, d).getDay();
-        dayCounts[dayIdx]++;
-        totalActive++;
-        totalTasks++;
-      }
+    activeDatesSet.forEach((k) => {
+      const [y, m, d] = k.split('-').map(Number);
+      const dayIdx = new Date(y, m - 1, d).getDay();
+      dayCounts[dayIdx]++;
+      totalActive++;
+    });
+
+    todos.forEach((t) => {
+      if (t.completed) totalTasks++;
     });
 
     const maxDayIdx = dayCounts.indexOf(Math.max(...dayCounts));
@@ -344,7 +434,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     const now = new Date(TODAY);
     for (let i = 0; i < 7; i++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i).toLocaleDateString('en-CA');
-      if (dayLogs[d]?.completed || events.some((ev) => ev.date === d)) {
+      if (activeDatesSet.has(d)) {
         last7Active++;
       }
     }
@@ -355,9 +445,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       last7Active,
       totalActive
     };
-  }, [events, dayLogs, TODAY]);
+  }, [activeDatesSet, todos, TODAY]);
 
-  // Handlers for Add Task
+  // Handlers for Add Task / Fixed Routine
   const handleAddTask = () => {
     let text = newTaskInput.trim();
     if (!text) return;
@@ -380,6 +470,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           text,
           priority,
           frequency: 'daily',
+          startDate: selectedDate, // Routine starts from the day it is created!
           createdAt: new Date().toISOString()
         });
       }
@@ -393,12 +484,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   // Toggle task or routine
   const handleToggleTask = (task: typeof combinedTasks[0]) => {
     if (task.isRoutine && task.routineId) {
-      // Check if an existing daily task exists for this routine
-      const existing = dailyTodos.find((t) => t.recurringId === task.routineId && (t.date === selectedDate || t.createdAt.slice(0, 10) === selectedDate));
+      const existing = dailyTodos.find((t) => 
+        t.recurringId === task.routineId && (t.date === selectedDate || t.createdAt.slice(0, 10) === selectedDate)
+      );
       if (existing) {
         onToggleTodo(existing.id);
       } else {
-        // Create it and toggle it
         onAddTodo(task.text, 'daily', task.priority as any, selectedDate, task.tag ? [task.tag] : undefined);
       }
     } else {
@@ -420,6 +511,13 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       onDeleteTodo(itemToDelete.id);
     }
     setItemToDelete(null);
+  };
+
+  // Set / Save Reflection handler
+  const handleSaveReflection = () => {
+    setReflectionSavedNotice(true);
+    triggerCelebration();
+    setTimeout(() => setReflectionSavedNotice(false), 2500);
   };
 
   // Claim daily reward
@@ -497,7 +595,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     <div className="habits-container">
       <div className="wrap">
         
-        {/* Header with Avatar and Subtitle */}
+        {/* Header with Avatar and Date */}
         <header className="head">
           <div className="logo">
             <img src={avatarImg} alt="Sreeshnav" />
@@ -521,21 +619,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             <div>
               <div className="big">
                 <span className="num">{curStreak}</span> <small>days</small>
-                <span className={`badge ${curStreak > 0 ? '' : 'risk'}`}>
-                  {curStreak > 0 ? 'Active streak' : 'Start today'}
+                <span className={`badge ${isTodayActive ? '' : curStreak > 0 ? 'risk' : ''}`}>
+                  {isTodayActive ? 'Active streak' : curStreak > 0 ? 'At risk' : 'Start today'}
                 </span>
               </div>
               <p>
                 {doneTasksCount > 0 
                   ? `${doneTasksCount} of ${totalTasksCount} tasks done today` 
                   : curStreak > 0 
-                  ? 'Log one task today to keep your streak alive.' 
-                  : 'Complete a task to start a new streak.'}
+                  ? 'Complete one task today to keep your streak alive.' 
+                  : 'Complete a task today to start your streak.'}
               </p>
             </div>
           </div>
 
-          {/* Milestone Box */}
+          {/* Milestone Progress Box */}
           <div className="ms">
             <b>{prevMilestone ? prevMilestone[1] : 'Getting started'} 🏅</b>
             <small>
@@ -548,22 +646,13 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             </div>
           </div>
 
-          {/* Quick Action Buttons */}
+          {/* Quick Action Buttons: Combined Insights & Review Modal + Celebrate */}
           <div className="acts">
             <button 
               className="pill" 
-              onClick={() => setShowInsightsCard(!showInsightsCard)}
+              onClick={() => setIsInsightsModalOpen(true)}
             >
-              📊 Insights
-            </button>
-            <button 
-              className="pill"
-              onClick={() => {
-                const el = document.getElementById('habit-reflection-box');
-                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
-            >
-              📝 Review
+              📊 Insights &amp; Review
             </button>
             <button className="btn" onClick={triggerCelebration}>
               🎉 Celebrate!
@@ -576,7 +665,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           <div className="st">
             <span>🔥 Streak</span>
             <b className="num">{curStreak}d</b>
-            <em>{curStreak > 0 ? 'Active' : 'Paused'}</em>
+            <em>{isTodayActive ? 'Active' : curStreak > 0 ? 'At risk' : 'Paused'}</em>
           </div>
           <div className="st">
             <span>🏆 Best streak</span>
@@ -605,13 +694,13 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           </div>
         </div>
 
-        {/* 18-Week Activity Timeline Heatmap */}
+        {/* 18-Week Activity Timeline Heatmap (Auto-scrolled to Current Day) */}
         <div className="card span" style={{ marginBottom: '18px' }}>
           <div className="rw">
             <h2>Activity timeline 🗓️</h2>
             <small className="sm">18 weeks</small>
           </div>
-          <div className="hs">
+          <div className="hs" ref={heatmapScrollRef}>
             <div className="hm">
               {/* Day Labels */}
               <div className="hl">
@@ -646,7 +735,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                             if (day.isFuture) return;
                             const dObj = new Date(day.dateKey);
                             setTimelineHint(
-                              `${dObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })} · ${day.actsCount > 0 ? `${day.actsCount} tasks logged` : 'No activity'}`
+                              `${dObj.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })} · ${day.actsCount > 0 ? `${day.actsCount} tasks logged` : 'No activity'}${day.isToday ? ' (Today)' : ''}`
                             );
                             onSelectDate(day.dateKey);
                           }}
@@ -661,39 +750,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           </div>
           <div className="hint">{timelineHint}</div>
         </div>
-
-        {/* Collapsible Insights Card */}
-        {showInsightsCard && (
-          <div className="card span" style={{ marginBottom: '18px' }}>
-            <h2>Insights 💡</h2>
-            <div style={{ marginTop: '8px' }}>
-              <div className="it">
-                <span className="it-icon">📅</span>
-                <p className="it-text">
-                  Your strongest day is <b>{insightsData.strongestDay}</b>.
-                </p>
-              </div>
-              <div className="it">
-                <span className="it-icon">⚡</span>
-                <p className="it-text">
-                  You log <b>{insightsData.avgTasks}</b> tasks on active days.
-                </p>
-              </div>
-              <div className="it">
-                <span className="it-icon">🗓️</span>
-                <p className="it-text">
-                  Active on <b>{insightsData.last7Active} of the last 7</b> days.
-                </p>
-              </div>
-              <div className="it">
-                <span className="it-icon">🌱</span>
-                <p className="it-text">
-                  <b>{insightsData.totalActive}</b> active days in total.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Main 2-Column Responsive Layout */}
         <main className="grid">
@@ -776,7 +832,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleAddTask();
                 }}
-                placeholder={addMode === 'routine' ? "Add fixed routine (e.g. Read 15 mins !high)" : "Add a task (try: read book !high #study)"}
+                placeholder={
+                  addMode === 'routine' 
+                    ? `Add fixed routine (starts from ${dayLabel})...` 
+                    : "Add a task (try: read book !high #study)"
+                }
                 aria-label="New task"
               />
               <button className="btn" onClick={handleAddTask} style={{ padding: '11px 16px' }}>
@@ -786,7 +846,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
             {/* Manage Fixed Routines Toggle */}
             <div className="ft" style={{ border: 0, marginTop: '8px', padding: 0 }}>
-              <span>🔁 Routines appear every day</span>
+              <span>🔁 Routines appear every day (from creation date)</span>
               <button 
                 className="mgb" 
                 onClick={() => setIsManageRoutinesOpen(!isManageRoutinesOpen)}
@@ -881,12 +941,19 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               )}
             </div>
 
-            {/* Reflection 🌿 Box */}
+            {/* Reflection 🌿 Box with Set Reflection Button */}
             <div 
               id="habit-reflection-box" 
               style={{ marginTop: '16px', padding: '16px', borderRadius: '22px', background: 'var(--c4)' }}
             >
-              <b>Reflection 🌿</b>
+              <div className="rw">
+                <b>Reflection 🌿</b>
+                {reflectionSavedNotice && (
+                  <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 700 }}>
+                    Reflection saved ✨
+                  </span>
+                )}
+              </div>
               <div className="moods">
                 {MOOD_MAP.map((m) => {
                   const isSelected = dayLogs[selectedDate]?.mood === m.score;
@@ -910,6 +977,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 placeholder="How did this day go? Write a line or two."
                 aria-label="Reflection"
               />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button 
+                  className="btn" 
+                  onClick={handleSaveReflection}
+                  style={{ padding: '9px 18px', fontSize: '13.5px' }}
+                >
+                  Set Reflection 🌿
+                </button>
+              </div>
             </div>
           </div>
 
@@ -963,7 +1039,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               <div className="mss">
                 {MS.map(([mDays, mTitle, mBonus]) => {
                   const claimed = !!orbitData.cl.m[mDays];
-                  const ready = bestStreak >= mDays;
+                  const ready = curStreak >= mDays;
 
                   if (claimed) {
                     return (
@@ -1292,6 +1368,109 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           </div>
         </main>
       </div>
+
+      {/* Combined Insights & Review Popup Modal */}
+      {isInsightsModalOpen && (
+        <div
+          className="sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsInsightsModalOpen(false);
+          }}
+        >
+          <div className="panel animate-in slide-in-from-bottom duration-200" style={{ maxWidth: '500px' }}>
+            <div className="rw">
+              <h2>Insights &amp; Review 📊</h2>
+              <button className="x" onClick={() => setIsInsightsModalOpen(false)} aria-label="Close">✕</button>
+            </div>
+
+            {/* Quick Stats Highlights */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
+              <div style={{ background: 'var(--c1)', padding: '12px 14px', borderRadius: '16px', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--mute)', fontWeight: 600 }}>🔥 Habit Streak</span>
+                <b style={{ display: 'block', fontSize: '22px', fontFamily: 'Fredoka, sans-serif' }}>{curStreak} Days</b>
+              </div>
+              <div style={{ background: 'var(--c3)', padding: '12px 14px', borderRadius: '16px', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--mute)', fontWeight: 600 }}>🎯 Consistency</span>
+                <b style={{ display: 'block', fontSize: '22px', fontFamily: 'Fredoka, sans-serif' }}>{consistencyRate}%</b>
+              </div>
+            </div>
+
+            {/* Insights Tips */}
+            <div style={{ marginTop: '8px' }}>
+              <div className="it">
+                <span className="it-icon">📅</span>
+                <p className="it-text">
+                  Your strongest day is <b>{insightsData.strongestDay}</b>.
+                </p>
+              </div>
+              <div className="it">
+                <span className="it-icon">⚡</span>
+                <p className="it-text">
+                  You log <b>{insightsData.avgTasks}</b> tasks on active days.
+                </p>
+              </div>
+              <div className="it">
+                <span className="it-icon">🗓️</span>
+                <p className="it-text">
+                  Active on <b>{insightsData.last7Active} of the last 7</b> days.
+                </p>
+              </div>
+              <div className="it">
+                <span className="it-icon">🌱</span>
+                <p className="it-text">
+                  <b>{insightsData.totalActive}</b> total active habit days recorded.
+                </p>
+              </div>
+            </div>
+
+            {/* Reflection Review for Selected Date */}
+            <div style={{ marginTop: '10px', padding: '14px', borderRadius: '18px', background: 'var(--c4)', border: '1px solid var(--line)' }}>
+              <div className="rw">
+                <b style={{ fontSize: '14px' }}>Reflection for {dayLabel} 🌿</b>
+                <span style={{ fontSize: '12px', color: 'var(--mute)' }}>{dateSubLabel}</span>
+              </div>
+              <div className="moods" style={{ margin: '10px 0 8px' }}>
+                {MOOD_MAP.map((m) => {
+                  const isSelected = dayLogs[selectedDate]?.mood === m.score;
+                  return (
+                    <button
+                      key={m.label}
+                      aria-pressed={isSelected}
+                      onClick={() => {
+                        onSaveDayLog(selectedDate, { mood: isSelected ? undefined : m.score });
+                      }}
+                    >
+                      {m.emoji} {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <textarea
+                rows={3}
+                value={dayLogs[selectedDate]?.reflection || ''}
+                onChange={(e) => onSaveDayLog(selectedDate, { reflection: e.target.value })}
+                placeholder="How did this day go? Write a line or two."
+                aria-label="Reflection"
+                style={{ width: '100%', fontSize: '14px', padding: '10px 12px' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button 
+                  className="btn" 
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                  onClick={() => {
+                    handleSaveReflection();
+                    setIsInsightsModalOpen(false);
+                  }}
+                >
+                  Set Reflection &amp; Close ✨
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal Sheet */}
       {itemToDelete && (

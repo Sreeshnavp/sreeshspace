@@ -395,7 +395,7 @@ export function App() {
           await saveActivityEvents(validOnly);
           localStorage.setItem('orbit_clean_slate_v6', 'true');
         }
-        if (localStorage.getItem('orbit_streak_zero_v10') !== 'true') {
+        if (localStorage.getItem('orbit_streak_pure_habits_v12') !== 'true') {
           const zeroStreak: StreakState = {
             currentStreak: 0,
             longestStreak: 0,
@@ -405,8 +405,7 @@ export function App() {
             lastActiveDate: undefined,
           };
           await saveStreakState(zeroStreak);
-          await saveActivityEvents([]);
-          localStorage.setItem('orbit_streak_zero_v10', 'true');
+          localStorage.setItem('orbit_streak_pure_habits_v12', 'true');
         }
         await runDataMigration();
         const [
