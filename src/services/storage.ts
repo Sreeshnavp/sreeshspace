@@ -26,6 +26,7 @@ export const STORAGE_KEY_DAYLOGS = 'sreeshspace_daylogs_v1';
 export const STORAGE_KEY_ROUTINES = 'sreeshspace_routines_v1';
 export const STORAGE_KEY_REELS = 'orbit_reels_v1';
 export const STORAGE_KEY_REEL_CATEGORIES = 'orbit_reel_categories_v1';
+export const STORAGE_KEY_ROLLOVER_DECISIONS = 'orbit_rollover_decisions_v1';
 
 export const DEFAULT_REEL_CATEGORIES: CategoryInfo[] = [];
 
@@ -493,6 +494,75 @@ export async function saveTodos(todos: TodoItem[]): Promise<void> {
   } catch (err) {
     console.error('Error saving todos:', err);
   }
+}
+
+// ==========================================
+// 🔁 ROLLOVER DECISIONS (PERSISTENT LOG)
+// ==========================================
+
+export interface RolloverDecisionRecord {
+  decidedAt: string; // ISO string
+  action: 'left_behind' | 'carried_all' | 'carried_selected' | 'dismissed';
+  candidateTaskIds?: string[];
+  carriedTaskIds?: string[];
+}
+
+export type RolloverDecisionsMap = Record<string, RolloverDecisionRecord>;
+
+export async function loadRolloverDecisions(): Promise<RolloverDecisionsMap> {
+  try {
+    const data = await get<RolloverDecisionsMap>(STORAGE_KEY_ROLLOVER_DECISIONS);
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      return data;
+    }
+    const local = localStorage.getItem(STORAGE_KEY_ROLLOVER_DECISIONS);
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+    return {};
+  } catch (err) {
+    return {};
+  }
+}
+
+export async function saveRolloverDecisions(decisions: RolloverDecisionsMap): Promise<void> {
+  try {
+    await set(STORAGE_KEY_ROLLOVER_DECISIONS, decisions);
+    try {
+      localStorage.setItem(STORAGE_KEY_ROLLOVER_DECISIONS, JSON.stringify(decisions));
+    } catch {
+      // Ignore localStorage size quota
+    }
+  } catch (err) {
+    console.error('Error saving rollover decisions:', err);
+  }
+}
+
+export async function recordRolloverDecision(
+  dateKey: string,
+  action: 'left_behind' | 'carried_all' | 'carried_selected' | 'dismissed',
+  meta?: { candidateTaskIds?: string[]; carriedTaskIds?: string[] }
+): Promise<RolloverDecisionsMap> {
+  const current = await loadRolloverDecisions();
+  const updated: RolloverDecisionsMap = {
+    ...current,
+    [dateKey]: {
+      decidedAt: new Date().toISOString(),
+      action,
+      candidateTaskIds: meta?.candidateTaskIds,
+      carriedTaskIds: meta?.carriedTaskIds,
+    },
+  };
+  await saveRolloverDecisions(updated);
+  return updated;
+}
+
+export async function isRolloverDecided(dateKey: string): Promise<boolean> {
+  const decisions = await loadRolloverDecisions();
+  return Boolean(decisions[dateKey]);
 }
 
 // ==========================================

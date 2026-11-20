@@ -50,12 +50,14 @@ export const EditReelCategoryModal: React.FC<EditReelCategoryModalProps> = ({
     playPopSound();
     triggerPartyPop('single');
 
+    const nowIso = new Date().toISOString();
     const updated: CategoryInfo = {
       id: category ? category.id : `reel_cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
       color,
       icon,
-      createdAt: category ? category.createdAt : new Date().toISOString(),
+      createdAt: category ? category.createdAt : nowIso,
+      updatedAt: nowIso,
       order: category?.order,
     };
 

@@ -42,6 +42,8 @@ export interface TodoItem {
   carryCount?: number; // Number of times carried forward
   attachments?: Attachment[];
   focusMinutes?: number;
+  rolloverDecision?: 'left_behind' | 'carried';
+  rolloverHandled?: boolean;
 
   // Permanent specific
   startDate?: string; // YYYY-MM-DD

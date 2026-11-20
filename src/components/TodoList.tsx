@@ -113,7 +113,7 @@ export const TodoList: React.FC<TodoListProps> = ({
     });
   }, [dailyTasksForDate]);
 
-  const dailyActive = dailyTasksForDate.filter((t) => !t.completed).length;
+  const dailyActive = dailyTasksForDate.filter((t) => !t.completed && t.status !== 'archived').length;
   const dailyDone = dailyTasksForDate.filter((t) => t.completed).length;
   const dailyTotal = dailyTasksForDate.length;
   const dailyProgress = dailyTotal > 0 ? Math.round((dailyDone / dailyTotal) * 100) : 0;
@@ -540,6 +540,12 @@ export const TodoList: React.FC<TodoListProps> = ({
                             {todo.carriedFrom && (
                               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-warning-soft text-warning-text border border-warning/20">
                                 Carried
+                              </span>
+                            )}
+
+                            {(todo.rolloverDecision === 'left_behind' || (todo.status === 'archived' && !todo.completed)) && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-sunken text-muted border border-subtle">
+                                Archived
                               </span>
                             )}
 

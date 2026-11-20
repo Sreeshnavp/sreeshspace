@@ -37,6 +37,7 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
   onDelete,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isCropEmbed, setIsCropEmbed] = useState(true);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,6 +78,12 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
   const currentReel = reels[currentIndex] || reels[0];
   const embedUrl = getInstagramEmbedUrl(currentReel.shortcode);
   const directUrl = getInstagramDirectUrl(currentReel.shortcode);
+  const isCaptionUrl =
+    Boolean(currentReel.caption) &&
+    (currentReel.caption!.startsWith('http://') ||
+      currentReel.caption!.startsWith('https://') ||
+      currentReel.caption!.includes('instagram.com'));
+  const cleanCaption = isCaptionUrl ? '' : currentReel.caption;
 
   const handleNext = () => {
     if (currentIndex < reels.length - 1) {
@@ -119,6 +126,26 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 9:16 Full Reel Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              playPopSound();
+              setIsCropEmbed(!isCropEmbed);
+            }}
+            className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer backdrop-blur-md"
+            title={isCropEmbed ? 'Switch to Embed View' : 'Switch to Clean 9:16 Reel View'}
+          >
+            {isCropEmbed ? (
+              <Maximize2 size={13} className="text-amber-400" />
+            ) : (
+              <Minimize2 size={13} className="text-zinc-400" />
+            )}
+            <span className="hidden sm:inline">
+              {isCropEmbed ? '9:16 Full Reel' : 'Embed Mode'}
+            </span>
+          </button>
+
           {/* Highlight Notes Drawer Toggle */}
           <button
             type="button"
@@ -153,27 +180,33 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
       <div className="flex-1 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
         
         {/* Centered Reel 9:16 Video Player Container */}
-        <div className="relative w-full max-w-[420px] h-full max-h-[760px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between">
+        <div className="relative w-full max-w-[420px] h-full max-h-[86vh] sm:max-h-[800px] aspect-[9/16] bg-zinc-950 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between select-none">
           
           {/* Cover photo backdrop while iframe loads */}
           <div className="absolute inset-0 z-0 bg-zinc-950 flex items-center justify-center overflow-hidden">
             <img
               src={currentReel.thumbnailUrl || getInstagramThumbnailUrl(currentReel.shortcode, 'l')}
               alt=""
-              className="w-full h-full object-cover blur-sm opacity-35"
+              className="w-full h-full object-cover blur-sm opacity-40"
               referrerPolicy="no-referrer"
             />
           </div>
 
-          {/* Instagram Embed iframe */}
-          <iframe
-            key={currentReel.shortcode}
-            src={embedUrl}
-            title={currentReel.headline || 'Instagram Reel'}
-            className="w-full h-full border-0 absolute inset-0 z-10"
-            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-            allowFullScreen
-          />
+          {/* Clean 9:16 Reel Viewport: Crops Instagram embed header (-56px) and footer (+52px) */}
+          <div className="absolute inset-0 z-10 overflow-hidden pointer-events-auto">
+            <iframe
+              key={currentReel.shortcode}
+              src={embedUrl}
+              title={currentReel.headline || 'Instagram Reel'}
+              className="w-full border-0 absolute left-0"
+              style={{
+                top: isCropEmbed ? '-56px' : '0px',
+                height: isCropEmbed ? 'calc(100% + 112px)' : '100%',
+              }}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
 
           {/* Floating Actions on the Right Side (Instagram Reels Style) */}
           <div className="absolute right-2.5 bottom-20 z-30 flex flex-col items-center gap-3">
@@ -265,17 +298,17 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
                 {currentReel.headline || 'Instagram Reel'}
               </h3>
 
-              {/* Caption Snippet */}
-              {currentReel.caption && (
+              {/* Caption Snippet (Clean without raw URLs) */}
+              {cleanCaption && (
                 <div className="text-xs text-zinc-300 leading-snug drop-shadow-sm">
                   <p className={isCaptionExpanded ? 'line-clamp-none' : 'line-clamp-2'}>
-                    {currentReel.caption}
+                    {cleanCaption}
                   </p>
-                  {currentReel.caption.length > 80 && (
+                  {cleanCaption.length > 80 && (
                     <button
                       type="button"
                       onClick={() => setIsCaptionExpanded(!isCaptionExpanded)}
-                      className="text-[11px] font-bold text-accent hover:underline mt-0.5"
+                      className="text-[11px] font-bold text-accent hover:underline mt-0.5 cursor-pointer"
                     >
                       {isCaptionExpanded ? 'Show less' : '...more'}
                     </button>

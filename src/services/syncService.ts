@@ -31,6 +31,8 @@ import {
   saveReels,
   loadReelCategories,
   saveReelCategories,
+  loadRolloverDecisions,
+  saveRolloverDecisions,
   isSampleItem,
   isPreinstalledCategory,
   isPreinstalledReelCategory,
@@ -226,8 +228,8 @@ export function mergeItemsById<T extends { id: string }>(
     } else {
       const lTime = getTime(lItem);
       const rTime = getTime(rItem);
-      // Keep newer or remote if equal
-      if (rTime >= lTime) {
+      // Keep newer, or keep local if equal
+      if (rTime > lTime) {
         map.set(rItem.id, rItem);
       }
     }
@@ -470,6 +472,14 @@ export function mergeVaultData(
     mergedTombstones
   );
 
+  // 15. Rollover Decisions (Permanent per-date decisions)
+  const localRolloverDecisions = (local.settings?.rolloverDecisions as Record<string, any>) || {};
+  const remoteRolloverDecisions = (remote.settings?.rolloverDecisions as Record<string, any>) || {};
+  const rolloverDecisions = {
+    ...remoteRolloverDecisions,
+    ...localRolloverDecisions,
+  };
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
@@ -480,6 +490,7 @@ export function mergeVaultData(
     sketches,
     reels,
     reelCategories,
+    rolloverDecisions,
     ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
@@ -543,6 +554,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       localSketches,
       localReels,
       localReelCats,
+      localRolloverDecisions,
     ] = await Promise.all([
       loadLinks(),
       loadCategories(),
@@ -559,6 +571,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadSketches(),
       loadReels(),
       loadReelCategories(),
+      loadRolloverDecisions(),
     ]);
 
     const localData = {
@@ -585,6 +598,7 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         sketches: localSketches,
         reels: localReels,
         reelCategories: localReelCats,
+        rolloverDecisions: localRolloverDecisions,
         streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
@@ -644,6 +658,9 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         : Promise.resolve(),
       mergedPayload.settings?.reelCategories
         ? saveReelCategories(mergedPayload.settings.reelCategories)
+        : Promise.resolve(),
+      mergedPayload.settings?.rolloverDecisions
+        ? saveRolloverDecisions(mergedPayload.settings.rolloverDecisions)
         : Promise.resolve(),
     ]);
 

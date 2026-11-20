@@ -30,6 +30,7 @@ export interface CategoryInfo {
   icon: string;
   description?: string;
   createdAt?: string;
+  updatedAt?: string;
   order?: number;
 }
 

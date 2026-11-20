@@ -51,6 +51,8 @@ import {
   saveReels,
   loadReelCategories,
   saveReelCategories,
+  loadRolloverDecisions,
+  recordRolloverDecision,
   DEFAULT_REEL_CATEGORIES,
   isPreinstalledReelCategory,
   runDataMigration, 
@@ -500,14 +502,25 @@ export function App() {
         if (loadedBgData?.imageUrl) setCustomBgImage(loadedBgData.imageUrl);
         if (loadedBgData?.settings) setBgSettings(loadedBgData.settings);
 
-        // Check for unfinished yesterday tasks on open
+        // Check for unfinished yesterday tasks on open (if not already decided)
         const yesterday = addDays(todayKey(), -1);
-        const unfinishedYesterday = loadedTodos.filter(
-          (t) => (t.type || 'permanent') === 'daily' && t.date === yesterday && !t.completed && t.status !== 'archived'
-        );
-        if (unfinishedYesterday.length > 0) {
-          setRolloverCandidateTasks(unfinishedYesterday);
-          setIsRolloverOpen(true);
+        const rolloverDecisions = await loadRolloverDecisions();
+        const alreadyDecided = Boolean(rolloverDecisions[yesterday]);
+
+        if (!alreadyDecided) {
+          const unfinishedYesterday = loadedTodos.filter(
+            (t) =>
+              (t.type || 'permanent') === 'daily' &&
+              t.date === yesterday &&
+              !t.completed &&
+              t.status !== 'archived' &&
+              !t.rolloverHandled &&
+              t.rolloverDecision !== 'left_behind'
+          );
+          if (unfinishedYesterday.length > 0) {
+            setRolloverCandidateTasks(unfinishedYesterday);
+            setIsRolloverOpen(true);
+          }
         }
 
         // Background cloud sync with Supabase
@@ -1317,21 +1330,26 @@ export function App() {
 
   const handleSaveReelCategory = async (cat: CategoryInfo) => {
     let updated: CategoryInfo[];
+    const nowIso = new Date().toISOString();
+    const updatedCat: CategoryInfo = {
+      ...cat,
+      updatedAt: nowIso,
+    };
     const idx = reelCategories.findIndex((c) => c.id === cat.id);
     if (idx >= 0) {
       const oldCat = reelCategories[idx];
-      updated = reelCategories.map((c) => (c.id === cat.id ? cat : c));
-      if (oldCat.name !== cat.name) {
+      updated = reelCategories.map((c) => (c.id === cat.id ? updatedCat : c));
+      if (oldCat.name !== updatedCat.name) {
         const updatedReels = reels.map((r) =>
-          r.collection === oldCat.name ? { ...r, collection: cat.name } : r
+          r.collection === oldCat.name ? { ...r, collection: updatedCat.name, updatedAt: nowIso } : r
         );
         setReels(updatedReels);
         await saveReels(updatedReels);
       }
-      showToast(`Updated "${cat.name}" collection`);
+      showToast(`Updated "${updatedCat.name}" collection ✨`);
     } else {
-      updated = [...reelCategories, cat];
-      showToast(`Created "${cat.name}" collection ✨`);
+      updated = [...reelCategories, updatedCat];
+      showToast(`Created "${updatedCat.name}" collection ✨`);
     }
     setReelCategories(updated);
     await saveReelCategories(updated);
@@ -1621,28 +1639,90 @@ export function App() {
   // Rollover Unfinished Tasks Handlers
   const handleCarrySelectedRollover = async (selectedIds: string[]) => {
     const today = todayKey();
+    const yesterday = addDays(today, -1);
     const selSet = new Set(selectedIds);
-
+    const candidateIds = new Set(rolloverCandidateTasks.map((t) => t.id));
     const nowIso = new Date().toISOString();
+
+    // 1. Record decision for yesterday
+    const action = selectedIds.length === rolloverCandidateTasks.length ? 'carried_all' : 'carried_selected';
+    await recordRolloverDecision(yesterday, action, {
+      candidateTaskIds: Array.from(candidateIds),
+      carriedTaskIds: selectedIds,
+    });
+
+    // 2. Update tasks
     const updated = todos.map((t) => {
-      if (!selSet.has(t.id)) return t;
-      return {
-        ...t,
-        date: today,
-        carriedFrom: t.date || addDays(today, -1),
-        carryCount: (t.carryCount || 0) + 1,
-        updatedAt: nowIso,
-      };
+      if (selSet.has(t.id)) {
+        return {
+          ...t,
+          date: today,
+          carriedFrom: t.date || yesterday,
+          carryCount: (t.carryCount || 0) + 1,
+          rolloverDecision: 'carried' as const,
+          rolloverHandled: true,
+          updatedAt: nowIso,
+        };
+      }
+      if (candidateIds.has(t.id)) {
+        return {
+          ...t,
+          status: 'archived' as const,
+          rolloverDecision: 'left_behind' as const,
+          rolloverHandled: true,
+          updatedAt: nowIso,
+        };
+      }
+      return t;
     });
 
     setTodos(updated);
     await saveTodos(updated);
     setIsRolloverOpen(false);
+    setRolloverCandidateTasks([]);
     showToast(`Carried over ${selectedIds.length} tasks to today! ☀️`);
+    syncWithCloud({ onMerged: refreshDataFromStorage });
   };
 
-  const handleLeaveBehindRollover = () => {
+  const handleLeaveBehindRollover = async () => {
+    const yesterday = addDays(todayKey(), -1);
+    const candidateIds = new Set(rolloverCandidateTasks.map((t) => t.id));
+    const nowIso = new Date().toISOString();
+
+    // 1. Record permanent decision for yesterday
+    await recordRolloverDecision(yesterday, 'left_behind', {
+      candidateTaskIds: Array.from(candidateIds),
+    });
+
+    // 2. Mark candidate tasks as archived in yesterday's archive
+    const updated = todos.map((t) => {
+      if (candidateIds.has(t.id) || ((t.type || 'permanent') === 'daily' && t.date === yesterday && !t.completed)) {
+        return {
+          ...t,
+          status: 'archived' as const,
+          rolloverDecision: 'left_behind' as const,
+          rolloverHandled: true,
+          updatedAt: nowIso,
+        };
+      }
+      return t;
+    });
+
+    setTodos(updated);
+    await saveTodos(updated);
     setIsRolloverOpen(false);
+    setRolloverCandidateTasks([]);
+    showToast("Tasks kept in yesterday's archive. Starting fresh today! ✨");
+    syncWithCloud({ onMerged: refreshDataFromStorage });
+  };
+
+  const handleDismissRollover = async () => {
+    const yesterday = addDays(todayKey(), -1);
+    await recordRolloverDecision(yesterday, 'dismissed', {
+      candidateTaskIds: rolloverCandidateTasks.map((t) => t.id),
+    });
+    setIsRolloverOpen(false);
+    setRolloverCandidateTasks([]);
   };
 
   // Copy yesterday's task list to today
@@ -2640,7 +2720,7 @@ export function App() {
         isOpen={isRolloverOpen}
         yesterdayTasks={rolloverCandidateTasks}
         yesterdayDateStr={addDays(todayKey(), -1)}
-        onClose={() => setIsRolloverOpen(false)}
+        onClose={handleDismissRollover}
         onCarryOver={handleCarrySelectedRollover}
         onLeaveBehind={handleLeaveBehindRollover}
       />

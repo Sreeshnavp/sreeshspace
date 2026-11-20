@@ -574,4 +574,38 @@ describe('syncService - merge algorithms', () => {
     expect(reels.find((r: any) => r.id === 'reel-local-active')).toBeDefined();
     expect(reels.find((r: any) => r.id === 'reel-remote-active')).toBeDefined();
   });
+
+  it('merges rollover decisions across devices without losing decisions', () => {
+    const localVault = {
+      settings: {
+        rolloverDecisions: {
+          '2026-11-19': {
+            decidedAt: '2026-11-20T07:00:00.000Z',
+            action: 'left_behind',
+            candidateTaskIds: ['task-1'],
+          },
+        },
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        rolloverDecisions: {
+          '2026-11-18': {
+            decidedAt: '2026-11-19T07:00:00.000Z',
+            action: 'carried_all',
+            candidateTaskIds: ['task-old'],
+          },
+        },
+      },
+    };
+
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
+    const decisions = merged.settings?.rolloverDecisions || {};
+
+    expect(decisions['2026-11-19']).toBeDefined();
+    expect(decisions['2026-11-19'].action).toBe('left_behind');
+    expect(decisions['2026-11-18']).toBeDefined();
+    expect(decisions['2026-11-18'].action).toBe('carried_all');
+  });
 });
