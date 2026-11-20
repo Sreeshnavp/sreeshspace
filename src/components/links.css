@@ -1,0 +1,543 @@
+/* ==========================================================================
+   LINKS TAB · ORBIT DESIGN SYSTEM
+   Exact match to Orbit reference HTML prototype
+   ========================================================================== */
+
+:root {
+  --orbit-bg: #f6f0e2;
+  --orbit-surface: #fffdf8;
+  --orbit-cream: #fdf0cd;
+  --orbit-ink: #24312b;
+  --orbit-muted: #7a8178;
+  --orbit-green: #2f6048;
+  --orbit-green-soft: #dcebe2;
+  --orbit-pink: #f7d6d9;
+  --orbit-sky: #d8e8f3;
+  --orbit-line: #eadfc6;
+  --orbit-shadow: 0 6px 24px rgba(70,60,30,.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="dark"] {
+    --orbit-bg: #141b17;
+    --orbit-surface: #1c2621;
+    --orbit-cream: #2a3028;
+    --orbit-ink: #eef0e6;
+    --orbit-muted: #9aa69c;
+    --orbit-green: #7fc79f;
+    --orbit-green-soft: #26382e;
+    --orbit-pink: #4a2f35;
+    --orbit-sky: #26394a;
+    --orbit-line: #33403a;
+    --orbit-shadow: 0 6px 24px rgba(0,0,0,.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --orbit-bg: #141b17;
+  --orbit-surface: #1c2621;
+  --orbit-cream: #2a3028;
+  --orbit-ink: #eef0e6;
+  --orbit-muted: #9aa69c;
+  --orbit-green: #7fc79f;
+  --orbit-green-soft: #26382e;
+  --orbit-pink: #4a2f35;
+  --orbit-sky: #26394a;
+  --orbit-line: #33403a;
+  --orbit-shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+
+/* ==========================================================================
+   HERO GREET & QUICK LINK CAPTURE CARD
+   ========================================================================== */
+.orbit-hero-greet {
+  background: linear-gradient(120deg, var(--orbit-cream), var(--orbit-pink));
+  border: 1px solid var(--orbit-line);
+  border-radius: 24px;
+  box-shadow: var(--orbit-shadow);
+  padding: 24px 26px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.orbit-hero-greet .sun {
+  position: absolute;
+  right: -20px;
+  top: -26px;
+  font-size: 120px;
+  opacity: .9;
+  transform: rotate(-8deg);
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
+}
+
+.orbit-hero-greet h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 32px;
+  line-height: 1.15;
+  max-width: 15ch;
+  margin: 0;
+  color: var(--orbit-ink);
+  font-weight: 700;
+}
+
+.orbit-hero-greet p {
+  margin: 8px 0 18px;
+  color: var(--orbit-muted);
+  font-size: 14px;
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+.orbit-hero-greet .capture {
+  display: flex;
+  gap: 8px;
+  background: var(--orbit-surface);
+  border-radius: 99px;
+  padding: 5px 6px 5px 16px;
+  align-items: center;
+  max-width: 540px;
+  border: 1px solid var(--orbit-line);
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+
+.orbit-hero-greet .capture input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--orbit-ink);
+  outline: none;
+  font-size: 13.5px;
+}
+
+.orbit-hero-greet .capture .btn-save {
+  background: var(--orbit-green);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  border: 0;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.orbit-hero-greet .capture .btn-save:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.orbit-hero-greet .capture .btn-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.orbit-hero-greet .capture .btn-details {
+  border: 0;
+  background: none;
+  color: var(--orbit-green);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 99px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.orbit-hero-greet .capture .btn-details:hover {
+  background: var(--orbit-green-soft);
+}
+
+/* ==========================================================================
+   WORKSPACE TABS NAVIGATION BAR (.tabs)
+   ========================================================================== */
+.orbit-nav-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--orbit-cream);
+  border: 1px solid var(--orbit-line);
+  border-radius: 20px;
+  padding: 8px;
+  margin-top: 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.orbit-nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.orbit-nav-tab {
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--orbit-muted);
+  font-size: 13.5px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Figtree', system-ui, sans-serif;
+  user-select: none;
+}
+
+.orbit-nav-tab:hover {
+  color: var(--orbit-ink);
+}
+
+.orbit-nav-tab[aria-selected="true"],
+.orbit-nav-tab.active {
+  background: var(--orbit-surface);
+  color: var(--orbit-ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   LINKS TOOLBAR HEADER (.sec)
+   ========================================================================== */
+.orbit-links-sec {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 26px 0 16px;
+  flex-wrap: wrap;
+}
+
+.orbit-links-sec h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--orbit-ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.orbit-links-sec .seg {
+  display: flex;
+  background: var(--orbit-cream);
+  border-radius: 99px;
+  padding: 4px;
+  border: 1px solid var(--orbit-line);
+  gap: 2px;
+}
+
+.orbit-links-sec .seg button {
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--orbit-muted);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+.orbit-links-sec .seg button.on {
+  background: var(--orbit-surface);
+  color: var(--orbit-ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  font-weight: 700;
+}
+
+.orbit-links-sec .sp {
+  flex: 1;
+}
+
+.orbit-links-sec .ghost-btn {
+  border: 1px solid var(--orbit-line);
+  background: var(--orbit-surface);
+  border-radius: 14px;
+  padding: 9px 16px;
+  font-weight: 600;
+  color: var(--orbit-green);
+  font-size: 13.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  font-family: 'Figtree', system-ui, sans-serif;
+  box-shadow: 0 1px 3px rgba(0,0,0,.02);
+}
+
+.orbit-links-sec .ghost-btn:hover {
+  filter: brightness(0.97);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   LINKS GRID (.grid)
+   ========================================================================== */
+.orbit-links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+@media(max-width: 640px) {
+  .orbit-links-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .orbit-hero-greet {
+    padding: 18px 16px;
+  }
+  .orbit-hero-greet h1 {
+    font-size: 24px;
+  }
+  .orbit-hero-greet .sun {
+    font-size: 68px;
+    right: -10px;
+    top: -10px;
+  }
+  .orbit-links-sec {
+    gap: 10px;
+    margin: 18px 0 14px;
+  }
+  .orbit-links-sec h2 {
+    font-size: 24px;
+  }
+}
+
+/* ==========================================================================
+   ORBIT CARD STYLING (.card)
+   ========================================================================== */
+.orbit-card {
+  background: var(--orbit-surface);
+  border: 1px solid var(--orbit-line);
+  border-radius: 24px;
+  box-shadow: var(--orbit-shadow);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 230px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.orbit-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(70,60,30,.12);
+  border-color: var(--orbit-green);
+}
+
+/* Card Header (.fh) */
+.orbit-card .fh {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+}
+
+.orbit-card .fi {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  background: var(--orbit-sky);
+}
+
+.orbit-card .fh h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--orbit-ink);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.orbit-card .fh small {
+  color: var(--orbit-muted);
+  display: block;
+  font-size: 13px;
+  margin-top: 2px;
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+.orbit-card .ib {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  border: 0;
+  background: none;
+  color: var(--orbit-muted);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.orbit-card .ib:hover {
+  background: var(--orbit-green-soft);
+  color: var(--orbit-ink);
+}
+
+/* 4-Slots 2x2 Grid (.slots) */
+.orbit-card .slots {
+  background: var(--orbit-cream);
+  border-radius: 18px;
+  padding: 10px;
+  margin: 14px 0 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+  align-content: center;
+}
+
+.orbit-card .lk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--orbit-surface);
+  border: 1px solid var(--orbit-line);
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  min-width: 0;
+  color: var(--orbit-ink);
+  text-decoration: none;
+  transition: transform .15s ease;
+  overflow: hidden;
+}
+
+.orbit-card .lk:hover {
+  transform: translateY(-2px);
+}
+
+.orbit-card .lk span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-card .dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #fff;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.orbit-card .empty-slot {
+  border: 1.5px dashed var(--orbit-muted);
+  opacity: .55;
+  border-radius: 12px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--orbit-muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Card Footer (.ff) */
+.orbit-card .ff {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--orbit-line);
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--orbit-muted);
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+
+.orbit-card .ff a,
+.orbit-card .ff .open-action {
+  color: var(--orbit-green);
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.orbit-card .ff a:hover,
+.orbit-card .ff .open-action:hover {
+  filter: brightness(1.15);
+}
+
+/* Loose / Standalone Bookmark Card Details */
+.orbit-card .link-card-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--orbit-ink);
+  margin-top: 12px;
+  margin-bottom: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.orbit-card .link-note {
+  background: var(--orbit-cream);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  color: var(--orbit-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: 'Figtree', system-ui, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.orbit-card .star-btn {
+  font-size: 20px;
+  color: var(--orbit-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 4px;
+  line-height: 1;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.orbit-card .star-btn.on {
+  color: #e9a82f;
+}
+
+.orbit-card .star-btn:hover {
+  transform: scale(1.15);
+}

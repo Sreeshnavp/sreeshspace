@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Edit3, Sparkles, GripHorizontal, Plus } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { CategoryInfo, LinkItem } from '../types';
 import { getCategoryToken } from '../utils/themeColors';
+import './links.css';
 
 interface CategoryBundleSquareProps {
   category: CategoryInfo;
@@ -86,8 +87,18 @@ export const CategoryBundleSquare: React.FC<CategoryBundleSquareProps> = ({
     }
   };
 
+  // Pastel background helper based on category color
+  const getPastelBg = () => {
+    const c = (category.color || '').toLowerCase();
+    if (c === 'sky' || c === 'blue') return 'var(--orbit-sky)';
+    if (c === 'peach' || c === 'pink' || c === 'rose') return 'var(--orbit-pink)';
+    if (c === 'sage' || c === 'green') return 'var(--orbit-green-soft)';
+    if (c === 'amber' || c === 'yellow' || c === 'honey') return '#fde3a1';
+    return catToken.softVar || 'var(--orbit-sky)';
+  };
+
   return (
-    <div
+    <article
       draggable={!activeDraggingLinkId}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', `category-move:${index}`);
@@ -102,116 +113,120 @@ export const CategoryBundleSquare: React.FC<CategoryBundleSquareProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={() => onOpenFolder(category)}
-      className={`group relative flex flex-col justify-between p-3.5 sm:p-4.5 rounded-3xl cursor-pointer transition-all duration-300 ease-out select-none border h-[210px] sm:h-[215px] overflow-hidden ${
-        isDragOver
-          ? 'border-accent bg-accent-soft ring-4 ring-ring/30 scale-[1.03] -translate-y-1'
-          : 'bg-surface border-subtle shadow-soft hover:shadow-soft-hover hover:border-strong hover:-translate-y-1'
+      className={`orbit-card ${
+        isDragOver ? 'ring-4 ring-green-600/30 scale-[1.02] border-green-700' : ''
       }`}
+      style={{ cursor: 'pointer' }}
     >
       {/* Liquid drop animation overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-accent text-on-accent font-bold text-xs sm:text-sm animate-in fade-in zoom-in-95 pointer-events-none">
+        <div 
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center font-bold text-sm pointer-events-none"
+          style={{ background: 'var(--orbit-green)', color: '#ffffff', borderRadius: '24px' }}
+        >
           <Sparkles size={28} className="mb-1.5 animate-bounce" />
           <span>Drop to file into {category.name}!</span>
         </div>
       )}
 
-      {/* 1. Header: Compact Title & Icon */}
-      <div className="flex items-center justify-between gap-2 h-8 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div 
-            className="w-7 h-7 rounded-xl flex items-center justify-center text-sm shrink-0 shadow-2xs transition-transform group-hover:scale-110"
-            style={{ backgroundColor: catToken.softVar, color: catToken.textVar }}
-          >
-            {category.icon || '📁'}
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="font-extrabold text-xs sm:text-sm text-main truncate leading-tight group-hover:text-accent transition-colors">
-              {category.name}
-            </h3>
-            <span className="text-[10px] text-faint font-medium">
-              {bundleLinks.length} {bundleLinks.length === 1 ? 'bookmark' : 'bookmarks'}
-            </span>
-          </div>
+      {/* 1. Header: Icon, Category Name, Count, Edit Button */}
+      <div className="fh">
+        <div 
+          className="fi" 
+          style={{ background: getPastelBg(), color: 'var(--orbit-ink)' }}
+        >
+          {category.icon || '📁'}
         </div>
-
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {category.name}
+          </h3>
+          <small>
+            {bundleLinks.length} {bundleLinks.length === 1 ? 'bookmark' : 'bookmarks'}
+          </small>
+        </div>
         <button
+          className="ib"
           onClick={(e) => {
             e.stopPropagation();
             onEditCategory(category);
           }}
-          className="p-1 text-faint hover:text-main rounded-lg hover:bg-sunken transition cursor-pointer"
-          title="Rename category"
+          aria-label={`Edit ${category.name}`}
+          title="Edit folder"
         >
-          <Edit3 size={13} />
+          ✏️
         </button>
       </div>
 
-      {/* 2. SYMMETRICAL 2x2 MINI GRID PREVIEW */}
-      <div className="my-auto h-[92px] p-2 rounded-2xl bg-sunken border border-subtle flex items-center justify-center transition-colors group-hover:border-strong overflow-hidden">
-        <div className="grid grid-cols-2 grid-rows-2 gap-1.5 w-full h-full">
-          {[0, 1, 2, 3].map((slotIndex) => {
-            const link = bundleLinks[slotIndex];
-            const isOverflowTile = slotIndex === 3 && bundleLinks.length > 4;
+      {/* 2. Symmetrical 2x2 Slots Grid */}
+      <div className="slots">
+        {[0, 1, 2, 3].map((slotIndex) => {
+          const link = bundleLinks[slotIndex];
+          const isOverflowTile = slotIndex === 3 && bundleLinks.length > 4;
 
-            if (link) {
-              return (
-                <div
-                  key={link.id || slotIndex}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-surface border border-subtle shadow-2xs overflow-hidden min-w-0 h-full text-main"
-                  title={link.title}
-                >
-                  <div className="w-4 h-4 rounded-md bg-sunken flex items-center justify-center shrink-0 overflow-hidden">
-                    {link.favicon ? (
-                      <img src={link.favicon} alt="" className="w-3 h-3 object-contain" />
-                    ) : (
-                      <span className="text-[8px]">🔗</span>
-                    )}
-                  </div>
-                  
-                  {isOverflowTile ? (
-                    <span className="text-[10px] font-bold text-accent-text font-mono truncate">
-                      +{bundleLinks.length - 3} more
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-medium text-main truncate">
-                      {link.title.split(' ')[0] || 'Link'}
-                    </span>
-                  )}
-                </div>
-              );
-            }
-
-            // Symmetrical placeholder slot for empty quadrants
+          if (link) {
+            const initial = (link.title?.[0] || 'L').toUpperCase();
             return (
               <div
-                key={`empty-${slotIndex}`}
-                className="flex items-center justify-center rounded-xl border border-dashed border-strong bg-surface/40 h-full text-faint"
-                title="Empty slot • drag link here"
+                key={link.id || slotIndex}
+                className="lk"
+                title={link.title}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenFolder(category);
+                }}
               >
-                <Plus size={11} className="stroke-[2] opacity-40" />
+                <i 
+                  className="dot" 
+                  style={{ 
+                    background: link.favicon ? 'transparent' : '#4285f4',
+                    border: link.favicon ? '1px solid var(--orbit-line)' : 'none'
+                  }}
+                >
+                  {link.favicon ? (
+                    <img src={link.favicon} alt="" className="w-3.5 h-3.5 object-contain" />
+                  ) : (
+                    initial
+                  )}
+                </i>
+                <span>
+                  {isOverflowTile ? `+${bundleLinks.length - 3} more` : (link.title.split(' ')[0] || 'Link')}
+                </span>
               </div>
             );
-          })}
-        </div>
+          }
+
+          // Empty quadrant placeholder
+          return (
+            <div
+              key={`empty-${slotIndex}`}
+              className="empty-slot"
+              title="Empty slot · drop link here"
+            >
+              +
+            </div>
+          );
+        })}
       </div>
 
-      {/* 3. Footer: Interaction Cues */}
-      <div className="pt-2 mt-auto border-t border-subtle flex items-center justify-between text-[11px] h-7 shrink-0">
+      {/* 3. Footer: Reorder cue and Open action */}
+      <div className="ff">
         <span 
-          className="text-faint hover:text-muted cursor-grab active:cursor-grabbing flex items-center gap-1 font-medium" 
+          style={{ cursor: 'grab', userSelect: 'none' }} 
           title="Drag to rearrange folders"
         >
-          <GripHorizontal size={13} />
-          <span className="text-[10px] hidden sm:inline">Reorder</span>
+          ⠿ Reorder
         </span>
-
-        <span className="font-bold text-accent group-hover:translate-x-0.5 transition-transform flex items-center gap-1 text-xs">
-          <span>Open</span>
-          <span>&rarr;</span>
-        </span>
+        <button 
+          className="open-action" 
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenFolder(category);
+          }}
+        >
+          Open →
+        </button>
       </div>
-    </div>
+    </article>
   );
 };

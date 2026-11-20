@@ -88,6 +88,7 @@ import { Header } from './components/Header';
 import { QuickAddBar } from './components/QuickAddBar';
 import { CategoryBundleSquare } from './components/CategoryBundleSquare';
 import { StandaloneLinkCard } from './components/StandaloneLinkCard';
+import './components/links.css';
 import { FolderGridPopup } from './components/FolderGridPopup';
 import { EditCategoryModal } from './components/EditCategoryModal';
 import { LinkModal } from './components/LinkModal';
@@ -2208,7 +2209,7 @@ export function App() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+              <div className="orbit-links-grid">
                 {searchFilteredLinks.map((link) => (
                   <StandaloneLinkCard
                     key={link.id}
@@ -2234,215 +2235,144 @@ export function App() {
           <div className="space-y-5 sm:space-y-6">
 
             {/* Workspace View Switcher: Links vs Habits & Tasks vs Finances vs Notes & Sketchpad */}
-            <div className="flex items-center justify-between gap-2 p-1 sm:p-1.5 rounded-2xl bg-sunken border border-subtle overflow-x-auto scrollbar-none">
-              <div className="flex items-center gap-1 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateToView('links');
-                    playPopSound();
-                  }}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
-                    workspaceView === 'links'
-                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <Link2 size={13} className="stroke-[2.2]" />
-                  <span>Links ({links.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateToView('notebook');
-                    playPopSound();
-                  }}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
-                    workspaceView === 'notebook'
-                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <BookOpen size={13} className="stroke-[2.2]" />
-                  <span>Habits & Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateToView('reels');
-                    playPopSound();
-                  }}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
-                    workspaceView === 'reels'
-                      ? 'bg-surface text-rose-600 shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <Film size={13} className="stroke-[2.2] text-rose-500" />
-                  <span>Reels ({reels.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateToView('finance');
-                    playPopSound();
-                  }}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
-                    workspaceView === 'finance'
-                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <Wallet size={13} className="stroke-[2.2]" />
-                  <span>Finances ({transactions.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateToView('notes');
-                    playPopSound();
-                  }}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
-                    workspaceView === 'notes'
-                      ? 'bg-surface text-accent-text shadow-2xs font-extrabold'
-                      : 'text-muted hover:text-main'
-                  }`}
-                >
-                  <Palette size={13} className="stroke-[2.2] text-pink-500" />
-                  <span>Notes & Sketch ({notes.length + sketches.length})</span>
-                </button>
-              </div>
-            </div>
+            <nav className="orbit-nav-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'links'}
+                onClick={() => {
+                  navigateToView('links');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'links' ? 'active' : ''}`}
+              >
+                <span>🔗 Links ({links.length})</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'notebook'}
+                onClick={() => {
+                  navigateToView('notebook');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'notebook' ? 'active' : ''}`}
+              >
+                <span>📖 Habits &amp; Tasks ({todos.filter(t => !t.completed && t.status !== 'archived').length})</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'reels'}
+                onClick={() => {
+                  navigateToView('reels');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'reels' ? 'active' : ''}`}
+              >
+                <span>🎞️ Reels ({reels.length})</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'finance'}
+                onClick={() => {
+                  navigateToView('finance');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'finance' ? 'active' : ''}`}
+              >
+                <span>👛 Finances ({transactions.length})</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'notes'}
+                onClick={() => {
+                  navigateToView('notes');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'notes' ? 'active' : ''}`}
+              >
+                <span>🎨 Notes &amp; Sketch ({notes.length + sketches.length})</span>
+              </button>
+            </nav>
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'links' || workspaceView === 'both') && (
-              <div className="space-y-3.5 sm:space-y-4">
-                {/* Toolbar Header with [Folders], [All] & [⭐ Starred] View Switcher and "+ New Folder" Button */}
-                <div className="flex items-center justify-between px-1 gap-2 flex-wrap sm:flex-nowrap">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <span className="text-base select-none">🔗</span>
-                    <h2 className="font-extrabold text-base sm:text-lg text-main">
-                      Links
-                    </h2>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
-                      {linkView === 'starred' ? starredLinks.length : links.length}
-                    </span>
+              <div className="links-container">
+                {/* Toolbar Header matching reference HTML .sec */}
+                <div className="orbit-links-sec">
+                  <h2>Links</h2>
 
-                    {/* Filter Segmented Control: [Folders] (Categorized), [All] (Flat Cards), [⭐ Starred] */}
-                    <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle ml-0.5 sm:ml-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLinkView('folders');
-                          playPopSound();
-                        }}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          linkView === 'folders'
-                            ? 'bg-surface text-main shadow-2xs font-extrabold'
-                            : 'text-muted hover:text-main'
-                        }`}
-                        aria-label="Show Categorized Folders"
-                        title="Categorized Folders View"
-                      >
-                        <span>Folders</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLinkView('all');
-                          playPopSound();
-                        }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          linkView === 'all'
-                            ? 'bg-surface text-main shadow-2xs font-extrabold'
-                            : 'text-muted hover:text-main'
-                        }`}
-                        aria-label="Show All Links directly as cards"
-                        title="Show all links directly as individual cards"
-                      >
-                        <span>All</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                          linkView === 'all' ? 'bg-accent text-on-accent' : 'bg-surface text-muted'
-                        }`}>
-                          {links.length}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLinkView('starred');
-                          playPopSound();
-                        }}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          linkView === 'starred'
-                            ? 'bg-surface text-amber-500 shadow-2xs font-extrabold'
-                            : 'text-muted hover:text-amber-500'
-                        }`}
-                        aria-label="Show Starred Links"
-                        title="Show Starred Bookmarks"
-                      >
-                        <Star size={13} className={linkView === 'starred' ? 'fill-amber-400 text-amber-500' : 'text-faint hover:text-amber-500'} />
-                        <span className="hidden sm:inline">Starred</span>
-                        {starredLinks.length > 0 && (
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                            linkView === 'starred' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface text-muted'
-                          }`}>
-                            {starredLinks.length}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Actions on right */}
-                  <div className="flex items-center gap-2">
-                    {/* Small cute button on the side to create a category */}
+                  {/* Filter Segmented Control: [Folders], [All], [★ Starred] */}
+                  <div className="seg">
                     <button
+                      type="button"
                       onClick={() => {
-                        const name = prompt('Enter a name for the new folder:');
-                        if (name && name.trim()) {
-                          handleAddCategory({
-                            name: name.trim(),
-                            color: 'sage',
-                            icon: '📁',
-                          });
-                        }
+                        setLinkView('folders');
+                        playPopSound();
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken border border-subtle text-xs font-bold text-accent shadow-2xs transition-all active:scale-95 cursor-pointer min-h-[38px]"
+                      className={linkView === 'folders' ? 'on' : ''}
                     >
-                      <Plus size={13} className="stroke-[2.5]" />
-                      <span>New Folder</span>
+                      Folders
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkView('all');
+                        playPopSound();
+                      }}
+                      className={linkView === 'all' ? 'on' : ''}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkView('starred');
+                        playPopSound();
+                      }}
+                      className={linkView === 'starred' ? 'on' : ''}
+                    >
+                      ★ Starred
                     </button>
                   </div>
+
+                  <div className="sp" />
+
+                  {/* Ghost + New Folder Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const name = prompt('Folder name');
+                      if (name && name.trim()) {
+                        handleAddCategory({
+                          name: name.trim(),
+                          color: 'sage',
+                          icon: '📁',
+                        });
+                      }
+                    }}
+                    className="ghost-btn"
+                  >
+                    + New folder
+                  </button>
                 </div>
 
                 {/* CONTENT AREA: Folders vs All (Flat Unbundled) vs Starred */}
                 {linkView === 'starred' ? (
                   /* STARRED / FAVORITES VIEW */
                   starredLinks.length === 0 ? (
-                    <div className="p-8 sm:p-12 text-center rounded-3xl bg-surface border border-subtle shadow-soft">
-                      <div className="w-14 h-14 rounded-3xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 mx-auto flex items-center justify-center mb-3 border border-amber-200 dark:border-amber-900">
-                        <Star size={26} className="fill-amber-400 text-amber-500 animate-pulse" />
-                      </div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-main mb-1">
-                        No Starred Bookmarks Yet
-                      </h3>
-                      <p className="text-xs text-muted max-w-sm mx-auto mb-4">
-                        Click the star icon ⭐ on any bookmark (in All or inside folders) to pin your favorites here for instant access.
+                    <div className="orbit-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', alignItems: 'center' }}>
+                      <div style={{ fontSize: '38px', marginBottom: '8px' }}>★</div>
+                      <h3 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '20px', margin: '0 0 6px' }}>No Starred Bookmarks Yet</h3>
+                      <p style={{ color: 'var(--orbit-muted)', fontSize: '13px', margin: 0 }}>
+                        Click the star icon ★ on any bookmark to pin your favorites here for instant access.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLinkView('all');
-                          playPopSound();
-                        }}
-                        className="px-4 py-2 rounded-xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover transition-all active:scale-95 cursor-pointer"
-                      >
-                        View All Bookmarks
-                      </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                    <div className="orbit-links-grid">
                       {starredLinks.map((link) => (
                         <StandaloneLinkCard
                           key={link.id}
@@ -2465,16 +2395,15 @@ export function App() {
                 ) : linkView === 'all' ? (
                   /* ALL LINKS DIRECTLY AS CARDS (FLAT / UNBUNDLED VIEW) */
                   allSortedLinks.length === 0 ? (
-                    <div className="p-8 sm:p-12 text-center rounded-3xl bg-surface border border-subtle shadow-soft">
-                      <p className="text-sm sm:text-base font-extrabold text-main mb-1">
-                        No Bookmarks Saved Yet
-                      </p>
-                      <p className="text-xs text-muted max-w-sm mx-auto">
+                    <div className="orbit-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', alignItems: 'center' }}>
+                      <div style={{ fontSize: '38px', marginBottom: '8px' }}>🔎</div>
+                      <h3 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '20px', margin: '0 0 6px' }}>No Bookmarks Saved Yet</h3>
+                      <p style={{ color: 'var(--orbit-muted)', fontSize: '13px', margin: 0 }}>
                         Paste any link in the bar above or tap Add Item to save your first bookmark.
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                    <div className="orbit-links-grid">
                       {allSortedLinks.map((link) => (
                         <StandaloneLinkCard
                           key={link.id}
@@ -2496,7 +2425,7 @@ export function App() {
                   )
                 ) : (
                   /* CATEGORIZED FOLDERS VIEW (Default: Bundles + Canvas Bookmarks) */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4.5">
+                  <div className="orbit-links-grid">
                     
                     {/* Category Bundle Squares */}
                     {categories.map((category, index) => (
