@@ -1,63 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  ExternalLink, 
-  ArrowRight, 
-  RefreshCw, 
-  Sparkles, 
-  CheckCircle2, 
-  Layers, 
-  TrendingUp, 
-  Calendar, 
-  Compass, 
-  BookOpen, 
-  Film, 
-  Wallet, 
-  Palette, 
-  Moon, 
-  Sun, 
-  BarChart3, 
-  User, 
-  Mail, 
-  X, 
-  Copy, 
-  Check
-} from 'lucide-react';
 import { WorkspaceView, LinkItem, TodoItem, ReelItem, FinanceTransaction, NoteItem, SketchItem } from '../../types';
-import { playPopSound, triggerPartyPop } from '../../utils/delight';
-import avatarImg from '../../assets/avatar.png';
+import { playPopSound } from '../../utils/delight';
+import avatarImg from '../../assets/avatar.jpg';
 import sreeshCharacterImg from '../../assets/sreesh_character.png';
 import quoteBgImg from '../../assets/quote_bg.png';
-import './home.css';
-
-// Crisp inline SVGs for social media
-const GithubIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-  </svg>
-);
-
-const LinkedinIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-    <rect x="2" y="9" width="4" height="12" />
-    <circle cx="4" cy="4" r="2" />
-  </svg>
-);
-
-const InstagramIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-  </svg>
-);
-
-const YoutubeIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" />
-    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor" />
-  </svg>
-);
 
 interface HomeDashboardProps {
   onNavigate: (view: WorkspaceView) => void;
@@ -71,15 +17,15 @@ interface HomeDashboardProps {
   onToggleDarkMode: () => void;
   onOpenHistoryTimeline?: () => void;
   onOpenDesignGuide?: () => void;
+  onLock?: () => void;
 }
 
-const INSPIRATIONAL_QUOTES = [
-  { text: "Small steps today, big dreams tomorrow.", author: "Daily Wisdom" },
-  { text: "Simplicity is the soul of efficiency.", author: "Austin Freeman" },
-  { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
-  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
-  { text: "A calm mind brings inner strength and self-confidence.", author: "Dalai Lama" },
-  { text: "Create space for what truly matters to you.", author: "Cozy Space" }
+const QUOTES = [
+  'Small steps today, big dreams tomorrow. ♡',
+  'Create space for what truly nourishes your heart. ✨',
+  'Focus on the step in front of you, not the mountain. 🌿',
+  'Warm tea, quiet moments, and happy progress. 🍵',
+  'Organized spaces bring peaceful creative minds. 💜'
 ];
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -94,845 +40,759 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onToggleDarkMode,
   onOpenHistoryTimeline,
   onOpenDesignGuide,
+  onLock,
 }) => {
-  // Feature Slides State
-  const [activeSlide, setActiveSlide] = useState<number>(0);
-  const [quoteIndex, setQuoteIndex] = useState<number>(0);
-  const [showSlidesSection, setShowSlidesSection] = useState<boolean>(true);
-  
-  // Modals
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [favoriteQuote, setFavoriteQuote] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [copiedEmail, setCopiedEmail] = useState(false);
 
   // Active counts
   const activeTasksCount = useMemo(() => {
     return todos.filter(t => !t.completed && t.status !== 'archived').length;
   }, [todos]);
 
-  // Slides Data
-  const slidesData = [
-    {
-      id: 'links',
-      targetView: 'links' as WorkspaceView,
-      title: 'LinkVault & Bookmarks',
-      badge: 'Visual Folders',
-      desc: 'Keep your digital web organized. Clean 2x2 folder previews, quick-capture URL bar, custom pastel folders, and fluid drag-and-drop link filing.',
-      bullets: [
-        'Quick capsule capture bar with automatic favicon detection',
-        'Visual 2x2 folder grid preview cards',
-        'Tag filtering and instant keyword search',
-        'Star favorite links for one-tap access'
-      ],
-      previewColor: 'from-purple-500/10 to-indigo-500/10',
-      actionText: 'Explore Links Vault',
-      icon: '🔗'
-    },
-    {
-      id: 'habits',
-      targetView: 'notebook' as WorkspaceView,
-      title: 'Habits & Routine Tracker',
-      badge: 'Consistency & Focus',
-      desc: 'Form lifelong positive habits with intelligent streaks, daily reflections, morning & evening routines, and GitHub-style activity heatmaps.',
-      bullets: [
-        'Interactive streak counter and consistency heatmap',
-        'Priority task management with high/medium/low tags',
-        'Morning & evening daily reflection journals',
-        'Fixed daily tasks that reset gracefully every morning'
-      ],
-      previewColor: 'from-emerald-500/10 to-teal-500/10',
-      actionText: 'Open Habits & Tasks',
-      icon: '✅'
-    },
-    {
-      id: 'reels',
-      targetView: 'reels' as WorkspaceView,
-      title: 'Reels Vault & Video Studio',
-      badge: 'Distraction-Free',
-      desc: 'Curate your favorite educational reels and shorts without infinite doomscrolling. Watch inside a clean theater or organize by folders.',
-      bullets: [
-        'Clean card layout with video thumbnail previews',
-        'Instagram & YouTube shorts inline player',
-        'Custom thematic folders and creator tagging',
-        'One-tap quick reel saver from URL'
-      ],
-      previewColor: 'from-rose-500/10 to-orange-500/10',
-      actionText: 'Open Reels Vault',
-      icon: '▶'
-    },
-    {
-      id: 'finance',
-      targetView: 'finance' as WorkspaceView,
-      title: 'Personal Finance Hub',
-      badge: 'Smart Insights',
-      desc: 'Take command of your financial wellness. Enjoy tactile Numpad transaction entry, real-time balance calculations, and automatic spending insights.',
-      bullets: [
-        'Tactile mobile-friendly Numpad expense & income logger',
-        'Automatic category spending breakdown & charts',
-        'Monthly forecast and top-spend warnings',
-        'Offline-first and encrypted local storage'
-      ],
-      previewColor: 'from-blue-500/10 to-sky-500/10',
-      actionText: 'Open Finance Hub',
-      icon: '👛'
-    },
-    {
-      id: 'notes',
-      targetView: 'notes' as WorkspaceView,
-      title: 'Notes & Creative Sketchpad',
-      badge: 'Pastel Studio',
-      desc: 'Jot down fast ideas, checklists, and memories, or switch to the creative drawing canvas to doodle thoughts and sketches freehand.',
-      bullets: [
-        'Pastel note cards with custom tag colors',
-        'Markdown and interactive checklist support',
-        'Freehand HTML5 drawing canvas with multi-brush colors',
-        'Pin critical notes to the top of your studio'
-      ],
-      previewColor: 'from-violet-500/10 to-pink-500/10',
-      actionText: 'Open Notes & Sketch',
-      icon: '📝'
-    }
-  ];
-
-  // Quick Access Launchpad Links
-  const quickAccessItems = [
-    { name: 'Google', icon: '🌐', url: 'https://www.google.com', color: '#4285F4' },
-    { name: 'YouTube', icon: '▶', url: 'https://www.youtube.com', color: '#FF0000' },
-    { name: 'GitHub', icon: '🐱', url: 'https://github.com', color: '#24292e' },
-    { name: 'Instagram', icon: '📸', url: 'https://www.instagram.com', color: '#E1306C' },
-    { name: 'LinkedIn', icon: '💼', url: 'https://www.linkedin.com', color: '#0077B5' },
-    { name: 'ChatGPT', icon: '🤖', url: 'https://chatgpt.com', color: '#10A37F' },
-  ];
-
-  // Dynamic Recent Activity
-  const recentActivities = useMemo(() => {
-    const list: Array<{ id: string; icon: string; title: string; time: string; bg: string }> = [];
-
-    // Most recent links
-    if (links.length > 0) {
-      list.push({
-        id: 'act-link-1',
-        icon: '🔗',
-        title: `Saved "${links[0].title.slice(0, 22)}${links[0].title.length > 22 ? '...' : ''}"`,
-        time: 'Recent',
-        bg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-      });
-    }
-
-    // Most recent tasks
-    const completedTask = todos.find(t => t.completed);
-    if (completedTask) {
-      list.push({
-        id: 'act-todo-1',
-        icon: '✅',
-        title: `Completed "${completedTask.text.slice(0, 22)}${completedTask.text.length > 22 ? '...' : ''}"`,
-        time: 'Today',
-        bg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-      });
-    } else if (todos.length > 0) {
-      list.push({
-        id: 'act-todo-2',
-        icon: '📝',
-        title: `Active habit: "${todos[0].text.slice(0, 22)}"`,
-        time: 'Ongoing',
-        bg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-      });
-    }
-
-    // Recent Reels
-    if (reels.length > 0) {
-      const reelTitle = reels[0].headline || reels[0].caption || 'Saved Reel';
-      list.push({
-        id: 'act-reel-1',
-        icon: '▶',
-        title: `Added reel "${reelTitle.slice(0, 22)}"`,
-        time: '1d ago',
-        bg: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-      });
-    }
-
-    // Recent Notes or Finance
-    if (transactions.length > 0) {
-      list.push({
-        id: 'act-tx-1',
-        icon: '👛',
-        title: `Logged expense in ${transactions[0].category}`,
-        time: 'Recent',
-        bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-      });
-    } else if (notes.length > 0) {
-      list.push({
-        id: 'act-note-1',
-        icon: '🎨',
-        title: `Created note "${notes[0].title.slice(0, 22)}"`,
-        time: 'Recent',
-        bg: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-      });
-    }
-
-    // Fallbacks if user is brand new
-    if (list.length === 0) {
-      return [
-        { id: 'f1', icon: '🔗', title: 'Added a new link', time: '2h ago', bg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40' },
-        { id: 'f2', icon: '✅', title: 'Completed a daily habit', time: '1d ago', bg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40' },
-        { id: 'f3', icon: '▶', title: 'Watched a saved reel', time: '2d ago', bg: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40' },
-        { id: 'f4', icon: '👛', title: 'Logged daily budget', time: '3d ago', bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40' },
-      ];
-    }
-
-    return list.slice(0, 4);
-  }, [links, todos, reels, transactions, notes]);
-
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText('sreeshnav@sreeshspace.dev');
-    setCopiedEmail(true);
-    setTimeout(() => setCopiedEmail(false), 2000);
-  };
-
-  const handleNextQuote = () => {
-    setQuoteIndex((prev) => (prev + 1) % INSPIRATIONAL_QUOTES.length);
-    playPopSound();
-  };
+  const totalNotesCount = notes.length + sketches.length;
 
   return (
-    <div className="sreesh-home-wrap">
-      <div className="sreesh-home-container">
-
-        {/* ========================================================================== */}
-        {/* TOP NAVBAR                                                                */}
-        {/* ========================================================================== */}
-        <header className="sreesh-top-nav">
-          {/* Logo & Brand */}
+    <div className="bg-[#FAF8F4] font-['Plus_Jakarta_Sans',sans-serif] text-[#1F2A24] antialiased min-h-screen flex flex-col selection:bg-purple-200">
+      
+      {/* ======================================================== */}
+      {/* 1. TOP NAVBAR (EXACT MATCH TO DESIGN IMAGE)               */}
+      {/* ======================================================== */}
+      <header className="sticky top-0 w-full z-40 bg-[#FAF8F4]/90 backdrop-blur-md border-b border-stone-200/60 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          
+          {/* Left: Purple Ribbon 'S' Logo + SreeshSpace Brand */}
           <div 
-            className="sreesh-logo" 
-            onClick={() => {
-              triggerPartyPop('stars');
-              playPopSound();
-            }}
-            title="Click for celebratory sparkles ✨"
+            onClick={() => onNavigate('home')}
+            className="flex items-center gap-2.5 cursor-pointer select-none group"
           >
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-md group-hover:scale-105 active:scale-95 transition-all">
-              <div className="w-full h-full rounded-[14px] overflow-hidden bg-white dark:bg-gray-900 relative flex items-center justify-center">
-                <img 
-                  src={avatarImg} 
-                  alt="Sreeshnav" 
-                  className="w-full h-full object-cover rounded-[14px]" 
-                />
-                <span className="absolute -top-1 -right-1 text-[9px] animate-pulse select-none">✨</span>
-              </div>
+            {/* S-Ribbon Gradient Logo */}
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA] flex items-center justify-center text-white font-black text-lg shadow-sm shadow-purple-500/25 group-hover:scale-105 transition-transform">
+              <span className="font-['Fraunces',serif] font-bold">S</span>
             </div>
-            <div className="sreesh-logo-text">
-              Sreesh<span>nav</span>
+            
+            <div className="flex items-center gap-1.5">
+              <span className="font-['Fraunces',serif] font-bold text-xl text-[#1F2A24] tracking-tight group-hover:text-[#7C3AED] transition-colors">
+                SreeshSpace
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-[#7C3AED] border border-purple-200 hidden sm:inline-block">
+                Sreeshnav
+              </span>
             </div>
           </div>
 
-          {/* Center Navigation Pills */}
-          <nav className="sreesh-nav-pills" role="tablist">
+          {/* Center: Desktop Nav Pills [Home] [About] [Contact] */}
+          <nav className="hidden sm:flex items-center p-1 rounded-full bg-white border border-stone-200/80 shadow-xs gap-1">
             <button
-              type="button"
-              className="sreesh-nav-pill-btn active"
-              onClick={() => playPopSound()}
+              onClick={() => onNavigate('home')}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold bg-[#7C3AED] text-white shadow-xs transition-all"
             >
-              <Compass size={14} />
+              <span className="material-symbols-outlined text-[15px]">home</span>
               <span>Home</span>
             </button>
             <button
-              type="button"
-              className="sreesh-nav-pill-btn"
               onClick={() => {
-                setIsAboutModalOpen(true);
                 playPopSound();
+                setIsAboutModalOpen(true);
               }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors"
             >
-              <User size={14} />
+              <span className="material-symbols-outlined text-[15px]">person</span>
               <span>About</span>
             </button>
             <button
-              type="button"
-              className="sreesh-nav-pill-btn"
               onClick={() => {
-                setIsContactModalOpen(true);
                 playPopSound();
+                setIsContactModalOpen(true);
               }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors"
             >
-              <Mail size={14} />
+              <span className="material-symbols-outlined text-[15px]">mail</span>
               <span>Contact</span>
             </button>
           </nav>
 
-          {/* Right Action Icons */}
-          <div className="sreesh-nav-actions">
+          {/* Right: Actions (Dark Mode, Stats/Analytics, Lock) */}
+          <div className="flex items-center gap-2">
             <button
-              type="button"
-              onClick={onToggleDarkMode}
-              className="sreesh-circle-btn"
-              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              aria-label="Toggle Theme"
+              onClick={() => {
+                playPopSound();
+                onToggleDarkMode();
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-stone-200/70 shadow-xs flex items-center justify-center text-stone-600 hover:text-[#7C3AED] hover:bg-purple-50 transition-all active:scale-95"
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              {darkMode ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
+              <span className="material-symbols-outlined text-[18px]">
+                {darkMode ? 'light_mode' : 'dark_mode'}
+              </span>
             </button>
 
-            {onOpenHistoryTimeline && (
-              <button
-                type="button"
-                onClick={onOpenHistoryTimeline}
-                className="sreesh-circle-btn"
-                title="View Activity Stats & Timeline"
-                aria-label="View Stats"
-              >
-                <BarChart3 size={17} />
-              </button>
-            )}
-          </div>
-        </header>
+            <button
+              onClick={() => {
+                playPopSound();
+                if (onOpenHistoryTimeline) onOpenHistoryTimeline();
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-stone-200/70 shadow-xs flex items-center justify-center text-stone-600 hover:text-[#7C3AED] hover:bg-purple-50 transition-all active:scale-95"
+              title="Activity & Analytics"
+            >
+              <span className="material-symbols-outlined text-[18px]">bar_chart</span>
+            </button>
 
-        {/* ========================================================================== */}
-        {/* HERO BANNER                                                               */}
-        {/* ========================================================================== */}
-        <section className="sreesh-hero-card">
-          <div className="hero-left">
-            <div className="welcome-chip">
-              <Sparkles size={13} />
-              <span>Welcome back!</span>
+            <button
+              onClick={() => {
+                playPopSound();
+                if (onLock) onLock();
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-stone-200/70 shadow-xs flex items-center justify-center text-stone-600 hover:text-[#7C3AED] hover:bg-purple-50 transition-all active:scale-95 hidden sm:flex"
+              title="Lock Space"
+            >
+              <span className="material-symbols-outlined text-[18px]">lock</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playPopSound();
+                setIsNotificationOpen(!isNotificationOpen);
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-stone-200/70 shadow-xs flex items-center justify-center text-stone-600 hover:text-[#7C3AED] hover:bg-purple-50 transition-all active:scale-95 relative"
+              title="Notifications"
+            >
+              <span className="material-symbols-outlined text-[18px]">notifications</span>
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Notification Dropdown */}
+      {isNotificationOpen && (
+        <div className="fixed top-18 right-4 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 z-50 w-80 bg-white rounded-2xl p-4 shadow-xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800">
+              <span>🌸</span>
+              <span>Sanctuary Updates</span>
             </div>
+            <button
+              onClick={() => setIsNotificationOpen(false)}
+              className="w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800 text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="py-2.5 space-y-2 text-xs text-stone-600">
+            <div className="flex items-start gap-2 bg-purple-50 p-2.5 rounded-xl border border-purple-100/60">
+              <span className="text-purple-600 font-bold">✨</span>
+              <div>
+                <p className="font-semibold text-stone-800">SreeshSpace v2.0 Active</p>
+                <p className="text-[11px] text-stone-500">All spaces, bookmarks, habits & finances synced safely.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. MAIN DASHBOARD CONTENT                                */}
+      {/* ======================================================== */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5 pb-28 space-y-6">
+
+        {/* -------------------------------------------------------- */}
+        {/* HERO BANNER (Hey, I'm Sreesh! + Anime Sreesh & Cat)      */}
+        {/* -------------------------------------------------------- */}
+        <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-[#EDE9FE] via-[#F5F0FF] to-[#FAF5FF] border border-purple-100 shadow-[0_4px_24px_rgba(124,58,237,0.06)] p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          
+          {/* Subtle Ambient Glow Orbs */}
+          <div className="absolute -top-16 -left-16 w-48 h-48 bg-purple-200/50 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-pink-200/40 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Left Text Block */}
+          <div className="relative z-10 flex flex-col items-start space-y-3.5 max-w-lg">
             
-            <h1 className="hero-heading">
-              Hey, I'm <span className="name-accent">Sreeshnav!</span>
+            {/* Pill: Welcome back! */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/90 text-amber-900 border border-amber-200/60 shadow-xs">
+              <span className="text-xs">✨</span>
+              <span className="text-xs font-bold tracking-tight">Welcome back!</span>
+            </div>
+
+            {/* Giant Heading */}
+            <h1 className="font-['Fraunces',serif] font-bold text-3xl sm:text-4xl lg:text-5xl text-[#1F2A24] leading-[1.15] tracking-tight">
+              Hey, I'm <span className="text-[#7C3AED]">Sreesh!</span>
             </h1>
 
-            <p className="hero-sub">
+            {/* Subtitle */}
+            <p className="text-sm sm:text-base text-stone-600 leading-relaxed font-normal">
               Your personal space to stay productive, organized and inspired. 💜
             </p>
 
-            <div className="hero-actions-row">
+            {/* CTA Pill Button */}
+            <div className="pt-1">
               <button
-                type="button"
-                className="btn-explore"
                 onClick={() => {
-                  onNavigate('links');
                   playPopSound();
+                  onNavigate('links');
                 }}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-sm shadow-md shadow-purple-500/25 active:scale-95 transition-all cursor-pointer"
               >
                 <span>Let's Explore</span>
-                <ArrowRight size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="btn-slides-toggle"
-                onClick={() => {
-                  setShowSlidesSection(prev => !prev);
-                  playPopSound();
-                }}
-              >
-                <Layers size={15} />
-                <span>{showSlidesSection ? 'Hide Tour' : 'Show Tour'}</span>
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
           </div>
 
-          <div className="hero-right">
-            <div className="hero-motto-tag">
-              <span>Dream · Learn · Grow ♡</span>
+          {/* Right Anime Character Illustration */}
+          <div className="relative z-10 w-full md:w-auto flex flex-col items-center justify-center">
+            <div className="relative max-w-[340px] sm:max-w-[400px]">
+              <img
+                src={sreeshCharacterImg}
+                alt="Sreesh with Laptop and Cat"
+                className="w-full h-auto object-contain drop-shadow-md select-none pointer-events-none"
+              />
+              {/* Handwritten Floating script: Dream · Learn · Grow ♡ */}
+              <div className="absolute top-2 right-2 sm:right-6 font-['Caveat',cursive] text-stone-700 text-sm sm:text-base font-bold rotate-[-4deg] select-none pointer-events-none">
+                Dream · Learn · Grow ♡
+              </div>
             </div>
-            <img 
-              src={sreeshCharacterImg} 
-              alt="Sreesh working at desk with sleeping cat" 
-              className="hero-character-img"
-            />
           </div>
         </section>
 
-        {/* ========================================================================== */}
-        {/* 5 FEATURE CARDS (DIRECT NAVIGATION & LIVE COUNTS)                          */}
-        {/* ========================================================================== */}
-        <section className="sreesh-features-grid">
-          {/* 1. Links */}
-          <div 
-            className="feature-card card-links"
+        {/* -------------------------------------------------------- */}
+        {/* 5 CATEGORY CARDS IN 5-COLUMN GRID                        */}
+        {/* -------------------------------------------------------- */}
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          
+          {/* Card 1: Links */}
+          <div
             onClick={() => {
+              playPopSound();
               onNavigate('links');
-              playPopSound();
             }}
+            className="group relative overflow-hidden rounded-[24px] bg-[#EDE9FE]/75 hover:bg-[#EDE9FE] border border-purple-200/60 p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none min-h-[145px]"
           >
-            <div className="card-top-row">
-              <div className="card-icon-squircle">
-                <BookOpen size={20} />
+            {/* Top row: Icon Pill + Circle Arrow */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#7C3AED] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">link</span>
               </div>
-              <div className="card-arrow-circle">
-                <ArrowRight size={13} />
+              <div className="w-7 h-7 rounded-full bg-white/90 text-stone-700 flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </div>
             </div>
-            <h3 className="card-title">Links ({links.length})</h3>
-            <p className="card-desc">Access all your important links.</p>
-            <div className="card-watermark">🔗</div>
+            
+            {/* Text details */}
+            <div className="relative z-10">
+              <h3 className="font-['Fraunces',serif] font-bold text-base sm:text-lg text-[#1F2A24] leading-tight">
+                Links ({links.length})
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-1 leading-snug">
+                Access all your important links.
+              </p>
+            </div>
+
+            {/* Watermark */}
+            <span className="material-symbols-outlined absolute -bottom-3 -right-2 text-[70px] text-[#7C3AED]/10 pointer-events-none select-none">
+              public
+            </span>
           </div>
 
-          {/* 2. Habits & Tasks */}
-          <div 
-            className="feature-card card-habits"
+          {/* Card 2: Habits & Tasks */}
+          <div
             onClick={() => {
+              playPopSound();
               onNavigate('notebook');
-              playPopSound();
             }}
+            className="group relative overflow-hidden rounded-[24px] bg-[#D1FAE5]/75 hover:bg-[#D1FAE5] border border-emerald-200/60 p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none min-h-[145px]"
           >
-            <div className="card-top-row">
-              <div className="card-icon-squircle">
-                <CheckCircle2 size={20} />
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#006C49] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">task_alt</span>
               </div>
-              <div className="card-arrow-circle">
-                <ArrowRight size={13} />
+              <div className="w-7 h-7 rounded-full bg-white/90 text-stone-700 flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </div>
             </div>
-            <h3 className="card-title">Habits &amp; Tasks ({activeTasksCount})</h3>
-            <p className="card-desc">Build good habits and get things done.</p>
-            <div className="card-watermark">🌿</div>
+            
+            <div className="relative z-10">
+              <h3 className="font-['Fraunces',serif] font-bold text-base sm:text-lg text-[#1F2A24] leading-tight">
+                Habits &amp; Tasks ({activeTasksCount})
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-1 leading-snug">
+                Build good habits and get things done.
+              </p>
+            </div>
+
+            <span className="material-symbols-outlined absolute -bottom-3 -right-2 text-[70px] text-[#006C49]/10 pointer-events-none select-none">
+              potted_plant
+            </span>
           </div>
 
-          {/* 3. Reels */}
-          <div 
-            className="feature-card card-reels"
+          {/* Card 3: Reels */}
+          <div
             onClick={() => {
+              playPopSound();
               onNavigate('reels');
-              playPopSound();
             }}
+            className="group relative overflow-hidden rounded-[24px] bg-[#FFE4E6]/75 hover:bg-[#FFE4E6] border border-rose-200/60 p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none min-h-[145px]"
           >
-            <div className="card-top-row">
-              <div className="card-icon-squircle">
-                <Film size={20} />
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#DE3B78] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">movie</span>
               </div>
-              <div className="card-arrow-circle">
-                <ArrowRight size={13} />
+              <div className="w-7 h-7 rounded-full bg-white/90 text-stone-700 flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </div>
             </div>
-            <h3 className="card-title">Reels ({reels.length})</h3>
-            <p className="card-desc">Watch &amp; enjoy your favorite reels.</p>
-            <div className="card-watermark">🎬</div>
+            
+            <div className="relative z-10">
+              <h3 className="font-['Fraunces',serif] font-bold text-base sm:text-lg text-[#1F2A24] leading-tight">
+                Reels ({reels.length})
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-1 leading-snug">
+                Watch &amp; enjoy your favorite reels.
+              </p>
+            </div>
+
+            <span className="material-symbols-outlined absolute -bottom-3 -right-2 text-[70px] text-[#DE3B78]/10 pointer-events-none select-none">
+              video_library
+            </span>
           </div>
 
-          {/* 4. Finances */}
-          <div 
-            className="feature-card card-finance"
+          {/* Card 4: Finances */}
+          <div
             onClick={() => {
+              playPopSound();
               onNavigate('finance');
-              playPopSound();
             }}
+            className="group relative overflow-hidden rounded-[24px] bg-[#E0F2FE]/75 hover:bg-[#E0F2FE] border border-sky-200/60 p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none min-h-[145px]"
           >
-            <div className="card-top-row">
-              <div className="card-icon-squircle">
-                <Wallet size={20} />
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0284C7] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
               </div>
-              <div className="card-arrow-circle">
-                <ArrowRight size={13} />
+              <div className="w-7 h-7 rounded-full bg-white/90 text-stone-700 flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </div>
             </div>
-            <h3 className="card-title">Finances ({transactions.length})</h3>
-            <p className="card-desc">Track your money and plan better.</p>
-            <div className="card-watermark">🪙</div>
+            
+            <div className="relative z-10">
+              <h3 className="font-['Fraunces',serif] font-bold text-base sm:text-lg text-[#1F2A24] leading-tight">
+                Finances ({transactions.length})
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-1 leading-snug">
+                Track your money and plan better.
+              </p>
+            </div>
+
+            <span className="material-symbols-outlined absolute -bottom-3 -right-2 text-[70px] text-[#0284C7]/10 pointer-events-none select-none">
+              paid
+            </span>
           </div>
 
-          {/* 5. Notes & Sketch */}
-          <div 
-            className="feature-card card-notes"
+          {/* Card 5: Notes & Sketch */}
+          <div
             onClick={() => {
-              onNavigate('notes');
               playPopSound();
+              onNavigate('notes');
             }}
+            className="group relative overflow-hidden rounded-[24px] bg-[#EDE9FE]/60 hover:bg-[#EDE9FE]/85 border border-purple-200/60 p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer select-none min-h-[145px] col-span-2 sm:col-span-1"
           >
-            <div className="card-top-row">
-              <div className="card-icon-squircle">
-                <Palette size={20} />
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#9333EA] text-white flex items-center justify-center shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">palette</span>
               </div>
-              <div className="card-arrow-circle">
-                <ArrowRight size={13} />
+              <div className="w-7 h-7 rounded-full bg-white/90 text-stone-700 flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </div>
             </div>
-            <h3 className="card-title">Notes &amp; Sketch ({notes.length + sketches.length})</h3>
-            <p className="card-desc">Write, sketch and capture your thoughts.</p>
-            <div className="card-watermark">🎨</div>
+            
+            <div className="relative z-10">
+              <h3 className="font-['Fraunces',serif] font-bold text-base sm:text-lg text-[#1F2A24] leading-tight">
+                Notes &amp; Sketch ({totalNotesCount})
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-1 leading-snug">
+                Write, sketch and capture your thoughts.
+              </p>
+            </div>
+
+            <span className="material-symbols-outlined absolute -bottom-3 -right-2 text-[70px] text-[#9333EA]/10 pointer-events-none select-none">
+              edit_note
+            </span>
           </div>
         </section>
 
-        {/* ========================================================================== */}
-        {/* INTERACTIVE FEATURE SHOWCASE / SLIDES                                      */}
-        {/* ========================================================================== */}
-        {showSlidesSection && (
-          <section className="sreesh-slides-section">
-            <div className="slides-header-row">
-              <div className="slides-heading-group">
-                <Sparkles size={18} className="text-purple-600" />
-                <h2>Feature Tour &amp; Capabilities</h2>
-              </div>
-
-              <div className="slides-tabs-pills">
-                {slidesData.map((s, idx) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`slide-tab-pill ${activeSlide === idx ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveSlide(idx);
-                      playPopSound();
-                    }}
-                  >
-                    <span>{s.icon} {s.title.split(' ')[0]}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="slides-body-grid">
-              <div className="slide-info-col">
-                <div className="welcome-chip" style={{ marginBottom: '8px' }}>
-                  <span>{slidesData[activeSlide].badge}</span>
-                </div>
-                <h3>{slidesData[activeSlide].title}</h3>
-                <p>{slidesData[activeSlide].desc}</p>
-
-                <ul className="slide-features-list">
-                  {slidesData[activeSlide].bullets.map((b, i) => (
-                    <li key={i}>
-                      <span className="bullet-icon">✦</span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  type="button"
-                  className="btn-slide-action"
-                  onClick={() => {
-                    onNavigate(slidesData[activeSlide].targetView);
-                    playPopSound();
-                  }}
-                >
-                  <span>{slidesData[activeSlide].actionText}</span>
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-
-              <div className="slide-preview-box">
-                <div className={`absolute inset-0 bg-gradient-to-br ${slidesData[activeSlide].previewColor} opacity-70`} />
-                <div className="relative z-10 flex flex-col items-center justify-center text-center p-4">
-                  <span className="text-5xl mb-3">{slidesData[activeSlide].icon}</span>
-                  <h4 className="font-head font-bold text-lg text-main mb-1">
-                    {slidesData[activeSlide].title}
-                  </h4>
-                  <p className="text-xs text-muted max-w-xs mb-4">
-                    Ready to use right now with your existing data.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onNavigate(slidesData[activeSlide].targetView);
-                      playPopSound();
-                    }}
-                    className="px-4 py-1.5 rounded-full bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition"
-                  >
-                    Open View Now →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ========================================================================== */}
-        {/* LOWER DASHBOARD: QUICK ACCESS, MOTIVATIONAL QUOTE, RECENT ACTIVITY         */}
-        {/* ========================================================================== */}
-        <section className="sreesh-widgets-grid">
-          {/* Widget 1: Quick Access */}
-          <div className="widget-card">
-            <div className="widget-header-row">
-              <h3 className="widget-title">
-                <span>⭐</span>
+        {/* -------------------------------------------------------- */}
+        {/* BOTTOM BENTO ROW (Quick Access | Quote Card | Recent)    */}
+        {/* -------------------------------------------------------- */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          
+          {/* Card 1: ⭐ Quick Access (3x2 App Grid) */}
+          <div className="rounded-[28px] bg-white p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-1.5 font-['Fraunces',serif] font-bold text-base text-[#1F2A24]">
+                <span className="text-amber-500">⭐</span>
                 <span>Quick Access</span>
-              </h3>
+              </div>
               <button
-                type="button"
-                className="widget-view-all"
-                onClick={() => {
-                  onNavigate('links');
-                  playPopSound();
-                }}
+                onClick={() => onNavigate('links')}
+                className="text-xs font-bold text-[#7C3AED] hover:underline flex items-center gap-0.5"
               >
                 <span>View All</span>
-                <ArrowRight size={13} />
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
               </button>
             </div>
 
-            <div className="quick-access-grid">
-              {quickAccessItems.map((item) => (
-                <a
-                  key={item.name}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="quick-access-item"
-                  title={`Open ${item.name}`}
-                  onClick={() => playPopSound()}
-                >
-                  <span className="quick-access-icon">{item.icon}</span>
-                  <span className="quick-access-label">{item.name}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Widget 2: Motivational Quote Card */}
-          <div className="widget-card quote-card-widget">
-            <button
-              type="button"
-              className="btn-refresh-quote"
-              onClick={handleNextQuote}
-              title="Next Inspiring Quote"
-              aria-label="Refresh Quote"
-            >
-              <RefreshCw size={14} />
-            </button>
-
-            <div className="quote-decor-mark">“</div>
-            <p className="quote-text-main">
-              {INSPIRATIONAL_QUOTES[quoteIndex].text}
-            </p>
-            <div className="quote-author">
-              <span>{INSPIRATIONAL_QUOTES[quoteIndex].author}</span>
-              <span>♡</span>
-            </div>
-
-            <img 
-              src={quoteBgImg} 
-              alt="Mountain silhouette scenery" 
-              className="quote-bg-img"
-            />
-          </div>
-
-          {/* Widget 3: Recent Activity */}
-          <div className="widget-card">
-            <div className="widget-header-row">
-              <h3 className="widget-title">
-                <span>🕒</span>
-                <span>Recent Activity</span>
-              </h3>
-              {onOpenHistoryTimeline && (
-                <button
-                  type="button"
-                  className="widget-view-all"
-                  onClick={() => {
-                    onOpenHistoryTimeline();
-                    playPopSound();
-                  }}
-                >
-                  <span>View All</span>
-                  <ArrowRight size={13} />
-                </button>
-              )}
-            </div>
-
-            <div className="activity-list">
-              {recentActivities.map((act) => (
-                <div key={act.id} className="activity-item">
-                  <div className="activity-item-left">
-                    <div className={`activity-icon-squircle ${act.bg}`}>
-                      <span>{act.icon}</span>
-                    </div>
-                    <span className="activity-title" title={act.title}>
-                      {act.title}
-                    </span>
-                  </div>
-                  <span className="activity-time">{act.time}</span>
+            {/* 3x2 Grid of App Buttons */}
+            <div className="grid grid-cols-3 gap-2.5">
+              {/* Google */}
+              <a
+                href="https://google.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
+                  <span className="text-xl">🌐</span>
                 </div>
-              ))}
+                <span className="text-xs font-semibold text-stone-700">Google</span>
+              </a>
+
+              {/* YouTube */}
+              <a
+                href="https://youtube.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 text-red-600 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[20px]">smart_display</span>
+                </div>
+                <span className="text-xs font-semibold text-stone-700">YouTube</span>
+              </a>
+
+              {/* GitHub */}
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 text-stone-800 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[20px]">code</span>
+                </div>
+                <span className="text-xs font-semibold text-stone-700">GitHub</span>
+              </a>
+
+              {/* Instagram */}
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 text-pink-600 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+                </div>
+                <span className="text-xs font-semibold text-stone-700">Instagram</span>
+              </a>
+
+              {/* LinkedIn */}
+              <a
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 text-blue-600 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[20px]">work</span>
+                </div>
+                <span className="text-xs font-semibold text-stone-700">LinkedIn</span>
+              </a>
+
+              {/* ChatGPT */}
+              <a
+                href="https://chatgpt.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-stone-50 hover:bg-stone-100 border border-stone-200/60 active:scale-95 transition-all text-center group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white shadow-xs flex items-center justify-center mb-1 text-emerald-600 group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                </div>
+                <span className="text-xs font-semibold text-stone-700">ChatGPT</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Card 2: Quote Card with Purple Mountain Landscape Graphic */}
+          <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#8B5CF6] via-[#7C3AED] to-[#5B21B6] p-6 text-white shadow-sm flex flex-col justify-between min-h-[200px]">
+            {/* Background Mountain Graphic / Trees Overlay */}
+            <div 
+              className="absolute inset-0 opacity-25 mix-blend-overlay pointer-events-none bg-bottom bg-cover"
+              style={{ backgroundImage: `url(${quoteBgImg})` }}
+            />
+
+            {/* Top row: ❝ icon + Interactive controls */}
+            <div className="relative z-10 flex items-center justify-between">
+              <span className="text-3xl font-['Fraunces',serif] opacity-90 leading-none">❝</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    playPopSound();
+                    setFavoriteQuote(!favoriteQuote);
+                  }}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-95 ${
+                    favoriteQuote ? 'bg-white text-rose-500' : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  title="Favorite Quote"
+                >
+                  <span className="material-symbols-outlined text-[16px]">favorite</span>
+                </button>
+                <button
+                  onClick={() => {
+                    playPopSound();
+                    setQuoteIndex((quoteIndex + 1) % QUOTES.length);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:rotate-180"
+                  title="Next Inspiration"
+                >
+                  <span className="material-symbols-outlined text-[16px]">refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Center Quote Text */}
+            <div className="relative z-10 my-auto py-2">
+              <p className="font-['Fraunces',serif] text-xl sm:text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm">
+                {QUOTES[quoteIndex]}
+              </p>
+            </div>
+
+            {/* Footer script */}
+            <div className="relative z-10 flex items-center justify-between text-xs text-white/80 pt-2 border-t border-white/20">
+              <span>Cozy Inspiration</span>
+              <span className="font-['Caveat',cursive] text-sm">SreeshSpace ♡</span>
+            </div>
+          </div>
+
+          {/* Card 3: 🕒 Recent Activity (View All →) */}
+          <div className="rounded-[28px] bg-white p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 font-['Fraunces',serif] font-bold text-base text-[#1F2A24]">
+                <span className="text-[#7C3AED]">🕒</span>
+                <span>Recent Activity</span>
+              </div>
+              <button
+                onClick={() => {
+                  playPopSound();
+                  if (onOpenHistoryTimeline) onOpenHistoryTimeline();
+                }}
+                className="text-xs font-bold text-[#7C3AED] hover:underline flex items-center gap-0.5"
+              >
+                <span>View All</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+
+            {/* 4 Activity Items */}
+            <div className="space-y-2.5">
+              {/* Activity 1: Added a new link */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-purple-50/60 border border-purple-100/60">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[16px]">link</span>
+                  </div>
+                  <span className="text-xs font-semibold text-stone-800 truncate">
+                    {links.length > 0 ? `Added ${links[0].title}` : 'Added a new link'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-stone-500 font-medium shrink-0 ml-2">2h ago</span>
+              </div>
+
+              {/* Activity 2: Completed a task */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50/60 border border-emerald-100/60">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  </div>
+                  <span className="text-xs font-semibold text-stone-800 truncate">
+                    Completed a habit task
+                  </span>
+                </div>
+                <span className="text-[11px] text-stone-500 font-medium shrink-0 ml-2">1d ago</span>
+              </div>
+
+              {/* Activity 3: Watched a reel */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-rose-50/60 border border-rose-100/60">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                  </div>
+                  <span className="text-xs font-semibold text-stone-800 truncate">
+                    {reels.length > 0 ? `Saved ${reels[0].headline}` : 'Watched a reel'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-stone-500 font-medium shrink-0 ml-2">2d ago</span>
+              </div>
+
+              {/* Activity 4: Created a note */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-purple-50/60 border border-purple-100/60">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                  </div>
+                  <span className="text-xs font-semibold text-stone-800 truncate">
+                    {notes.length > 0 ? `Updated ${notes[0].title}` : 'Created a cozy note'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-stone-500 font-medium shrink-0 ml-2">3d ago</span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ========================================================================== */}
-        {/* FOOTER                                                                     */}
-        {/* ========================================================================== */}
-        <footer className="sreesh-footer">
-          <div className="footer-left">
-            <div className="relative w-7 h-7 rounded-xl p-[1px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-sm overflow-hidden flex items-center justify-center">
-              <img 
-                src={avatarImg} 
-                alt="Sreeshnav" 
-                className="w-full h-full object-cover rounded-[10px]" 
-              />
+        {/* -------------------------------------------------------- */}
+        {/* FOOTER (Exact match to Image 3)                          */}
+        {/* -------------------------------------------------------- */}
+        <footer className="pt-8 pb-4 border-t border-stone-200/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
+          
+          {/* Logo & Brand text */}
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-[#7C3AED] text-white flex items-center justify-center font-bold text-xs">
+              S
             </div>
-            <span className="footer-brand">Sreeshnav</span>
-            <span className="footer-sub">· Your Personal Space</span>
+            <span className="font-semibold text-stone-700">SreeshSpace</span>
+            <span>•</span>
+            <span>Your Personal Space</span>
           </div>
 
-          <div className="footer-social-links">
-            <a 
-              href="https://youtube.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="footer-icon-link" 
+          {/* Social Icons & Stay Connected Pill */}
+          <div className="flex items-center gap-3">
+            <a
+              href="https://youtube.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-stone-500 hover:text-red-600 transition-colors"
               title="YouTube"
             >
-              <YoutubeIcon />
+              <span className="material-symbols-outlined text-[18px]">smart_display</span>
             </a>
-            <a 
-              href="https://github.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="footer-icon-link" 
+            <a
+              href="https://github.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-stone-500 hover:text-stone-900 transition-colors"
               title="GitHub"
             >
-              <GithubIcon />
+              <span className="material-symbols-outlined text-[18px]">code</span>
             </a>
-            <a 
-              href="https://instagram.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="footer-icon-link" 
+            <a
+              href="https://instagram.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-stone-500 hover:text-pink-600 transition-colors"
               title="Instagram"
             >
-              <InstagramIcon />
+              <span className="material-symbols-outlined text-[18px]">photo_camera</span>
             </a>
-            <a 
-              href="https://linkedin.com" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="footer-icon-link" 
+            <a
+              href="https://linkedin.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-stone-500 hover:text-blue-600 transition-colors"
               title="LinkedIn"
             >
-              <LinkedinIcon />
+              <span className="material-symbols-outlined text-[18px]">work</span>
             </a>
+
             <button
-              type="button"
-              className="footer-stay-connected-pill"
-              onClick={() => setIsContactModalOpen(true)}
+              onClick={() => {
+                playPopSound();
+                setIsContactModalOpen(true);
+              }}
+              className="px-3 py-1 rounded-full bg-purple-50 text-[#7C3AED] border border-purple-200/70 hover:bg-purple-100 font-semibold transition-all active:scale-95 ml-1"
             >
               Stay Connected ♡
             </button>
           </div>
         </footer>
+      </main>
 
-      </div>
-
-      {/* ========================================================================== */}
-      {/* ABOUT MODAL                                                                */}
-      {/* ========================================================================== */}
+      {/* About Modal */}
       {isAboutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setIsAboutModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative w-10 h-10 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shadow-md">
-                <div className="w-full h-full rounded-[14px] overflow-hidden bg-white dark:bg-gray-900 flex items-center justify-center">
-                  <img src={avatarImg} alt="Sreeshnav" className="w-full h-full object-cover" />
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  S
                 </div>
-              </div>
-              <div>
-                <h3 className="font-head font-extrabold text-xl text-gray-900 dark:text-white">
-                  About Sreeshnav
+                <h3 className="font-['Fraunces',serif] font-bold text-lg text-stone-900">
+                  About SreeshSpace
                 </h3>
-                <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold">
-                  Personal Productivity &amp; Cozy Digital Oasis v2.4
-                </p>
               </div>
+              <button
+                onClick={() => setIsAboutModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800"
+              >
+                ✕
+              </button>
             </div>
-
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 mb-6">
-              <p>
-                SreeshSpace is your all-in-one serene personal operating space created by <b>Sreeshnav</b>. It brings together bookmarks, habit consistency, reels, financial peace of mind, and notes into one tidy corner of the internet.
-              </p>
-              <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/40 text-xs space-y-1.5">
-                <div className="font-bold text-purple-800 dark:text-purple-300">🌟 Key Highlights</div>
-                <div>✦ 100% Offline-capable Progressive Web App (PWA)</div>
-                <div>✦ Encrypted local storage with PIN lock screen protection</div>
-                <div>✦ High-speed tactile Numpad and responsive mobile gestures</div>
-                <div>✦ No ads, no tracking, pure focus and peaceful productivity</div>
-              </div>
+            <p className="text-sm text-stone-600 leading-relaxed">
+              Welcome to Sreeshnav's cozy personal sanctuary! Crafted to keep your digital life joyful, tidy, and peaceful: from bookmarking your favorite links and inspiration reels to tracking habits and personal finances.
+            </p>
+            <div className="p-3 bg-purple-50 rounded-2xl text-xs text-purple-900 font-medium">
+              ✨ Offline-ready PWA • Encrypted PIN Vault • Local-first Cloud Sync
             </div>
-
             <button
-              type="button"
               onClick={() => setIsAboutModalOpen(false)}
-              className="w-full py-2.5 rounded-2xl bg-purple-600 text-white font-bold text-sm hover:bg-purple-700 transition"
+              className="w-full py-2.5 rounded-full bg-[#7C3AED] text-white font-bold text-xs shadow-md active:scale-95 transition-all"
             >
-              Close &amp; Continue
+              Close
             </button>
           </div>
         </div>
       )}
 
-      {/* ========================================================================== */}
-      {/* CONTACT MODAL                                                              */}
-      {/* ========================================================================== */}
+      {/* Contact Modal */}
       {isContactModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-900 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setIsContactModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <X size={18} />
-            </button>
-
-            <h3 className="font-head font-extrabold text-xl text-gray-900 dark:text-white mb-1">
-              Stay Connected ♡
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
-              Reach out directly to Sreeshnav for suggestions, collaborations, or feedback.
-            </p>
-
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                <div className="flex items-center gap-3">
-                  <Mail size={18} className="text-purple-600" />
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                    sreeshnav@sreeshspace.dev
-                  </span>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  💌
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyEmail}
-                  className="px-2.5 py-1 text-xs rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1 hover:bg-purple-200 transition"
-                >
-                  {copiedEmail ? <Check size={12} /> : <Copy size={12} />}
-                  <span>{copiedEmail ? 'Copied' : 'Copy'}</span>
-                </button>
+                <h3 className="font-['Fraunces',serif] font-bold text-lg text-stone-900">
+                  Connect with Sreeshnav
+                </h3>
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href="https://github.com/Sreeshnavp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition"
-                >
-                  <GithubIcon />
-                  <span>GitHub</span>
-                </a>
-                <a
-                  href="https://linkedin.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition"
-                >
-                  <LinkedinIcon />
-                  <span>LinkedIn</span>
-                </a>
+              <button
+                onClick={() => setIsContactModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-stone-600 leading-relaxed">
+              Have thoughts, feature ideas, or want to collaborate? Connect anytime!
+            </p>
+            <div className="space-y-2 text-xs font-semibold text-stone-700">
+              <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 flex items-center justify-between">
+                <span>📧 Email</span>
+                <span className="text-[#7C3AED] select-all">sreeshnav@sreeshspace.dev</span>
+              </div>
+              <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 flex items-center justify-between">
+                <span>🐙 GitHub</span>
+                <span className="text-[#7C3AED]">github.com/Sreeshnavp</span>
               </div>
             </div>
-
             <button
-              type="button"
               onClick={() => setIsContactModalOpen(false)}
-              className="w-full py-2.5 rounded-2xl bg-purple-600 text-white font-bold text-sm hover:bg-purple-700 transition"
+              className="w-full py-2.5 rounded-full bg-[#7C3AED] text-white font-bold text-xs shadow-md active:scale-95 transition-all"
             >
-              Done
+              Back to Sanctuary
             </button>
           </div>
         </div>

@@ -104,6 +104,7 @@ import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
+import { SplashScreen } from './components/SplashScreen';
 import './components/home/home.css';
 import { LockScreen } from './components/LockScreen';
 import { isDeviceUnlocked, lockDevice } from './utils/security';
@@ -2103,8 +2104,13 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-page text-main flex flex-col font-sans transition-colors duration-200 relative overflow-x-hidden">
+    <div className="min-h-screen bg-canvas-bg text-on-surface flex flex-col font-sans transition-colors duration-200 relative overflow-x-hidden">
       
+      {/* 🌸 Opening Loading Splash Screen */}
+      {isLoading && (
+        <SplashScreen onFinish={() => setIsLoading(false)} />
+      )}
+
       {/* 🔒 Master PIN Security Gate */}
       {isLocked && (
         <LockScreen
@@ -2168,6 +2174,10 @@ export function App() {
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           onOpenHistoryTimeline={() => setIsHistoryTimelineOpen(true)}
           onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
         />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
@@ -2177,50 +2187,64 @@ export function App() {
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
             {(workspaceView === 'links' || workspaceView === 'both') && (
-              <div className="links-container">
-                {/* Toolbar Header matching reference HTML .sec */}
-                <div className="orbit-links-sec">
-                  <h2>Links</h2>
-
-                  {/* Filter Segmented Control: [Folders], [All], [★ Starred] */}
-                  <div className="seg">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLinkView('folders');
-                        playPopSound();
-                      }}
-                      className={linkView === 'folders' ? 'on' : ''}
-                    >
-                      Folders
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLinkView('all');
-                        playPopSound();
-                      }}
-                      className={linkView === 'all' ? 'on' : ''}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLinkView('starred');
-                        playPopSound();
-                      }}
-                      className={linkView === 'starred' ? 'on' : ''}
-                    >
-                      ★ Starred
-                    </button>
+              <div className="flex flex-col w-full max-w-lg sm:max-w-4xl mx-auto pb-12 gap-space-md">
+                {/* Header Toolbar matching links_add_link_modal_pop_up/code.html */}
+                <div className="flex items-center justify-between gap-2 pt-1 overflow-x-auto pb-1">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <h1 className="font-display-lg text-[26px] font-bold text-on-surface tracking-tight mr-1 font-fraunces">
+                      Links
+                    </h1>
+                    <div className="flex items-center bg-surface-card rounded-full p-1 shadow-sm gap-1 border border-border-subtle">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkView('folders');
+                          playPopSound();
+                        }}
+                        className={`px-3 py-1 rounded-full font-label-md text-label-md transition-all ${
+                          linkView === 'folders'
+                            ? 'bg-lavender-subtle text-primary font-bold shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        Folders
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkView('all');
+                          playPopSound();
+                        }}
+                        className={`px-2.5 py-1 rounded-full font-label-md text-label-md transition-all ${
+                          linkView === 'all'
+                            ? 'bg-lavender-subtle text-primary font-bold shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLinkView('starred');
+                          playPopSound();
+                        }}
+                        className={`px-2.5 py-1 rounded-full font-label-md text-label-md transition-all flex items-center gap-0.5 ${
+                          linkView === 'starred'
+                            ? 'bg-lavender-subtle text-primary font-bold shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="text-sunshine-accent text-[13px]">★</span> Starred
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => {
-                        const name = prompt('Folder name');
+                        const name = prompt('Enter folder name:');
                         if (name && name.trim()) {
                           handleAddCategory({
                             name: name.trim(),
@@ -2229,9 +2253,10 @@ export function App() {
                           });
                         }
                       }}
-                      className="ghost-btn"
+                      className="px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle text-on-surface font-label-md text-label-md hover:bg-lavender-subtle flex items-center gap-1 shadow-sm active:scale-95 transition-all"
                     >
-                      + New folder
+                      <span className="material-symbols-outlined text-[16px] text-primary">create_new_folder</span>
+                      <span>+ New folder</span>
                     </button>
                     <button
                       type="button"
@@ -2242,10 +2267,10 @@ export function App() {
                         setIsAddModalOpen(true);
                         playPopSound();
                       }}
-                      className="ghost-btn"
-                      style={{ background: 'var(--home-purple)', color: '#ffffff', borderColor: 'transparent' }}
+                      className="px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-label-md shadow-[0_3px_10px_rgba(107,56,212,0.25)] flex items-center gap-1 hover:bg-primary-container active:scale-95 transition-all font-bold"
                     >
-                      + Add link
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      <span>+ Add link</span>
                     </button>
                   </div>
                 </div>
@@ -2254,15 +2279,15 @@ export function App() {
                 {linkView === 'starred' ? (
                   /* STARRED / FAVORITES VIEW */
                   starredLinks.length === 0 ? (
-                    <div className="orbit-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', alignItems: 'center' }}>
-                      <div style={{ fontSize: '38px', marginBottom: '8px' }}>★</div>
-                      <h3 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '20px', margin: '0 0 6px' }}>No Starred Bookmarks Yet</h3>
-                      <p style={{ color: 'var(--orbit-muted)', fontSize: '13px', margin: 0 }}>
+                    <div className="bg-surface-card rounded-3xl p-8 border border-border-subtle text-center flex flex-col items-center">
+                      <div className="text-4xl mb-2 text-sunshine-accent">★</div>
+                      <h3 className="font-fraunces text-xl font-bold text-on-surface mb-1">No Starred Bookmarks Yet</h3>
+                      <p className="text-on-surface-variant text-xs max-w-sm">
                         Click the star icon ★ on any bookmark to pin your favorites here for instant access.
                       </p>
                     </div>
                   ) : (
-                    <div className="orbit-links-grid">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {starredLinks.map((link) => (
                         <StandaloneLinkCard
                           key={link.id}
@@ -2285,15 +2310,15 @@ export function App() {
                 ) : linkView === 'all' ? (
                   /* ALL LINKS DIRECTLY AS CARDS (FLAT / UNBUNDLED VIEW) */
                   allSortedLinks.length === 0 ? (
-                    <div className="orbit-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', alignItems: 'center' }}>
-                      <div style={{ fontSize: '38px', marginBottom: '8px' }}>🔎</div>
-                      <h3 style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '20px', margin: '0 0 6px' }}>No Bookmarks Saved Yet</h3>
-                      <p style={{ color: 'var(--orbit-muted)', fontSize: '13px', margin: 0 }}>
-                        Paste any link in the bar above or tap Add Item to save your first bookmark.
+                    <div className="bg-surface-card rounded-3xl p-8 border border-border-subtle text-center flex flex-col items-center">
+                      <div className="text-4xl mb-2">🔎</div>
+                      <h3 className="font-fraunces text-xl font-bold text-on-surface mb-1">No Bookmarks Saved Yet</h3>
+                      <p className="text-on-surface-variant text-xs max-w-sm">
+                        Tap + Add link to save your first bookmark to your cozy space.
                       </p>
                     </div>
                   ) : (
-                    <div className="orbit-links-grid">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {allSortedLinks.map((link) => (
                         <StandaloneLinkCard
                           key={link.id}
@@ -2315,8 +2340,7 @@ export function App() {
                   )
                 ) : (
                   /* CATEGORIZED FOLDERS VIEW (Default: Bundles + Canvas Bookmarks) */
-                  <div className="orbit-links-grid">
-                    
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                     {/* Category Bundle Squares */}
                     {categories.map((category, index) => (
                       <CategoryBundleSquare
@@ -2335,25 +2359,66 @@ export function App() {
                       />
                     ))}
 
-                    {/* Standalone Bookmarks sitting right in the same canvas */}
-                    {standaloneLinks.map((link) => (
-                      <StandaloneLinkCard
-                        key={link.id}
-                        link={link}
-                        onSelect={(l) => setDetailLink(l)}
-                        onTogglePin={handleTogglePin}
-                        onVisit={handleVisitLink}
-                        onOpenAttachment={(att) => setActiveAttachment(att)}
-                        onDragStart={(e, id) => {
-                          setActiveDraggingLinkId(id);
-                          e.dataTransfer.setData('text/plain', id);
-                          e.dataTransfer.setData('application/link-id', id);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onDragEnd={() => setActiveDraggingLinkId(null)}
-                      />
-                    ))}
+                    {/* Independent Links (Unfiled) Card matching Stitch export */}
+                    {standaloneLinks.length > 0 && (
+                      <div className="sm:col-span-2 bg-surface-card rounded-3xl p-4 shadow-[0_3px_14px_rgba(21,19,17,0.04)] border border-border-subtle flex flex-col gap-3 relative overflow-hidden">
+                        <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">📌</span>
+                            <div>
+                              <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight font-fraunces">
+                                Independent Links
+                              </h3>
+                              <p className="font-body-sm text-xs text-on-surface-variant">
+                                Unfiled bookmarks ready to organize
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-lavender-subtle text-primary font-label-sm text-[10px] font-bold">
+                            {standaloneLinks.length}
+                          </span>
+                        </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {standaloneLinks.map((link) => (
+                            <StandaloneLinkCard
+                              key={link.id}
+                              link={link}
+                              onSelect={(l) => setDetailLink(l)}
+                              onTogglePin={handleTogglePin}
+                              onVisit={handleVisitLink}
+                              onOpenAttachment={(att) => setActiveAttachment(att)}
+                              onDragStart={(e, id) => {
+                                setActiveDraggingLinkId(id);
+                                e.dataTransfer.setData('text/plain', id);
+                                e.dataTransfer.setData('application/link-id', id);
+                                e.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragEnd={() => setActiveDraggingLinkId(null)}
+                            />
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-border-subtle text-on-surface-variant font-label-sm text-xs">
+                          <div className="flex items-center gap-1.5 text-outline">
+                            <span className="material-symbols-outlined text-[16px] text-primary">touch_app</span>
+                            <span>Drag onto any folder above</span>
+                          </div>
+                          <button
+                            className="flex items-center gap-1 text-primary font-bold hover:underline py-1"
+                            onClick={() => {
+                              setEditingLink(null);
+                              setPrefilledUrl('');
+                              setPrefilledCategory('Uncategorized');
+                              setIsAddModalOpen(true);
+                            }}
+                          >
+                            <span className="material-symbols-outlined text-[14px]">add</span>
+                            <span>Add unfiled link</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2483,19 +2548,21 @@ export function App() {
         </div>
       )}
 
-      {/* Floating Action Button for Mobile (Hidden on finance and home where not needed) */}
-      {workspaceView !== 'finance' && workspaceView !== 'home' && (
+      {/* Floating Action Button matching Google Stitch (Hidden on home) */}
+      {workspaceView === 'links' && (
         <button
           onClick={() => {
             setEditingLink(null);
             setPrefilledUrl('');
             setPrefilledCategory('Uncategorized');
             setIsAddModalOpen(true);
+            playPopSound();
           }}
-          className="fixed bottom-20 right-4 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
-          aria-label="Add Bookmark"
+          className="fixed bottom-24 right-5 z-40 w-14 h-14 rounded-full bg-primary text-on-primary shadow-[0_4px_16px_rgba(107,56,212,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-surface-card"
+          aria-label="Add New Link"
+          title="Add New Link"
         >
-          <Plus size={24} className="stroke-[2.5]" />
+          <span className="material-symbols-outlined text-[28px]">add</span>
         </button>
       )}
 

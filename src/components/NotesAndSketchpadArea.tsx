@@ -730,12 +730,33 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
           <div>
             {filteredNotes.length === 0 ? (
               /* Cozy Empty State matching Image 2 */
-              <div className="empty-card">
-                <div className="text-5xl mb-3 select-none">🌸</div>
-                <h3 className="font-['Fredoka',sans-serif] font-bold text-xl text-[#1F2A24] mb-1.5">
+              <div className="empty-card flex flex-col items-center justify-center">
+                {/* Cute 5-Petal Smiling Flower matching Image 2 */}
+                <div className="mb-4 select-none animate-in zoom-in-75 duration-300">
+                  <svg width="76" height="76" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* 5 rounded pink petals */}
+                    <circle cx="50" cy="22" r="19" fill="#F472B6" />
+                    <circle cx="76" cy="41" r="19" fill="#F472B6" />
+                    <circle cx="66" cy="73" r="19" fill="#F472B6" />
+                    <circle cx="34" cy="73" r="19" fill="#F472B6" />
+                    <circle cx="24" cy="41" r="19" fill="#F472B6" />
+                    {/* Yellow center with smiling face */}
+                    <circle cx="50" cy="50" r="18" fill="#FDE047" stroke="#F59E0B" strokeWidth="1.5" />
+                    {/* Eyes */}
+                    <circle cx="43" cy="47" r="2.5" fill="#1F2937" />
+                    <circle cx="57" cy="47" r="2.5" fill="#1F2937" />
+                    {/* Smile */}
+                    <path d="M44 53C46 57 54 57 56 53" stroke="#1F2937" strokeWidth="2.2" strokeLinecap="round" />
+                    {/* Rosy blush */}
+                    <circle cx="39" cy="52" r="2.5" fill="#F472B6" opacity="0.6" />
+                    <circle cx="61" cy="52" r="2.5" fill="#F472B6" opacity="0.6" />
+                  </svg>
+                </div>
+
+                <h3 className="font-['Fredoka',sans-serif] font-bold text-2xl text-[#1F2A24] mb-2">
                   Your cozy note space is empty
                 </h3>
-                <p className="text-xs sm:text-[13px] text-[#6E7A72] max-w-sm mx-auto mb-5 leading-relaxed">
+                <p className="text-xs sm:text-[13px] text-[#6E7A72] max-w-sm mx-auto mb-6 leading-relaxed">
                   Jot down ideas, checklists, memories, or draw a cute doodle!
                 </p>
                 <button
@@ -745,9 +766,9 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
                     setIsNoteModalOpen(true);
                     playPopSound();
                   }}
-                  className="btn-pill btn-pill-primary px-6 py-2.5 text-xs font-bold"
+                  className="btn-pill btn-pill-primary px-7 py-3 text-xs font-bold shadow-md shadow-purple-500/25 hover:scale-105 active:scale-95 transition-all"
                 >
-                  <Plus size={14} className="stroke-[2.8]" />
+                  <Plus size={15} className="stroke-[2.8]" />
                   <span>Write first note</span>
                 </button>
               </div>

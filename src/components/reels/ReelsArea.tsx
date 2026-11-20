@@ -646,6 +646,18 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
 
       </div>
 
+      {/* Floating Action Button (Mobile) */}
+      <div className="fixed bottom-22 right-4 sm:hidden z-40">
+        <button
+          type="button"
+          onClick={() => handleOpenAdd()}
+          className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#DE3B78] to-[#9B2896] text-white shadow-[0_8px_20px_rgba(222,59,120,0.35)] flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+          title="Save new reel"
+        >
+          <Plus size={24} className="stroke-[2.5]" />
+        </button>
+      </div>
+
       {/* ======================================================== */}
       {/* 3. MODALS (FOLDER, EDIT CATEGORY, REEL MODAL, PLAYER)   */}
       {/* ======================================================== */}

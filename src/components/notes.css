@@ -4,8 +4,8 @@
    ========================================================================== */
 
 .notes-container {
-  --bg: #f8f6fc;
-  --bg-pattern: radial-gradient(#e8ddf5 1.2px, transparent 1.2px) 0 0 / 22px 22px, #f8f6fc;
+  --bg: #FAF8F5;
+  --bg-pattern: radial-gradient(#FBCFE8 1.4px, transparent 1.4px) 0 0 / 24px 24px, #FAF8F5;
   --card: #ffffff;
   --ink: #20183b;
   --mute: #6b6382;

@@ -1,14 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  X, 
-  Link as LinkIcon, 
-  Paperclip, 
-  Star, 
-  Sparkles, 
-  Trash2, 
-  UploadCloud,
-  Plus
-} from 'lucide-react';
 import type { LinkItem, CategoryInfo, Attachment } from '../types';
 import { 
   normalizeUrl, 
@@ -52,7 +42,6 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   const prevIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    // Only initialize form fields when the modal opens or when editing a different item
     const justOpened = isOpen && !prevOpenRef.current;
     const itemChanged = isOpen && initialData?.id !== prevIdRef.current;
 
@@ -97,6 +86,17 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     }
   };
 
+  const handlePasteClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        handleUrlChange(text.trim());
+      }
+    } catch {
+      // Ignore if permission denied
+    }
+  };
+
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     Array.from(fileList).forEach((file) => {
@@ -130,8 +130,8 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     setIsAddingCategory(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!url.trim()) return;
 
     const normalized = normalizeUrl(url);
@@ -140,7 +140,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
     onSave({
       url: normalized,
       title: finalTitle,
-      category: category || categories[0]?.name || 'Uncategorized',
+      category: category || 'Uncategorized',
       notes: notes.trim(),
       pinned,
       attachments,
@@ -151,186 +151,185 @@ export const LinkModal: React.FC<LinkModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-main/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-inverse-surface/40 backdrop-blur-sm transition-opacity duration-200 p-2 sm:p-4"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-lg bg-surface rounded-3xl shadow-raised border border-subtle flex flex-col max-h-[92vh] overflow-hidden text-main"
+        className="w-full max-w-lg bg-surface-card rounded-t-3xl sm:rounded-3xl p-5 pb-6 shadow-2xl border border-border-subtle flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto z-50 text-on-surface animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
+        {/* Top Handle for mobile */}
+        <div className="w-10 h-1.5 rounded-full bg-surface-variant mx-auto mb-1 sm:hidden" />
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-accent-soft text-accent-text flex items-center justify-center">
-              <LinkIcon size={17} />
+            <div className="w-10 h-10 rounded-2xl bg-lavender-subtle text-primary flex items-center justify-center font-bold text-[20px] shadow-sm">
+              ✨
             </div>
-            <h2 className="text-base font-bold text-main">
-              {initialData ? 'Edit Link' : 'Save New Link'}
-            </h2>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight font-fraunces">
+                  {initialData ? 'Edit Link' : 'Add New Link'}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-peach-subtle text-tertiary-container font-label-sm text-[10px] font-bold">
+                  WHIMSY
+                </span>
+              </div>
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Organize into your curated space
+              </p>
+            </div>
           </div>
-          <button
+          <button 
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-faint hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-lavender-subtle transition-colors shadow-xs"
           >
-            <X size={18} />
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs sm:text-sm">
-          
-          {/* URL Input with Star Button */}
-          <div>
-            <label className="block text-xs font-bold text-main mb-1.5">
-              Link URL <span className="text-danger">*</span>
+        {/* Form Inputs */}
+        <div className="flex flex-col gap-3">
+          {/* Link Name */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-on-surface font-semibold flex items-center gap-1">
+              <span className="text-primary">✦</span> Link Name
             </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                required
-                value={url}
-                onChange={(e) => handleUrlChange(e.target.value)}
-                placeholder="https://example.com or github.com"
-                className="flex-1 px-4 py-2.5 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring font-mono text-xs sm:text-sm"
-              />
-              <button
-                type="button"
-                onClick={() => setPinned(!pinned)}
-                className={`p-2.5 rounded-2xl border transition cursor-pointer ${
-                  pinned 
-                    ? 'border-accent bg-accent-soft text-accent' 
-                    : 'border-input text-faint hover:text-muted'
-                }`}
-                title="Star / Favorite"
-              >
-                <Star size={18} className={pinned ? 'fill-accent' : ''} />
-              </button>
-            </div>
-          </div>
-
-          {/* Title / Headline */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-main">
-                Title / Headline
-              </label>
-              {url.trim().length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const suggested = generateSuggestedTitle(url);
-                    if (suggested && suggested !== 'New Link') {
-                      setTitle(suggested);
-                    }
-                  }}
-                  className="text-[11px] text-accent hover:underline flex items-center gap-1 cursor-pointer font-semibold"
-                >
-                  <Sparkles size={11} /> Auto-fill
-                </button>
-              )}
-            </div>
-            <input
-              type="text"
+            <input 
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-sm shadow-xs" 
+              placeholder="e.g. Notion Workspace" 
+              type="text" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Claude Code Docs or Cool Design Resource"
-              className="w-full px-4 py-2.5 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm"
             />
           </div>
 
-          {/* Category Chips */}
-          <div>
-            <label className="block text-xs font-bold text-main mb-1.5">
-              Folder / Category
+          {/* Link URL */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-on-surface font-semibold flex items-center gap-1">
+              <span className="text-sky-accent">✦</span> Link URL
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {/* Standalone Canvas Chip */}
-              <button
+            <div className="flex items-center rounded-2xl bg-canvas-bg border border-border-subtle overflow-hidden focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary shadow-xs">
+              <input 
+                className="flex-1 px-3.5 py-2.5 bg-transparent font-body-md text-on-surface focus:outline-none text-sm font-mono" 
+                placeholder="https://example.com" 
+                type="text" 
+                value={url}
+                onChange={(e) => handleUrlChange(e.target.value)}
+                required
+              />
+              <button 
+                className="px-2.5 py-1 mr-1.5 rounded-xl bg-surface-card border border-border-subtle text-on-surface-variant text-label-sm font-label-sm hover:text-primary transition-all flex items-center gap-0.5 active:scale-95" 
                 type="button"
-                onClick={() => setCategory('Uncategorized')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 border cursor-pointer ${
-                  !category || category === 'Uncategorized'
-                    ? 'bg-accent text-on-accent border-accent shadow-soft'
-                    : 'bg-surface text-main border-subtle hover:bg-sunken'
-                }`}
+                onClick={handlePasteClipboard}
               >
-                📌 Canvas (No Folder)
+                <span className="material-symbols-outlined text-[14px]">content_paste</span>
+                <span>Paste</span>
               </button>
+            </div>
+          </div>
 
-              {categories.map((c) => {
-                const isSelected = category === c.name;
-                return (
-                  <button
-                    key={c.id || c.name}
-                    type="button"
-                    onClick={() => setCategory(c.name)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 border cursor-pointer ${
-                      isSelected
-                        ? 'bg-accent text-on-accent border-accent shadow-soft'
-                        : 'bg-surface text-main border-subtle hover:bg-sunken'
-                    }`}
-                  >
-                    {c.icon || '📁'} {c.name}
-                  </button>
-                );
-              })}
+          {/* Description & Notes */}
+          <div className="flex flex-col gap-1">
+            <label className="font-label-sm text-label-sm text-on-surface font-semibold flex items-center gap-1">
+              <span className="text-outline">✦</span> Description &amp; Notes
+            </label>
+            <input 
+              className="w-full px-3.5 py-2 rounded-2xl bg-canvas-bg border border-border-subtle font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-sm shadow-xs" 
+              placeholder="Brief notes or tags..." 
+              type="text" 
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Category Select & Starred Priority Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="font-label-sm text-label-sm text-on-surface font-semibold flex items-center gap-1">
+                  <span className="text-primary">✦</span> Category / Folder
+                </label>
+                <button 
+                  type="button" 
+                  onClick={() => setIsAddingCategory(!isAddingCategory)}
+                  className="text-primary hover:underline font-label-sm text-[11px] font-bold flex items-center gap-0.5"
+                >
+                  + New Folder
+                </button>
+              </div>
 
               {isAddingCategory ? (
-                <div className="inline-flex items-center gap-1 bg-surface px-2.5 py-1 rounded-full border border-input">
+                <div className="flex items-center gap-1 bg-canvas-bg p-1 rounded-2xl border border-border-subtle">
                   <input
                     type="text"
                     value={newCatName}
                     onChange={(e) => setNewCatName(e.target.value)}
-                    placeholder="New folder..."
-                    className="text-xs bg-transparent text-main focus:outline-none w-24"
+                    placeholder="Folder name..."
+                    className="flex-1 px-2 py-1 text-xs bg-transparent text-on-surface focus:outline-none"
                     autoFocus
                   />
-                  <button type="button" onClick={handleCreateCategory} className="text-[10px] bg-accent text-on-accent px-2 py-0.5 rounded-full font-bold cursor-pointer">
-                    Save
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    className="px-2.5 py-1 bg-primary text-on-primary rounded-xl text-xs font-bold"
+                  >
+                    Add
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingCategory(true)}
-                  className="px-2.5 py-1.5 rounded-full text-xs font-medium text-accent hover:bg-accent-soft transition cursor-pointer"
+                <select 
+                  className="w-full px-3 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-sm shadow-xs cursor-pointer"
+                  value={category || 'Uncategorized'}
+                  onChange={(e) => setCategory(e.target.value)}
                 >
-                  + New
-                </button>
+                  <option value="Uncategorized">📌 Canvas (Independent / Unfiled)</option>
+                  {categories.map((c) => (
+                    <option key={c.id || c.name} value={c.name}>
+                      {c.icon || '📁'} {c.name}
+                    </option>
+                  ))}
+                </select>
               )}
+            </div>
+
+            {/* Starred Priority Toggle */}
+            <div className="flex flex-col gap-1">
+              <label className="font-label-sm text-label-sm text-on-surface font-semibold">
+                Starred Priority
+              </label>
+              <div 
+                onClick={() => setPinned(!pinned)}
+                className="flex items-center justify-between px-3 py-2 rounded-2xl bg-canvas-bg border border-border-subtle shadow-xs cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sunshine-accent text-[15px]">★</span>
+                  <span className="font-label-md text-label-md text-on-surface font-medium">Add to Starred</span>
+                </div>
+                <div className={`w-9 h-5 rounded-full relative p-0.5 transition-colors flex items-center ${pinned ? 'bg-primary' : 'bg-surface-variant'}`}>
+                  <div className={`w-4 h-4 rounded-full bg-surface-card shadow-xs transition-transform ${pinned ? 'ml-auto' : 'ml-0'}`} />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Description & Context Notes */}
-          <div>
-            <label className="block text-xs font-bold text-main mb-1.5">
-              Description & Notes
-            </label>
-            <textarea
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="What do you use this for? Add headline notes, instructions, reminders, or tags..."
-              className="w-full px-4 py-2.5 rounded-2xl border border-input bg-sunken text-main focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm leading-relaxed"
-            />
-          </div>
-
-          {/* File Attachments */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-main flex items-center gap-1">
-                <Paperclip size={13} className="text-accent" />
-                Attachments & Screenshots
+          {/* Attachments & Files */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-1">
+              <label className="font-label-sm text-label-sm text-on-surface font-semibold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px] text-primary">attachment</span>
+                <span>Attachments &amp; Screenshots</span>
               </label>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-[11px] text-accent hover:underline flex items-center gap-0.5 font-semibold cursor-pointer"
+                className="text-primary hover:underline font-label-sm text-[11px] font-bold"
               >
-                <Plus size={12} /> Add File
+                + Add File
               </button>
             </div>
-
             <input
               ref={fileInputRef}
               type="file"
@@ -339,67 +338,46 @@ export const LinkModal: React.FC<LinkModalProps> = ({
               className="hidden"
               accept="image/*,.pdf,.doc,.docx,.txt"
             />
-
-            {attachments.length === 0 ? (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="p-3.5 rounded-2xl border border-dashed border-input hover:border-accent text-center cursor-pointer transition bg-sunken/40"
-              >
-                <UploadCloud size={20} className="mx-auto text-faint mb-1" />
-                <p className="text-xs text-muted">
-                  Tap to attach screenshot, image, or PDF
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {attachments.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center justify-between p-2 rounded-xl bg-sunken border border-subtle text-xs"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-canvas-bg border border-border-subtle text-[11px]"
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      {file.type?.startsWith('image/') ? (
-                        <img src={file.dataUrl} alt="" className="w-6 h-6 object-cover rounded-lg shrink-0" />
-                      ) : (
-                        <Paperclip size={14} className="text-accent shrink-0" />
-                      )}
-                      <span className="truncate font-medium text-main">
-                        {file.name}
-                      </span>
-                      <span className="text-[10px] text-faint">({formatFileSize(file.size)})</span>
-                    </div>
+                    <span className="truncate max-w-[120px] font-medium">{file.name}</span>
                     <button
                       type="button"
-                      onClick={() => setAttachments(attachments.filter((a) => a.id !== file.id))}
-                      className="p-1 text-faint hover:text-danger rounded cursor-pointer"
+                      onClick={() => setAttachments(attachments.filter(a => a.id !== file.id))}
+                      className="text-tertiary hover:opacity-80 ml-1"
                     >
-                      <Trash2 size={13} />
+                      ×
                     </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
 
-        </form>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-subtle bg-sunken">
-          <button
+        {/* Modal Footer Buttons */}
+        <div className="flex items-center gap-2 pt-2 border-t border-border-subtle mt-1">
+          <button 
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-muted hover:text-main rounded-xl transition cursor-pointer"
+            className="flex-1 py-2.5 rounded-full bg-surface-card border border-border-subtle text-on-surface font-label-md text-label-md hover:bg-canvas-bg active:scale-95 transition-all text-center font-semibold shadow-xs"
           >
             Cancel
           </button>
-          <button
-            onClick={handleSubmit}
-            className="px-5 py-2 text-xs font-bold text-on-accent bg-accent hover:bg-accent-hover rounded-2xl shadow-soft transition active:scale-95 cursor-pointer"
+          <button 
+            type="button"
+            onClick={() => handleSubmit()}
+            className="flex-[2] py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md shadow-[0_4px_16px_rgba(107,56,212,0.4)] hover:bg-primary-container active:scale-95 transition-all flex items-center justify-center gap-1.5 font-bold"
           >
-            {initialData ? 'Save Changes' : 'Save to Vault'}
+            <span className="material-symbols-outlined text-[18px]">check</span>
+            <span>{initialData ? 'Save Changes' : 'Save Link ✨'}</span>
           </button>
         </div>
-
       </div>
     </div>
   );

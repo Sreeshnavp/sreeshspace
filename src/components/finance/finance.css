@@ -63,6 +63,12 @@
   margin-bottom: 20px;
 }
 
+@media(max-width: 640px) {
+  .finance-container .head {
+    display: none;
+  }
+}
+
 .finance-container .logo {
   width: 54px;
   height: 54px;

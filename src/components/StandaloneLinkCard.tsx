@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { Copy, Check, Paperclip } from 'lucide-react';
 import type { LinkItem, Attachment } from '../types';
 import { extractDomain } from '../utils/urlHelper';
-import './links.css';
 
 interface StandaloneLinkCardProps {
   link: LinkItem;
@@ -19,7 +17,6 @@ export const StandaloneLinkCard: React.FC<StandaloneLinkCardProps> = ({
   onSelect,
   onTogglePin,
   onVisit,
-  onOpenAttachment,
   onDragStart,
   onDragEnd,
 }) => {
@@ -39,105 +36,61 @@ export const StandaloneLinkCard: React.FC<StandaloneLinkCardProps> = ({
       onDragStart={(e) => onDragStart(e, link.id)}
       onDragEnd={onDragEnd}
       onClick={() => onSelect(link)}
-      className="orbit-card"
-      style={{ cursor: 'pointer' }}
+      className="link-pill flex items-center justify-between p-3 rounded-2xl bg-surface-card text-on-surface shadow-[0_2px_8px_rgba(21,19,17,0.04)] border border-border-subtle hover:border-primary/40 cursor-grab active:cursor-grabbing transition-all min-w-0 group"
     >
-      {/* 1. Header: Icon / Favicon, Domain / URL, Star Button */}
-      <div className="fh">
-        <div 
-          className="fi" 
-          style={{ background: 'var(--orbit-green-soft)' }}
-        >
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="w-9 h-9 rounded-xl bg-lavender-subtle/80 flex items-center justify-center flex-shrink-0 text-primary shadow-xs overflow-hidden">
           {link.favicon ? (
-            <img src={link.favicon} alt="" className="w-5 h-5 object-contain" />
+            <img src={link.favicon} alt="" className="w-4 h-4 object-contain" />
           ) : (
-            '🌐'
+            <span className="material-symbols-outlined text-[18px]">bookmark</span>
           )}
         </div>
-        
-        <small 
-          style={{ 
-            flex: 1, 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis', 
-            whiteSpace: 'nowrap',
-            fontWeight: 500
-          }}
-          title={link.url}
-        >
-          {domain || link.url.replace(/^https?:\/\//, '')}
-        </small>
+        <div className="min-w-0 flex-1">
+          <span className="truncate font-semibold block text-xs sm:text-[13px] text-on-surface">
+            {link.title || link.url}
+          </span>
+          <span className="text-[11px] text-on-surface-variant truncate block font-mono">
+            {domain || link.url.replace(/^https?:\/\//, '')}
+          </span>
+        </div>
+      </div>
 
+      <div className="flex items-center gap-1 shrink-0 ml-1">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onTogglePin(link.id);
           }}
-          className={`star-btn ${link.pinned ? 'on' : ''}`}
-          aria-label={link.pinned ? 'Remove from starred' : 'Star bookmark'}
+          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-colors ${
+            link.pinned ? 'text-sunshine-accent' : 'text-outline hover:text-sunshine-accent'
+          }`}
           title={link.pinned ? 'Starred bookmark' : 'Star bookmark'}
         >
           {link.pinned ? '★' : '☆'}
         </button>
-      </div>
-
-      {/* 2. Middle Body: Title and Note Box */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <h3 className="link-card-title">
-          {link.title || link.url}
-        </h3>
-
-        {link.notes ? (
-          <div className="link-note">
-            {link.notes}
-          </div>
-        ) : link.attachments && link.attachments.length > 0 ? (
-          <div className="link-note" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Paperclip size={13} />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenAttachment(link.attachments![0]);
-              }}
-              style={{ border: 0, background: 'none', color: 'var(--orbit-green)', fontWeight: 600, padding: 0, cursor: 'pointer' }}
-            >
-              {link.attachments.length} attachment(s) · View
-            </button>
-          </div>
-        ) : (
-          <div className="link-note" style={{ fontStyle: 'italic', opacity: 0.8 }}>
-            Ready to file into folder.
-          </div>
-        )}
-      </div>
-
-      {/* 3. Footer: Interaction Cues */}
-      <div className="ff">
-        <span style={{ userSelect: 'none', cursor: 'grab' }} title="Drag into any folder">
-          ✋ Drag to folder
+        <button
+          onClick={handleCopy}
+          className="w-7 h-7 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors text-[13px]"
+          title="Copy link"
+        >
+          <span className="material-symbols-outlined text-[15px]">
+            {copied ? 'check' : 'content_copy'}
+          </span>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onVisit(link);
+          }}
+          className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
+          title="Open in new tab"
+        >
+          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+        </button>
+        <span className="material-symbols-outlined text-[16px] text-outline cursor-move ml-0.5 hover:text-primary hidden sm:inline-block">
+          drag_indicator
         </span>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={handleCopy}
-            className="ib"
-            style={{ width: '28px', height: '28px', borderRadius: '8px', fontSize: '13px' }}
-            title="Copy URL"
-          >
-            {copied ? <Check size={13} style={{ color: 'var(--orbit-green)' }} /> : <Copy size={13} />}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onVisit(link);
-              window.open(link.url, '_blank', 'noopener,noreferrer');
-            }}
-            className="open-action"
-          >
-            Open →
-          </button>
-        </div>
       </div>
     </article>
   );
