@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { Plus, Sparkles, FolderPlus, Folder, ExternalLink, GripVertical, Star, Paperclip, Check, Copy, Edit3, Trash2, LayoutGrid, Link2, BookOpen, RotateCcw, Wallet, Palette, Film } from 'lucide-react';
 
@@ -667,7 +667,7 @@ export function App() {
             }
           });
 
-          setWorkspaceView('reels');
+          navigateToView('reels');
           showToast('Saved Instagram Reel to your Vault! 🎬✨');
           triggerPartyPop('single');
           playPopSound();
@@ -686,6 +686,52 @@ export function App() {
   // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> REELS <-> FINANCES <-> NOTES & SKETCHPAD)
   // ==========================================
   const WORKSPACE_SECTIONS: WorkspaceView[] = ['links', 'notebook', 'reels', 'finance', 'notes'];
+
+  const navigateToView = useCallback((targetView: WorkspaceView, replace: boolean = false) => {
+    setWorkspaceView((current) => {
+      if (current === targetView) return current;
+      const targetHash = '#' + targetView;
+      if (replace) {
+        window.history.replaceState({ view: targetView }, '', targetHash);
+      } else {
+        window.history.pushState({ view: targetView }, '', targetHash);
+      }
+      return targetView;
+    });
+  }, []);
+
+  // 📲 Mobile Back Button & History Navigation Support
+  useEffect(() => {
+    const rawHash = window.location.hash.replace('#', '') as WorkspaceView;
+    const initialView: WorkspaceView = WORKSPACE_SECTIONS.includes(rawHash) ? rawHash : 'links';
+
+    setWorkspaceView(initialView);
+    window.history.replaceState({ view: initialView }, '', '#' + initialView);
+
+    const handlePopState = (e: PopStateEvent) => {
+      // 1. Close open modals or drawers if any
+      setIsAddModalOpen(false);
+      setIsFinanceModalOpen(false);
+      setIsGoalModalOpen(false);
+      setIsBackupModalOpen(false);
+      setIsDesignGuideOpen(false);
+      setIsWallpaperModalOpen(false);
+      setFolderModalCategory(null);
+      setDetailLink(null);
+
+      // 2. Navigate back to previous menu in history
+      const stateView = e.state?.view as WorkspaceView | undefined;
+      const currentHash = window.location.hash.replace('#', '') as WorkspaceView;
+      const targetView: WorkspaceView = (stateView && WORKSPACE_SECTIONS.includes(stateView))
+        ? stateView
+        : (WORKSPACE_SECTIONS.includes(currentHash) ? currentHash : 'links');
+
+      setWorkspaceView(targetView);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const showSwipePill = (section: WorkspaceView) => {
     const config: Record<WorkspaceView, { label: string; icon: string }> = {
@@ -780,14 +826,14 @@ export function App() {
         if (deltaX < 0 && curIdx < WORKSPACE_SECTIONS.length - 1) {
           // Swipe Left -> Next Section
           const next = WORKSPACE_SECTIONS[curIdx + 1];
-          setWorkspaceView(next);
+          navigateToView(next);
           playPopSound();
           if (navigator.vibrate) navigator.vibrate(15);
           showSwipePill(next);
         } else if (deltaX > 0 && curIdx > 0) {
           // Swipe Right -> Prev Section
           const prev = WORKSPACE_SECTIONS[curIdx - 1];
-          setWorkspaceView(prev);
+          navigateToView(prev);
           playPopSound();
           if (navigator.vibrate) navigator.vibrate(15);
           showSwipePill(prev);
@@ -2194,7 +2240,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setWorkspaceView('links');
+                    navigateToView('links');
                     playPopSound();
                   }}
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
@@ -2209,7 +2255,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setWorkspaceView('notebook');
+                    navigateToView('notebook');
                     playPopSound();
                   }}
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
@@ -2224,7 +2270,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setWorkspaceView('reels');
+                    navigateToView('reels');
                     playPopSound();
                   }}
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
@@ -2239,7 +2285,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setWorkspaceView('finance');
+                    navigateToView('finance');
                     playPopSound();
                   }}
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
@@ -2254,7 +2300,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setWorkspaceView('notes');
+                    navigateToView('notes');
                     playPopSound();
                   }}
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[44px] whitespace-nowrap ${
@@ -2621,24 +2667,21 @@ export function App() {
         </div>
       )}
 
-      {/* Floating Action Button for Mobile */}
-      <button
-        onClick={() => {
-          if (workspaceView === 'finance') {
-            setEditingTransaction(null);
-            setIsFinanceModalOpen(true);
-          } else {
+      {/* Floating Action Button for Mobile (Hidden on finance where the new + Add button is used) */}
+      {workspaceView !== 'finance' && (
+        <button
+          onClick={() => {
             setEditingLink(null);
             setPrefilledUrl('');
             setPrefilledCategory('Uncategorized');
             setIsAddModalOpen(true);
-          }
-        }}
-        className="fixed bottom-5 right-5 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
-        aria-label={workspaceView === 'finance' ? "Add Transaction" : "Add Bookmark"}
-      >
-        <Plus size={24} className="stroke-[2.5]" />
-      </button>
+          }}
+          className="fixed bottom-5 right-5 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
+          aria-label="Add Bookmark"
+        >
+          <Plus size={24} className="stroke-[2.5]" />
+        </button>
+      )}
 
       {/* MODALS */}
 
