@@ -1,1411 +1,1163 @@
-import React, { useState, useMemo } from 'react';
-import {
-  Search,
-  Plus,
-  Trash2,
-  Edit3,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownLeft,
-  ChevronDown,
-  X,
-  CreditCard,
-  Tag,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  Calendar,
-  Layers,
-  BarChart3,
-  Activity,
-  ArrowRight
-} from 'lucide-react';
-import type { FinanceTransaction, FinancialInsights, FinanceCategory, TransactionType } from '../../types/finance';
-import { CUTE_CATEGORY_ICONS } from '../../types/finance';
-import { calculateFinanceInsights } from '../../utils/financeInsights';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { FinanceTransaction, FinanceCategory, TransactionType } from '../../types/finance';
 import { todayKey, diffInDays } from '../../utils/dates';
-import { playPopSound, triggerPartyPop } from '../../utils/delight';
+import { triggerPartyPop, playPopSound } from '../../utils/delight';
 import avatarImg from '../../assets/avatar.png';
+import './finance.css';
 
 interface FinanceDashboardProps {
   transactions: FinanceTransaction[];
   categories: FinanceCategory[];
   currency?: string;
   onChangeCurrency?: (symbol: string) => void;
-  onOpenAddModal: (type?: TransactionType, category?: FinanceCategory) => void;
-  onEditTransaction: (tx: FinanceTransaction) => void;
-  onDeleteTransaction: (id: string) => void;
-  onSaveCategory: (cat: FinanceCategory) => void;
-  onDeleteCategory: (id: string) => void;
+  onOpenAddModal?: (type?: TransactionType, category?: FinanceCategory) => void;
+  onEditTransaction?: (tx: FinanceTransaction) => void;
+  onDeleteTransaction?: (id: string) => void;
+  onSaveCategory?: (cat: FinanceCategory) => void;
+  onDeleteCategory?: (id: string) => void;
   onQuickAdd?: (tx: Omit<FinanceTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
+const DEFAULT_EMOJIS: Record<string, string> = {
+  General: '💰',
+  Food: '🍔',
+  Chaya: '🧋',
+  Travel: '🚌',
+  Shopping: '🛍️'
+};
+
+const PALETTE = ['#F6A25B', '#E85D8A', '#7CC6A4', '#8FA8F0', '#F2C94C'];
+const D0 = '2026-11-17';
+
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
-  transactions,
-  categories,
-  currency = '₹',
-  onOpenAddModal,
+  transactions = [],
+  categories = [],
   onEditTransaction,
   onDeleteTransaction,
-  onSaveCategory,
-  onDeleteCategory,
+  onQuickAdd,
 }) => {
-  const now = new Date();
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const TODAY = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+
+  // Category emoji map
+  const [emojis, setEmojis] = useState<Record<string, string>>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('orbit-cats') || '{}');
+      if (stored && typeof stored === 'object' && Object.keys(stored).length > 0) {
+        return stored;
+      }
+    } catch {}
+    return { ...DEFAULT_EMOJIS };
+  });
+
+  const saveCats = (newEmojis: Record<string, string>) => {
+    setEmojis(newEmojis);
+    try {
+      localStorage.setItem('orbit-cats', JSON.stringify(newEmojis));
+    } catch {}
+  };
+
+  // Month navigation (YYYY-MM)
+  const [ym, setYm] = useState<string>(() => TODAY.slice(0, 7));
+  const [range, setRange] = useState<7 | 30 | 6>(30);
+  const [filterType, setFilterType] = useState<'all' | 'exp' | 'inc'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [showBalance, setShowBalance] = useState<boolean>(true);
-  
-  // Detailed Chart Controls
-  const [chartTimeframe, setChartTimeframe] = useState<'6m' | '30d'>('6m');
-  const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
 
-  // Category Manager Modal state
-  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<FinanceCategory | null>(null);
-  const [catNameInput, setCatNameInput] = useState('');
-  const [catIconInput, setCatIconInput] = useState('🏷️');
-  const [catTypeInput, setCatTypeInput] = useState<TransactionType>('expense');
+  // Budget & Goal
+  const [goal, setGoal] = useState<number>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('orbit-set') || '{}');
+      if (s.goal > 0) return s.goal;
+    } catch {}
+    return 500;
+  });
 
-  // Format Indian Rupee currency with standard en-IN grouping (e.g. ₹1,23,456.78)
-  const formatRupees = (val: number | string) => {
-    const num = typeof val === 'number' ? val : parseFloat(val) || 0;
-    return num.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+  const [budget, setBudget] = useState<number>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('orbit-set') || '{}');
+      if (s.budget > 0) return s.budget;
+    } catch {}
+    return 1000;
+  });
+
+  const saveSettings = (newGoal: number, newBudget: number) => {
+    try {
+      localStorage.setItem('orbit-set', JSON.stringify({ goal: newGoal, budget: newBudget }));
+    } catch {}
+  };
+
+  // Toast & undo state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const showToast = (msg: string, label?: string, onClick?: () => void) => {
+    setToastMessage(msg);
+    setToastAction(label && onClick ? { label, onClick } : null);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      setToastAction(null);
+    }, 4000);
+  };
+
+  // Entry modal sheet state
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [entryKind, setEntryKind] = useState<'exp' | 'inc'>('exp');
+  const [entryAmount, setEntryAmount] = useState<string>('');
+  const [entryDate, setEntryDate] = useState<string>(TODAY);
+  const [entryCategory, setEntryCategory] = useState<string>('General');
+  const [entryNote, setEntryNote] = useState<string>('');
+
+  // Category manager modal sheet state
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('🍩');
+
+  // Format currency in Indian Rupees
+  const inr = (v: number | string) => {
+    const num = typeof v === 'number' ? v : parseFloat(v) || 0;
+    return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const fmtD = (d: string) => {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short'
     });
   };
 
-  // Month selector options
-  const monthOptions = useMemo(() => {
-    const list: { key: string; label: string }[] = [];
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      let label = d.toLocaleDateString('default', { month: 'long', year: 'numeric' }).toLowerCase();
-      if (i === 0) label = 'This Month';
-      else if (i === 1) label = 'Last Month';
-      list.push({ key, label });
-    }
-    return list;
-  }, []);
-
-  const selectedMonthOption = monthOptions.find((m) => m.key === selectedMonthKey) || monthOptions[0];
-
-  const insights: FinancialInsights = useMemo(() => {
-    return calculateFinanceInsights(transactions, selectedMonthKey);
-  }, [transactions, selectedMonthKey]);
-
-  // Overall lifetime balance
-  const overallBalance = useMemo(() => {
-    let inc = 0;
-    let exp = 0;
-    transactions.forEach((tx) => {
-      const val = Number(tx.amount) || 0;
-      if (tx.type === 'income') inc += val;
-      else exp += val;
-    });
-    return Math.round((inc - exp) * 100) / 100;
+  // Harmonized transactions mapped to standard internal rows
+  const allRows = useMemo(() => {
+    return transactions.map((t) => ({
+      id: t.id,
+      t: t.type === 'income' ? ('inc' as const) : ('exp' as const),
+      c: t.category,
+      n: t.note || '',
+      a: Number(t.amount) || 0,
+      d: t.date || D0,
+    }));
   }, [transactions]);
 
-  // Lifetime Inflow & Outflow
-  const lifetimeStats = useMemo(() => {
-    let totalIn = 0;
-    let totalOut = 0;
-    transactions.forEach((tx) => {
-      const val = Number(tx.amount) || 0;
-      if (tx.type === 'income') totalIn += val;
-      else totalOut += val;
-    });
-    return { totalIn, totalOut };
-  }, [transactions]);
+  // Current month's rows
+  const monthRows = useMemo(() => {
+    return allRows.filter((r) => (r.d || D0).slice(0, 7) === ym);
+  }, [allRows, ym]);
 
-  // Category breakdown for statistics (Ranked & Detailed)
-  const categoryBreakdown = useMemo(() => {
-    const monthExpenses = transactions.filter(
-      (tx) => tx.type === 'expense' && tx.date && tx.date.startsWith(selectedMonthKey)
-    );
-    const map: Record<string, { name: string; icon: string; amount: number; count: number }> = {};
-    let totalExp = 0;
-    monthExpenses.forEach((tx) => {
-      const val = Number(tx.amount) || 0;
-      totalExp += val;
-      if (!map[tx.category]) {
-        map[tx.category] = { name: tx.category, icon: tx.categoryIcon || '💸', amount: 0, count: 0 };
-      }
-      map[tx.category].amount += val;
-      map[tx.category].count += 1;
-    });
+  // Totals for current month
+  const { inc, exp, net, pct } = useMemo(() => {
+    const i = monthRows.filter((r) => r.t === 'inc').reduce((acc, r) => acc + r.a, 0);
+    const e = monthRows.filter((r) => r.t === 'exp').reduce((acc, r) => acc + r.a, 0);
+    const n = i - e;
+    const p = i > 0 ? Math.max(0, Math.round((n / i) * 100)) : 0;
+    return { inc: i, exp: e, net: n, pct: p };
+  }, [monthRows]);
 
-    return Object.values(map)
-      .map((item) => ({
-        ...item,
-        pct: totalExp > 0 ? Math.round((item.amount / totalExp) * 100) : 0,
-        avg: item.count > 0 ? Math.round((item.amount / item.count) * 100) / 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [transactions, selectedMonthKey]);
+  // Month navigation
+  const shiftM = (delta: number) => {
+    const [y, m] = ym.split('-').map(Number);
+    const next = new Date(y, m - 1 + delta, 1);
+    setYm(next.toLocaleDateString('en-CA').slice(0, 7));
+    playPopSound();
+  };
 
-  // Filtered transactions for feed
-  const filteredTransactions = useMemo(() => {
-    return transactions
-      .filter((tx) => {
-        if (selectedMonthKey && (!tx.date || !tx.date.startsWith(selectedMonthKey))) {
-          return false;
-        }
-        if (typeFilter !== 'all' && tx.type !== typeFilter) {
-          return false;
-        }
-        if (categoryFilter !== 'all' && tx.category !== categoryFilter) {
-          return false;
-        }
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase().trim();
-          const matchCat = tx.category.toLowerCase().includes(q);
-          const matchMerchant = (tx.merchant || '').toLowerCase().includes(q);
-          const matchNote = (tx.note || '').toLowerCase().includes(q);
-          const matchAmount = String(tx.amount).includes(q);
-          return matchCat || matchMerchant || matchNote || matchAmount;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (a.date !== b.date) {
-          return b.date.localeCompare(a.date);
-        }
-        return b.createdAt.localeCompare(a.createdAt);
+  const monthLabel = useMemo(() => {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }, [ym]);
+
+  // Greeting subtitle
+  const greetingSubtitle = useMemo(() => {
+    const hr = new Date().getHours();
+    const gr = hr < 12 ? 'Good morning ☀️' : hr < 17 ? 'Good afternoon 🌼' : 'Good evening 🌙';
+    return `${gr}, Sreeshnav. ${
+      net >= 0 ? `You’ve kept ${inr(net)} this month.` : 'Spending is ahead of earnings this month.'
+    }`;
+  }, [net]);
+
+  // Category breakdown for current month expenses
+  const categoryStats = useMemo(() => {
+    const by: Record<string, { a: number; n: number }> = {};
+    monthRows
+      .filter((r) => r.t === 'exp')
+      .forEach((r) => {
+        if (!by[r.c]) by[r.c] = { a: 0, n: 0 };
+        by[r.c].a += r.a;
+        by[r.c].n += 1;
       });
-  }, [transactions, selectedMonthKey, typeFilter, categoryFilter, searchQuery]);
 
-  // Comprehensive Period Ledger Totals (For bottom area)
-  const periodTotals = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let maxExpense = 0;
-    let incCount = 0;
-    let expCount = 0;
-
-    filteredTransactions.forEach((tx) => {
-      const val = Number(tx.amount) || 0;
-      if (tx.type === 'income') {
-        income += val;
-        incCount++;
-      } else {
-        expense += val;
-        expCount++;
-        if (val > maxExpense) maxExpense = val;
-      }
+    const ks = Object.keys(by).sort((x, y) => by[y].a - by[x].a);
+    let acc = 0;
+    const segments = ks.map((k, i) => {
+      const s = acc;
+      const fraction = exp > 0 ? (by[k].a / exp) * 100 : 0;
+      const e = s + fraction;
+      acc = e;
+      return `${PALETTE[i % PALETTE.length]} ${s}% ${e}%`;
     });
 
-    const net = income - expense;
-    const count = filteredTransactions.length;
-    const avg = count > 0 ? (income + expense) / count : 0;
-    const savingsRate = income > 0 ? Math.max(0, Math.round((net / income) * 100)) : 0;
+    const donutGradient = ks.length > 0 ? `conic-gradient(${segments.join(',')})` : 'var(--bg2)';
 
-    return {
-      income,
-      expense,
-      net,
-      count,
-      incCount,
-      expCount,
-      avg,
-      maxExpense,
-      savingsRate,
-    };
-  }, [filteredTransactions]);
+    return { by, ks, donutGradient };
+  }, [monthRows, exp]);
 
-  // Group transactions by date with detailed income & expense sub-totals
-  const groupedTransactions = useMemo(() => {
-    const groups: {
-      dateStr: string;
-      label: string;
-      income: number;
-      expense: number;
-      net: number;
-      items: FinanceTransaction[];
-    }[] = [];
-    const dateMap: Record<
-      string,
-      { label: string; income: number; expense: number; net: number; items: FinanceTransaction[] }
-    > = {};
+  // Insights generation
+  const insightsList = useMemo(() => {
+    const [y, m] = ym.split('-').map(Number);
+    const dim = new Date(y, m, 0).getDate();
+    const isCur = ym === TODAY.slice(0, 7);
+    const el = isCur ? +TODAY.slice(8, 10) : dim;
+    const it: Array<[string, React.ReactNode]> = [];
 
-    filteredTransactions.forEach((tx) => {
-      const d = tx.date || todayKey();
-      if (!dateMap[d]) {
-        let label = d;
-        const diff = diffInDays(todayKey(), d);
-        if (diff === 0) label = 'Today';
-        else if (diff === 1) label = 'Yesterday';
-        else {
-          const dObj = new Date(d + 'T00:00:00');
-          label = dObj.toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' });
-        }
+    const ex = monthRows.filter((r) => r.t === 'exp');
+    const { by, ks } = categoryStats;
+    const topCat = ks[0];
 
-        dateMap[d] = {
-          label,
-          income: 0,
-          expense: 0,
-          net: 0,
-          items: [],
-        };
-        groups.push({
-          dateStr: d,
-          label,
-          income: 0,
-          expense: 0,
-          net: 0,
-          items: dateMap[d].items,
+    if (topCat && exp > 0) {
+      it.push([
+        emojis[topCat] || '✨',
+        <span><b>{topCat}</b> is your top spend, {Math.round((by[topCat].a / exp) * 100)}% of expenses.</span>
+      ]);
+    }
+
+    if (exp > 0 && el > 0) {
+      it.push(['📅', <span>You spend about <b>{inr(exp / el)}</b> a day.</span>]);
+    }
+
+    if (isCur && exp > 0 && el > 0) {
+      it.push(['🔮', <span>At this pace you’ll spend <b>{inr((exp / el) * dim)}</b> by month end.</span>]);
+    }
+
+    if (inc > 0) {
+      it.push(['🐷', <span>Your savings rate is <b>{Math.round(((inc - exp) / inc) * 100)}%</b>.</span>]);
+    }
+
+    // Comparison vs previous month
+    const prevMonthDate = new Date(y, m - 2, 1);
+    const prevKey = prevMonthDate.toLocaleDateString('en-CA').slice(0, 7);
+    const prevExp = allRows
+      .filter((r) => (r.d || D0).slice(0, 7) === prevKey && r.t === 'exp')
+      .reduce((a, r) => a + r.a, 0);
+
+    if (prevExp > 0 && exp > 0) {
+      const diff = exp - prevExp;
+      it.push([
+        diff > 0 ? '📈' : '📉',
+        <span>Spending is <b>{inr(Math.abs(diff))}</b> {diff > 0 ? 'higher' : 'lower'} than last month.</span>
+      ]);
+    }
+
+    if (ex.length > 0) {
+      const biggest = ex.reduce((a, r) => (r.a > a.a ? r : a));
+      it.push(['🎈', <span>Biggest expense: <b>{inr(biggest.a)}</b> on {biggest.c}.</span>]);
+    }
+
+    return it;
+  }, [ym, TODAY, monthRows, exp, inc, categoryStats, emojis, allRows]);
+
+  // Budget calculations
+  const budgetProgress = useMemo(() => {
+    const pc = budget > 0 ? Math.round((exp / budget) * 100) : 0;
+    const left = budget - exp;
+    const [y, m] = ym.split('-').map(Number);
+    const dim = new Date(y, m, 0).getDate();
+    const isCur = ym === TODAY.slice(0, 7);
+    const el = isCur ? +TODAY.slice(8, 10) : dim;
+
+    let bmsg = '';
+    if (left < 0) {
+      bmsg = `Over by ${inr(-left)} ⚠️`;
+    } else if (isCur) {
+      const daysLeft = Math.max(1, dim - el + 1);
+      bmsg = `${inr(left / daysLeft)} a day left 🌿`;
+    } else {
+      bmsg = `${inr(left)} left`;
+    }
+
+    const fillClass = pc >= 100 ? 'bad' : pc >= 80 ? 'warn' : 'ok';
+    return { pc: Math.min(100, pc), left, bmsg, fillClass };
+  }, [exp, budget, ym, TODAY]);
+
+  // Goal calculations
+  const goalProgress = useMemo(() => {
+    const gp = goal > 0 ? Math.min(100, Math.round((Math.max(net, 0) / goal) * 100)) : 0;
+    let gmsg = 'Small steps add up 🌱';
+    if (gp >= 100) gmsg = 'Goal reached! 🎉';
+    else if (gp >= 50) gmsg = 'More than halfway, keep going 🌱';
+
+    return { gp, gmsg };
+  }, [net, goal]);
+
+  // 4 Stat Cards
+  const statNumbers = useMemo(() => {
+    const incCount = monthRows.filter((r) => r.t === 'inc').length;
+    const expCount = monthRows.filter((r) => r.t === 'exp').length;
+    const totalCount = monthRows.length;
+    const avg = totalCount > 0 ? (inc + exp) / totalCount : 0;
+    const largestSpend = Math.max(0, ...monthRows.filter((r) => r.t === 'exp').map((r) => r.a));
+    return { incCount, expCount, avg, largestSpend };
+  }, [monthRows, inc, exp]);
+
+  // Income vs Expense Chart (7D, 30D, 6M)
+  const chartData = useMemo(() => {
+    const n = range === 6 ? 6 : range;
+    const pts: Array<{ lab: string; i: number; a: number; b: number }> = [];
+    let ti = 0;
+    let te = 0;
+
+    for (let i = n - 1; i >= 0; i--) {
+      let lab = '';
+      let matchFn: (r: { d: string }) => boolean;
+
+      if (range === 6) {
+        const d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        const k = d.toLocaleDateString('en-CA').slice(0, 7);
+        lab = d.toLocaleDateString('en-IN', { month: 'short' });
+        matchFn = (r) => (r.d || D0).slice(0, 7) === k;
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const k = d.toLocaleDateString('en-CA');
+        lab = range === 7 ? d.toLocaleDateString('en-IN', { weekday: 'short' }) : String(d.getDate());
+        matchFn = (r) => (r.d || D0) === k;
+      }
+
+      const matching = allRows.filter(matchFn);
+      const incTotal = matching.filter((r) => r.t === 'inc').reduce((acc, r) => acc + r.a, 0);
+      const expTotal = matching.filter((r) => r.t === 'exp').reduce((acc, r) => acc + r.a, 0);
+      ti += incTotal;
+      te += expTotal;
+      pts.push({ lab, i, a: incTotal, b: expTotal });
+    }
+
+    const mx = Math.max(1, ...pts.flatMap((p) => [p.a, p.b]));
+    const H = 150;
+
+    return { pts, mx, H, netTotal: ti - te };
+  }, [range, allRows]);
+
+  // Filtered payment history list
+  const filteredList = useMemo(() => {
+    const t = searchTerm.trim().toLowerCase();
+    return monthRows.filter((r) => {
+      if (filterType !== 'all' && r.t !== filterType) return false;
+      if (filterCategory && r.c !== filterCategory) return false;
+      if (t) {
+        const hay = `${r.c} ${r.n}`.toLowerCase();
+        if (!hay.includes(t)) return false;
+      }
+      return true;
+    });
+  }, [monthRows, filterType, filterCategory, searchTerm]);
+
+  // Grouped by day
+  const groupedDays = useMemo(() => {
+    const days = [...new Set(filteredList.map((r) => r.d || D0))].sort().reverse();
+    return days.map((d) => {
+      const items = filteredList.filter((r) => (r.d || D0) === d);
+      const dayNet = items.reduce((acc, r) => acc + (r.t === 'inc' ? r.a : -r.a), 0);
+      return { dateStr: d, dayNet, items };
+    });
+  }, [filteredList]);
+
+  // Foot sums
+  const { totalInFilter, totalOutFilter } = useMemo(() => {
+    const vi = filteredList.filter((r) => r.t === 'inc').reduce((acc, r) => acc + r.a, 0);
+    const ve = filteredList.filter((r) => r.t === 'exp').reduce((acc, r) => acc + r.a, 0);
+    return { totalInFilter: vi, totalOutFilter: ve };
+  }, [filteredList]);
+
+  // Open Add Entry Modal
+  const openAdd = () => {
+    setEditingId(null);
+    setEntryKind('exp');
+    setEntryAmount('');
+    setEntryDate(TODAY);
+    setEntryCategory(Object.keys(emojis)[0] || 'General');
+    setEntryNote('');
+    setIsEntryModalOpen(true);
+    playPopSound();
+  };
+
+  // Open Edit Entry Modal
+  const openEdit = (row: typeof allRows[0]) => {
+    setEditingId(row.id);
+    setEntryKind(row.t);
+    setEntryAmount(String(row.a));
+    setEntryDate(row.d || TODAY);
+    setEntryCategory(row.c || 'General');
+    setEntryNote(row.n || '');
+    setIsEntryModalOpen(true);
+    playPopSound();
+  };
+
+  // Save entry handler
+  const handleSaveEntry = () => {
+    const amt = parseFloat(entryAmount);
+    if (!(amt > 0)) return;
+
+    const icon = emojis[entryCategory] || '✨';
+
+    if (editingId && onEditTransaction) {
+      const existing = transactions.find((t) => t.id === editingId);
+      if (existing) {
+        onEditTransaction({
+          ...existing,
+          type: entryKind === 'inc' ? 'income' : 'expense',
+          amount: amt,
+          category: entryCategory,
+          categoryIcon: icon,
+          note: entryNote.trim(),
+          date: entryDate || TODAY,
+          updatedAt: new Date().toISOString()
         });
       }
-
-      const val = Number(tx.amount) || 0;
-      if (tx.type === 'income') {
-        dateMap[d].income += val;
-      } else {
-        dateMap[d].expense += val;
-      }
-      dateMap[d].items.push(tx);
-    });
-
-    groups.forEach((g) => {
-      const entry = dateMap[g.dateStr];
-      g.income = entry.income;
-      g.expense = entry.expense;
-      g.net = entry.income - entry.expense;
-    });
-
-    return groups;
-  }, [filteredTransactions]);
-
-  // 6-Month Detailed Trend Calculation
-  const sixMonthTrendData = useMemo(() => {
-    const data = insights.monthlyTrend || [];
-    if (data.length === 0) return null;
-
-    const width = 600;
-    const height = 160;
-    const padX = 45;
-    const padY = 25;
-    const innerW = width - padX * 2;
-    const innerH = height - padY * 2;
-
-    const allValues = data.flatMap((d) => [d.income, d.expense]);
-    const maxVal = Math.max(...allValues, 100);
-    const gridLevels = [maxVal, maxVal * 0.66, maxVal * 0.33, 0];
-
-    const calcPoints = (key: 'income' | 'expense') => {
-      return data.map((item, idx) => {
-        const x = padX + (idx / (data.length - 1)) * innerW;
-        const normalized = item[key] / maxVal;
-        const y = padY + innerH - normalized * innerH;
-        return {
-          ...item,
-          x,
-          y: Math.max(padY, Math.min(height - padY, y)),
-          val: item[key],
-          idx,
-        };
+      showToast(entryKind === 'inc' ? 'Income updated 🌿' : 'Expense updated 🌸');
+    } else if (onQuickAdd) {
+      onQuickAdd({
+        type: entryKind === 'inc' ? 'income' : 'expense',
+        amount: amt,
+        category: entryCategory,
+        categoryIcon: icon,
+        note: entryNote.trim(),
+        date: entryDate || TODAY
       });
-    };
-
-    const makeSpline = (pts: { x: number; y: number }[]) => {
-      if (pts.length <= 1) return pts[0] ? `M ${pts[0].x} ${pts[0].y}` : '';
-      let path = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[i === 0 ? 0 : i - 1];
-        const p1 = pts[i];
-        const p2 = pts[i + 1];
-        const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-        path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-      }
-      return path;
-    };
-
-    const incPts = calcPoints('income');
-    const expPts = calcPoints('expense');
-
-    const incPath = makeSpline(incPts);
-    const expPath = makeSpline(expPts);
-
-    const incArea = incPts.length > 0 ? `${incPath} L ${incPts[incPts.length - 1].x} ${height - padY} L ${incPts[0].x} ${height - padY} Z` : '';
-    const expArea = expPts.length > 0 ? `${expPath} L ${expPts[expPts.length - 1].x} ${height - padY} L ${expPts[0].x} ${height - padY} Z` : '';
-
-    // Summary metrics inside chart
-    const peakInc = [...data].sort((a, b) => b.income - a.income)[0];
-    const peakExp = [...data].sort((a, b) => b.expense - a.expense)[0];
-    const totalTrendNet = data.reduce((acc, cur) => acc + (cur.income - cur.expense), 0);
-
-    return {
-      width,
-      height,
-      padX,
-      padY,
-      innerW,
-      innerH,
-      maxVal,
-      gridLevels,
-      incPts,
-      expPts,
-      incPath,
-      expPath,
-      incArea,
-      expArea,
-      peakInc,
-      peakExp,
-      totalTrendNet,
-    };
-  }, [insights.monthlyTrend]);
-
-  // 30-Day Daily Detailed Activity Calculation
-  const thirtyDayData = useMemo(() => {
-    const days: { dateStr: string; label: string; dayNum: number; income: number; expense: number }[] = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 86400000);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
-      let inc = 0;
-      let exp = 0;
-      transactions.forEach((tx) => {
-        if (tx.date === key) {
-          const val = Number(tx.amount) || 0;
-          if (tx.type === 'income') inc += val;
-          else exp += val;
-        }
-      });
-      days.push({ dateStr: key, label, dayNum: d.getDate(), income: inc, expense: exp });
+      showToast(entryKind === 'inc' ? 'Income added 🌿' : 'Expense added 🌸');
     }
 
-    const allValues = days.flatMap((d) => [d.income, d.expense]);
-    const maxVal = Math.max(...allValues, 50);
+    setYm((entryDate || TODAY).slice(0, 7));
+    setIsEntryModalOpen(false);
+    playPopSound();
+    triggerPartyPop('stars');
+  };
 
-    return {
-      days,
-      maxVal,
-      totalIncome: days.reduce((acc, cur) => acc + cur.income, 0),
-      totalExpense: days.reduce((acc, cur) => acc + cur.expense, 0),
-      activeDays: days.filter((d) => d.income > 0 || d.expense > 0).length,
-    };
-  }, [transactions]);
+  // Delete entry with undo
+  const handleDeleteRow = (e: React.MouseEvent, row: typeof allRows[0]) => {
+    e.stopPropagation();
+    const originalTx = transactions.find((t) => t.id === row.id);
+    if (!originalTx) return;
+
+    if (onDeleteTransaction) {
+      onDeleteTransaction(row.id);
+    }
+
+    showToast('Entry deleted', 'Undo', () => {
+      if (onQuickAdd) {
+        onQuickAdd({
+          type: originalTx.type,
+          amount: originalTx.amount,
+          category: originalTx.category,
+          categoryIcon: originalTx.categoryIcon,
+          note: originalTx.note,
+          date: originalTx.date
+        });
+      }
+    });
+    playPopSound();
+  };
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-2xl mx-auto pb-16">
-      
-      {/* 1. TOP HERO BANNER WITH USER AVATAR & DELIGHTFUL MOOD */}
-      <div className="p-3.5 sm:p-5 rounded-3xl bg-surface border border-subtle shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-3.5">
-        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-          <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl p-[1.5px] bg-gradient-to-tr from-amber-400 via-rose-400 to-indigo-400 shadow-soft shrink-0 select-none">
-            <div className="w-full h-full rounded-[14px] overflow-hidden bg-surface relative flex items-center justify-center">
-              <img
-                src={avatarImg}
-                alt="Sreeshnav"
-                className="w-full h-full object-cover rounded-[14px]"
-              />
-              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] select-none">✨</span>
-            </div>
+    <div className="finance-container">
+      <div className="wrap">
+        
+        {/* Header */}
+        <header className="head">
+          <div className="logo">
+            <img src={avatarImg} alt="Sreeshnav" />
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-black text-base sm:text-lg text-main truncate">
-              Personal Finance
-            </h2>
-            <p className="text-[11px] text-muted font-medium truncate flex items-center gap-1.5 mt-0.5">
-              {insights.netSavings >= 0 ? (
-                <>
-                  <span className="text-emerald-500 shrink-0">🌸</span>
-                  <span className="truncate">
-                    Cozy savings! Net +<span className="font-sans font-bold">₹</span>{formatRupees(insights.netSavings)} this month
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-amber-500 shrink-0">☕</span>
-                  <span className="truncate">
-                    Spent <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))} over income. Stay mindful!
-                  </span>
-                </>
-              )}
-            </p>
+          <div>
+            <h1>Personal Finance</h1>
+            <p id="sub">{greetingSubtitle}</p>
           </div>
-        </div>
+          <div className="sp" />
 
-        {/* Right Controls: Month Selector + Search + Add Entry Button */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-subtle/50">
-          {/* Month selector */}
-          <div className="relative inline-block flex-1 sm:flex-none">
-            <select
-              value={selectedMonthKey}
-              onChange={(e) => setSelectedMonthKey(e.target.value)}
-              className="w-full sm:w-auto appearance-none bg-sunken hover:bg-surface border border-subtle text-main font-bold text-xs pl-3 pr-7 py-2 rounded-2xl shadow-2xs cursor-pointer focus:outline-hidden"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.key} value={opt.key}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
-          </div>
-
-          {/* Search Toggle */}
+          {/* Search Toggle Icon */}
           <button
-            type="button"
+            className="icon"
             onClick={() => {
-              playPopSound();
               setIsSearchOpen((prev) => !prev);
-              if (isSearchOpen) setSearchQuery('');
+              playPopSound();
             }}
-            className={`p-2 rounded-2xl border border-subtle transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center shrink-0 ${
-              isSearchOpen || searchQuery
-                ? 'bg-accent text-on-accent border-accent'
-                : 'bg-surface hover:bg-sunken text-muted hover:text-main shadow-2xs'
-            }`}
-            title="Search payments"
+            aria-label="Search entries"
+            title="Search entries"
           >
-            <Search size={14} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
           </button>
 
-          {/* Add Entry Modal Button */}
-          <button
-            type="button"
-            onClick={() => {
-              playPopSound();
-              onOpenAddModal();
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition active:scale-95 cursor-pointer min-h-[38px] shrink-0"
-          >
-            <Plus size={14} className="stroke-[2.5]" />
-            <span>Add Entry</span>
+          {/* Desktop Add Entry Button */}
+          <button className="btn header-add-btn" onClick={openAdd} aria-label="Add entry">
+            ＋ Add entry
+          </button>
+        </header>
+
+        {/* Month Selector Row */}
+        <div className="mrow">
+          <button className="icon" onClick={() => shiftM(-1)} aria-label="Previous month">
+            ‹
+          </button>
+          <span className="chip" id="mon">
+            {monthLabel}
+          </span>
+          <button className="icon" onClick={() => shiftM(1)} aria-label="Next month">
+            ›
           </button>
         </div>
+
+        {/* Search Input Bar */}
+        {isSearchOpen && (
+          <input
+            className="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by category or note"
+            aria-label="Search entries"
+            autoFocus
+          />
+        )}
+
+        {/* Main 2-Column Responsive Grid (5fr / 7fr) */}
+        <main className="grid">
+          
+          {/* ========================================================= */}
+          {/* LEFT COLUMN: HERO BALANCE, WHERE IT WENT, BUDGET, INSIGHTS */}
+          {/* ========================================================= */}
+          <section style={{ display: 'grid', gap: '18px' }}>
+            
+            {/* 1. HERO NET BALANCE CARD */}
+            <div className="card hero" id="heroCard">
+              <div className="hrow">
+                <div>
+                  <small>🐷 Net balance</small>
+                  <div className="big num">{inr(net)}</div>
+                  <small>{pct}% of this month’s earnings kept</small>
+                </div>
+                <div
+                  className="ring"
+                  style={{
+                    background: `conic-gradient(#FFD27A ${pct * 3.6}deg, rgba(255,255,255,.18) 0)`
+                  }}
+                >
+                  <b className="num">{pct}%</b>
+                </div>
+              </div>
+
+              <div className="pair">
+                <div className="pill">
+                  <span>Earned</span>
+                  <b className="num">+{inr(inc)}</b>
+                </div>
+                <div className="pill">
+                  <span>Spent</span>
+                  <b className="num">−{inr(exp)}</b>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. WHERE IT WENT (DONUT & CATEGORIES) */}
+            <div className="card">
+              <div className="hrow">
+                <h2>Where it went 🍰</h2>
+                <button
+                  className="icon"
+                  onClick={() => {
+                    setIsCatModalOpen(true);
+                    playPopSound();
+                  }}
+                  aria-label="Manage categories"
+                  title="Manage categories"
+                >
+                  🏷️
+                </button>
+              </div>
+
+              <div className="dwrap">
+                <div className="donut" style={{ background: categoryStats.donutGradient }}>
+                  <b className="num">{inr(exp)}</b>
+                </div>
+                <div id="legend">
+                  {categoryStats.ks.map((k, i) => (
+                    <div key={k} className="lg">
+                      <i style={{ background: PALETTE[i % PALETTE.length] }} />
+                      <span>{k}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category bars */}
+              <div id="cats">
+                {categoryStats.ks.length === 0 ? (
+                  <div className="empty">No spending yet.</div>
+                ) : (
+                  categoryStats.ks.map((k) => {
+                    const p = exp > 0 ? Math.round((categoryStats.by[k].a / exp) * 100) : 0;
+                    return (
+                      <div key={k} className="cat">
+                        <div className="r">
+                          <span className="em">{emojis[k] || '✨'}</span>
+                          <span>
+                            {k} <small>{categoryStats.by[k].n} payment{categoryStats.by[k].n > 1 ? 's' : ''}</small>
+                          </span>
+                          <span className="sp" />
+                          <span className="num">{inr(categoryStats.by[k].a)}</span>
+                          <small>{p}%</small>
+                        </div>
+                        <div className="bar">
+                          <i style={{ width: `${p}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 3. MONTHLY BUDGET */}
+            <div className="card">
+              <div className="hrow">
+                <h2>Monthly budget 👛</h2>
+                <label className="gl">
+                  ₹
+                  <input
+                    type="number"
+                    value={budget}
+                    min="1"
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (v > 0) {
+                        setBudget(v);
+                        saveSettings(goal, v);
+                      }
+                    }}
+                    aria-label="Monthly spending budget"
+                  />
+                </label>
+              </div>
+
+              <div className="gbar">
+                <i className={budgetProgress.fillClass} style={{ width: `${budgetProgress.pc}%` }} />
+              </div>
+
+              <div className="hrow">
+                <span className="num">{inr(exp)} of {inr(budget)}</span>
+                <small style={{ color: 'var(--mute)', fontWeight: 600 }}>{budgetProgress.bmsg}</small>
+              </div>
+            </div>
+
+            {/* 4. INSIGHTS */}
+            <div className="card">
+              <h2>Insights 💡</h2>
+              <div id="ins" style={{ marginTop: '8px' }}>
+                {insightsList.length === 0 ? (
+                  <div className="empty">Add a few entries and tips will show up here ✨</div>
+                ) : (
+                  insightsList.map(([icon, textNode], idx) => (
+                    <div key={idx} className="it">
+                      <span>{icon}</span>
+                      <p>{textNode}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </section>
+
+          {/* ========================================================= */}
+          {/* RIGHT COLUMN: MONTHLY GOAL, STATS, CHART, PAYMENT HISTORY  */}
+          {/* ========================================================= */}
+          <section style={{ display: 'grid', gap: '18px' }}>
+            
+            {/* 1. MONTHLY SAVINGS GOAL */}
+            <div className="card goalc">
+              <div className="hrow">
+                <h2>Monthly goal 🎯</h2>
+                <label className="gl">
+                  ₹
+                  <input
+                    type="number"
+                    value={goal}
+                    min="1"
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (v > 0) {
+                        setGoal(v);
+                        saveSettings(v, budget);
+                      }
+                    }}
+                    aria-label="Monthly savings goal"
+                  />
+                </label>
+              </div>
+
+              <div className="gbar">
+                <i style={{ width: `${goalProgress.gp}%` }} />
+              </div>
+
+              <div className="hrow">
+                <span className="num">{inr(Math.max(net, 0))} of {inr(goal)}</span>
+                <small style={{ color: 'var(--mute)', fontWeight: 600 }}>{goalProgress.gmsg}</small>
+              </div>
+            </div>
+
+            {/* 2. 4 STAT CARDS */}
+            <div className="stats">
+              <div className="stat in">
+                <span>🌿 Inflow ({statNumbers.incCount})</span>
+                <b className="num">+{inr(inc)}</b>
+              </div>
+              <div className="stat out">
+                <span>🌸 Outflow ({statNumbers.expCount})</span>
+                <b className="num">−{inr(exp)}</b>
+              </div>
+              <div className="stat">
+                <span>🧮 Average entry</span>
+                <b className="num">{inr(statNumbers.avg)}</b>
+              </div>
+              <div className="stat">
+                <span>🎈 Largest spend</span>
+                <b className="num">{inr(statNumbers.largestSpend)}</b>
+              </div>
+            </div>
+
+            {/* 3. INCOME VS EXPENSE BAR CHART */}
+            <div className="card">
+              <div className="hrow">
+                <h2>Income vs expense 📊</h2>
+                <div className="tabs">
+                  <button
+                    aria-pressed={range === 7}
+                    className={range === 7 ? 'active' : ''}
+                    onClick={() => {
+                      setRange(7);
+                      playPopSound();
+                    }}
+                  >
+                    7D
+                  </button>
+                  <button
+                    aria-pressed={range === 30}
+                    className={range === 30 ? 'active' : ''}
+                    onClick={() => {
+                      setRange(30);
+                      playPopSound();
+                    }}
+                  >
+                    30D
+                  </button>
+                  <button
+                    aria-pressed={range === 6}
+                    className={range === 6 ? 'active' : ''}
+                    onClick={() => {
+                      setRange(6);
+                      playPopSound();
+                    }}
+                  >
+                    6M
+                  </button>
+                </div>
+              </div>
+
+              <div className="lgd">
+                <span><i style={{ background: 'var(--inc)' }} />Income</span>
+                <span><i style={{ background: 'var(--rose)' }} />Expense</span>
+                <span className="num">Net {inr(chartData.netTotal)}</span>
+              </div>
+
+              <div className="cw">
+                <div className="plot">
+                  <span className="ymax num">₹{Math.round(chartData.mx).toLocaleString('en-IN')}</span>
+                  {chartData.pts.map((p) => {
+                    const incH = p.a > 0 ? Math.max(3, Math.round((p.a / chartData.mx) * chartData.H)) : 0;
+                    const expH = p.b > 0 ? Math.max(3, Math.round((p.b / chartData.mx) * chartData.H)) : 0;
+                    const showLabel = !(range === 30 && (chartData.pts.length - 1 - p.i) % 5 !== 0 && p.i !== 0);
+
+                    return (
+                      <div
+                        key={p.i}
+                        className={`g ${p.i === 0 ? 'now' : ''}`}
+                        title={`${p.lab}: In ${inr(p.a)}, Out ${inr(p.b)}`}
+                      >
+                        <div className="bars">
+                          <i className="bi" style={{ height: `${incH}px` }} />
+                          <i className="be" style={{ height: `${expH}px` }} />
+                        </div>
+                        <small>{showLabel ? p.lab : ''}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. PAYMENT HISTORY */}
+            <div className="card">
+              <div className="hh">
+                <h2>Payment history</h2>
+                <div className="tabs">
+                  <button
+                    aria-pressed={filterType === 'all'}
+                    className={filterType === 'all' ? 'active' : ''}
+                    onClick={() => {
+                      setFilterType('all');
+                      playPopSound();
+                    }}
+                  >
+                    All
+                  </button>
+                  <button
+                    aria-pressed={filterType === 'exp'}
+                    className={filterType === 'exp' ? 'active' : ''}
+                    onClick={() => {
+                      setFilterType('exp');
+                      playPopSound();
+                    }}
+                  >
+                    Expenses
+                  </button>
+                  <button
+                    aria-pressed={filterType === 'inc'}
+                    className={filterType === 'inc' ? 'active' : ''}
+                    onClick={() => {
+                      setFilterType('inc');
+                      playPopSound();
+                    }}
+                  >
+                    Income
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Filter dropdown */}
+              <select
+                id="cfil"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                aria-label="Filter by category"
+              >
+                <option value="">All categories</option>
+                {Object.keys(emojis).map((k) => (
+                  <option key={k} value={k}>
+                    {(emojis[k] || '✨') + ' ' + k}
+                  </option>
+                ))}
+              </select>
+
+              {/* Transaction list grouped by day */}
+              <div id="list">
+                {groupedDays.length === 0 ? (
+                  <div className="empty">
+                    Nothing here yet 🌱
+                    <br />
+                    Tap “Add entry” to log your first one.
+                  </div>
+                ) : (
+                  groupedDays.map(({ dateStr, dayNet, items }) => (
+                    <React.Fragment key={dateStr}>
+                      <div className="day">
+                        <span>{dateStr === TODAY ? 'Today' : fmtD(dateStr)}</span>
+                        <span className="num">Net {inr(dayNet)}</span>
+                      </div>
+                      {items.map((row) => (
+                        <div
+                          key={row.id}
+                          className="tx"
+                          tabIndex={0}
+                          role="button"
+                          onClick={() => openEdit(row)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') openEdit(row);
+                          }}
+                        >
+                          <div className="em">{emojis[row.c] || '✨'}</div>
+                          <div className="t">
+                            <b>{row.c}</b>
+                            {row.n && <small>{row.n}</small>}
+                          </div>
+                          <div
+                            className="a num"
+                            style={{ color: row.t === 'inc' ? 'var(--inc)' : 'var(--rose)' }}
+                          >
+                            {row.t === 'inc' ? '+' : '−'}
+                            {inr(row.a)}
+                          </div>
+                          <button
+                            className="del"
+                            onClick={(e) => handleDeleteRow(e, row)}
+                            aria-label="Delete entry"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  ))
+                )}
+              </div>
+
+              {/* List Footer with In / Out / Net totals */}
+              <div className="foot">
+                <span style={{ color: 'var(--inc)' }}>In +{inr(totalInFilter)}</span>
+                <span style={{ color: 'var(--rose)' }}>Out −{inr(totalOutFilter)}</span>
+                <span>Net {inr(totalInFilter - totalOutFilter)}</span>
+              </div>
+            </div>
+
+          </section>
+
+        </main>
       </div>
 
-      {/* SEARCH BAR (Collapsible) */}
-      {isSearchOpen && (
-        <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search payments by category, merchant, note, or amount..."
-            autoFocus
-            className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-9 py-2.5 text-xs sm:text-sm text-main placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-ring/40 shadow-2xs"
-          />
-          {searchQuery && (
+      {/* Floating Action Button for Mobile */}
+      <button className="btn fab" onClick={openAdd} aria-label="Add entry">
+        ＋ Add entry
+      </button>
+
+      {/* Toast Notification with Undo */}
+      {toastMessage && (
+        <div className="toast on" role="status">
+          <span>{toastMessage}</span>
+          {toastAction && (
             <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main p-1 cursor-pointer"
+              onClick={() => {
+                toastAction.onClick();
+                setToastMessage(null);
+                setToastAction(null);
+              }}
             >
-              <X size={13} />
+              {toastAction.label}
             </button>
           )}
         </div>
       )}
 
-      {/* 2. TOTAL LIFETIME BALANCE HERO CARD */}
-      <div className="p-4 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 text-xs font-bold text-muted">
-              <CreditCard size={14} className="shrink-0" />
-              <span>Lifetime Net Balance</span>
+      {/* Sheet Modal 1: Add / Edit Entry */}
+      {isEntryModalOpen && (
+        <div
+          className="sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEntryModalOpen(false);
+          }}
+        >
+          <div className="panel animate-in slide-in-from-bottom duration-200">
+            <h2>{editingId ? 'Edit entry' : 'Add entry'}</h2>
+
+            {/* Income / Expense Seg switcher */}
+            <div className="seg">
               <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  setShowBalance(!showBalance);
-                }}
-                className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main transition cursor-pointer"
-                title={showBalance ? 'Hide Balance' : 'Show Balance'}
+                className={`transition-all ${entryKind === 'exp' ? 'on e' : ''}`}
+                onClick={() => setEntryKind('exp')}
               >
-                {showBalance ? <Eye size={13} /> : <EyeOff size={13} />}
+                Expense
+              </button>
+              <button
+                className={`transition-all ${entryKind === 'inc' ? 'on i' : ''}`}
+                onClick={() => setEntryKind('inc')}
+              >
+                Income
               </button>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black font-mono tracking-tight text-main truncate">
-              {showBalance ? (
-                <>
-                  {overallBalance < 0 && '-'}
-                  <span className="font-sans font-bold">₹</span>
-                  {formatRupees(Math.abs(overallBalance))}
-                </>
-              ) : (
-                <><span className="font-sans font-bold">₹</span>••••••••</>
-              )}
-            </h1>
-            <p className="text-[11px] text-muted truncate">
-              {insights.savingsRate}% retained out of this month's earnings
-            </p>
-          </div>
 
-          {/* Categories Shortcut */}
-          <button
-            type="button"
-            onClick={() => {
-              playPopSound();
-              setIsCategoryManagerOpen(true);
-            }}
-            className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main shadow-2xs cursor-pointer transition active:scale-95 shrink-0"
-          >
-            <Tag size={13} className="text-accent" />
-            <span>Categories ({categories.length})</span>
-          </button>
-        </div>
+            {/* Amount */}
+            <label>
+              Amount (₹)
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                placeholder="0"
+                value={entryAmount}
+                onChange={(e) => setEntryAmount(e.target.value)}
+                autoFocus
+              />
+            </label>
 
-        {/* Lifetime Flow Mini Meters */}
-        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-subtle/50 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-sunken/40 gap-0.5 min-w-0">
-            <span className="text-muted text-[10px] sm:text-[11px] font-semibold truncate">Total Earned</span>
-            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm truncate">
-              +<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalIn)}
-            </span>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-sunken/40 gap-0.5 min-w-0">
-            <span className="text-muted text-[10px] sm:text-[11px] font-semibold truncate">Total Spent</span>
-            <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-xs sm:text-sm truncate">
-              -<span className="font-sans font-bold">₹</span>{formatRupees(lifetimeStats.totalOut)}
-            </span>
-          </div>
-        </div>
-      </div>
+            {/* Quick buttons */}
+            <div className="quick">
+              <button type="button" onClick={() => setEntryAmount('10')}>₹10</button>
+              <button type="button" onClick={() => setEntryAmount('20')}>₹20</button>
+              <button type="button" onClick={() => setEntryAmount('50')}>₹50</button>
+              <button type="button" onClick={() => setEntryAmount('100')}>₹100</button>
+            </div>
 
-      {/* 3. SOFT CUTE DUO INFORMATION CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        {/* Soft Matcha Mint Income Card */}
-        <div className="p-4 sm:p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-200">
-            <span className="flex items-center gap-1.5">
-              <ArrowDownLeft size={16} className="stroke-[2.5]" />
-              <span>Income</span>
-            </span>
-            <span className="text-[10px] bg-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
-              +{insights.savingsRate}% Saved
-            </span>
-          </div>
-          <h3 className="text-xl sm:text-3xl font-mono font-black text-emerald-700 dark:text-emerald-300 truncate">
-            +<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalIncome)}
-          </h3>
-          <p className="text-[11px] text-muted font-medium truncate">
-            Incoming funds for {selectedMonthOption.label}
-          </p>
-        </div>
+            {/* Date */}
+            <label>
+              Date
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+              />
+            </label>
 
-        {/* Soft Sakura Rose Expense Card */}
-        <div className="p-4 sm:p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-main shadow-2xs space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-rose-800 dark:text-rose-200">
-            <span className="flex items-center gap-1.5">
-              <ArrowUpRight size={16} className="stroke-[2.5]" />
-              <span>Expenses</span>
-            </span>
-            <span className="text-[10px] bg-rose-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
-              Net <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(insights.netSavings))}
-            </span>
-          </div>
-          <h3 className="text-xl sm:text-3xl font-mono font-black text-rose-700 dark:text-rose-300 truncate">
-            -<span className="font-sans font-bold">₹</span>{formatRupees(insights.totalExpenses)}
-          </h3>
-          <p className="text-[11px] text-muted font-medium truncate">
-            Outflow records for {selectedMonthOption.label}
-          </p>
-        </div>
-      </div>
+            {/* Category Select */}
+            <label>
+              Category
+              <select
+                value={entryCategory}
+                onChange={(e) => setEntryCategory(e.target.value)}
+              >
+                {Object.keys(emojis).map((k) => (
+                  <option key={k} value={k}>
+                    {(emojis[k] || '✨') + ' ' + k}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-      {/* 4. HIGHLY DETAILED INTERACTIVE CHART */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h3 className="font-extrabold text-sm sm:text-base text-main flex items-center gap-2">
-              <Activity size={16} className="text-accent" />
-              <span>Financial Flow & Trajectory</span>
-            </h3>
-            <p className="text-[11px] text-muted font-medium">
-              Detailed cashflow curves, reference levels, and interactive metrics
-            </p>
-          </div>
+            {/* Note */}
+            <label>
+              Note (optional)
+              <input
+                placeholder="e.g. Dairy milk"
+                value={entryNote}
+                onChange={(e) => setEntryNote(e.target.value)}
+              />
+            </label>
 
-          <div className="flex items-center gap-2">
-            {/* View Selector: 6M Trend vs 30D Daily */}
-            <div className="flex items-center p-0.5 rounded-xl bg-sunken border border-subtle text-xs font-bold">
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
-                onClick={() => {
-                  setChartTimeframe('6m');
-                  playPopSound();
-                }}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                  chartTimeframe === '6m'
-                    ? 'bg-surface text-main font-black shadow-2xs'
-                    : 'text-muted hover:text-main'
-                }`}
+                className="icon"
+                style={{ width: 'auto', padding: '0 18px', borderRadius: '999px', font: 'inherit', fontWeight: 600 }}
+                onClick={() => setIsEntryModalOpen(false)}
               >
-                6-Month Trend
+                Cancel
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setChartTimeframe('30d');
-                  playPopSound();
-                }}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                  chartTimeframe === '30d'
-                    ? 'bg-surface text-main font-black shadow-2xs'
-                    : 'text-muted hover:text-main'
-                }`}
+                className="btn"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={handleSaveEntry}
               >
-                30-Day Activity
+                {editingId ? 'Save changes' : 'Save entry'}
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-between text-xs font-semibold px-1">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              Income Flow
-            </span>
-            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              Expense Flow
-            </span>
-          </div>
-
-          <span className="text-[11px] text-muted font-mono">
-            Tap or hover points for details
-          </span>
-        </div>
-
-        {/* CHART BODY */}
-        {chartTimeframe === '6m' && sixMonthTrendData && (
-          <div className="relative w-full h-[170px] pt-1 select-none">
-            <svg
-              viewBox={`0 0 ${sixMonthTrendData.width} ${sixMonthTrendData.height}`}
-              className="w-full h-full overflow-visible"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="detailedEmeraldWave" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="detailedRoseWave" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.28" />
-                  <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Grid Lines with Rupee Reference Labels */}
-              {sixMonthTrendData.gridLevels.map((lvlVal, idx) => {
-                const norm = lvlVal / sixMonthTrendData.maxVal;
-                const y = sixMonthTrendData.padY + sixMonthTrendData.innerH - norm * sixMonthTrendData.innerH;
-                return (
-                  <g key={idx}>
-                    <line
-                      x1={sixMonthTrendData.padX}
-                      y1={y}
-                      x2={sixMonthTrendData.width - sixMonthTrendData.padX}
-                      y2={y}
-                      stroke="currentColor"
-                      strokeOpacity="0.09"
-                      strokeDasharray="4,4"
-                    />
-                    <text
-                      x={sixMonthTrendData.padX - 8}
-                      y={y + 3.5}
-                      textAnchor="end"
-                      className="text-[9px] font-mono fill-muted select-none"
-                    >
-                      ₹{Math.round(lvlVal >= 1000 ? lvlVal / 1000 : lvlVal)}{lvlVal >= 1000 ? 'k' : ''}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Income Area & Expense Area */}
-              {sixMonthTrendData.incArea && (
-                <path d={sixMonthTrendData.incArea} fill="url(#detailedEmeraldWave)" />
-              )}
-              {sixMonthTrendData.expArea && (
-                <path d={sixMonthTrendData.expArea} fill="url(#detailedRoseWave)" />
-              )}
-
-              {/* Spline Path for Income */}
-              {sixMonthTrendData.incPath && (
-                <path
-                  d={sixMonthTrendData.incPath}
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-
-              {/* Spline Path for Expense */}
-              {sixMonthTrendData.expPath && (
-                <path
-                  d={sixMonthTrendData.expPath}
-                  fill="none"
-                  stroke="#f43f5e"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-
-              {/* Income Dots */}
-              {sixMonthTrendData.incPts.map((pt, idx) => (
-                <circle
-                  key={`inc-${pt.monthKey}`}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="5"
-                  fill="#10b981"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  className="cursor-pointer transition-transform hover:scale-140 shadow-xs"
-                  onMouseEnter={() => setHoveredTrendIndex(idx)}
-                  onMouseLeave={() => setHoveredTrendIndex(null)}
-                  onClick={() => {
-                    playPopSound();
-                    setSelectedMonthKey(pt.monthKey);
-                  }}
-                />
-              ))}
-
-              {/* Expense Dots */}
-              {sixMonthTrendData.expPts.map((pt, idx) => (
-                <circle
-                  key={`exp-${pt.monthKey}`}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="5"
-                  fill="#f43f5e"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  className="cursor-pointer transition-transform hover:scale-140 shadow-xs"
-                  onMouseEnter={() => setHoveredTrendIndex(idx)}
-                  onMouseLeave={() => setHoveredTrendIndex(null)}
-                  onClick={() => {
-                    playPopSound();
-                    setSelectedMonthKey(pt.monthKey);
-                  }}
-                />
-              ))}
-            </svg>
-
-            {/* Hover Tooltip Box */}
-            {hoveredTrendIndex !== null && sixMonthTrendData.incPts[hoveredTrendIndex] && (
-              <div
-                className="absolute -top-10 transform -translate-x-1/2 pointer-events-none px-3 py-1.5 rounded-2xl bg-main text-surface text-[11px] font-mono font-bold shadow-raised z-20 whitespace-nowrap space-x-2"
-                style={{
-                  left: `${(sixMonthTrendData.incPts[hoveredTrendIndex].x / sixMonthTrendData.width) * 100}%`,
-                }}
-              >
-                <span className="capitalize text-accent font-sans">{sixMonthTrendData.incPts[hoveredTrendIndex].monthLabel}:</span>
-                <span className="text-emerald-400">+₹{formatRupees(sixMonthTrendData.incPts[hoveredTrendIndex].val)}</span>
-                <span>|</span>
-                <span className="text-rose-400">-₹{formatRupees(sixMonthTrendData.expPts[hoveredTrendIndex].val)}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 30-Day Activity Bar Representation */}
-        {chartTimeframe === '30d' && (
-          <div className="space-y-2">
-            <div className="flex items-end gap-1 h-[140px] px-2 pt-2 bg-sunken/30 rounded-2xl border border-subtle/40 overflow-x-auto scrollbar-none">
-              {thirtyDayData.days.map((d) => {
-                const incHeight = thirtyDayData.maxVal > 0 ? (d.income / thirtyDayData.maxVal) * 110 : 0;
-                const expHeight = thirtyDayData.maxVal > 0 ? (d.expense / thirtyDayData.maxVal) * 110 : 0;
-                const isToday = d.dateStr === todayKey();
-                return (
-                  <div
-                    key={d.dateStr}
-                    className="flex-1 min-w-[16px] flex flex-col items-center justify-end h-full group relative cursor-pointer"
-                    title={`${d.label}: +₹${d.income} | -₹${d.expense}`}
-                  >
-                    <div className="flex items-end gap-0.5 w-full justify-center">
-                      {d.income > 0 && (
-                        <div
-                          className="w-1.5 bg-emerald-500 rounded-t-sm transition-all"
-                          style={{ height: `${Math.max(4, incHeight)}px` }}
-                        />
-                      )}
-                      {d.expense > 0 && (
-                        <div
-                          className="w-1.5 bg-rose-500 rounded-t-sm transition-all"
-                          style={{ height: `${Math.max(4, expHeight)}px` }}
-                        />
-                      )}
-                      {d.income === 0 && d.expense === 0 && (
-                        <div className="w-1 h-1 rounded-full bg-subtle mb-1" />
-                      )}
-                    </div>
-                    <span
-                      className={`text-[9px] font-mono mt-1 ${
-                        isToday ? 'text-accent font-extrabold underline' : 'text-muted'
-                      }`}
-                    >
-                      {d.dayNum}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-muted px-1 font-mono">
-              <span>30 Days Ago</span>
-              <span>{thirtyDayData.activeDays} active spending/earning days</span>
-              <span>Today</span>
-            </div>
-          </div>
-        )}
-
-        {/* Month Buttons Strip (When in 6M view) */}
-        {chartTimeframe === '6m' && sixMonthTrendData && (
-          <div className="flex justify-between px-6 text-[11px] font-mono font-semibold text-muted select-none pt-1">
-            {insights.monthlyTrend.map((pt) => {
-              const isSelected = pt.monthKey === selectedMonthKey;
-              return (
-                <button
-                  key={pt.monthKey}
-                  type="button"
-                  onClick={() => {
-                    playPopSound();
-                    setSelectedMonthKey(pt.monthKey);
-                  }}
-                  className={`transition-colors cursor-pointer capitalize ${
-                    isSelected
-                      ? 'text-accent font-black underline underline-offset-4 decoration-2 decoration-accent'
-                      : 'hover:text-main'
-                  }`}
-                >
-                  {pt.monthLabel}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Detailed Chart Summary Metric Strip */}
-        {sixMonthTrendData && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-subtle/50 text-xs">
-            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
-              <span className="text-[10px] font-bold text-muted uppercase block">Peak Income</span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 capitalize">
-                +<span className="font-sans font-bold">₹</span>{formatRupees(sixMonthTrendData.peakInc?.income || 0)}
-              </span>
-              <span className="text-[10px] text-muted block capitalize">
-                {sixMonthTrendData.peakInc?.monthLabel}
-              </span>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
-              <span className="text-[10px] font-bold text-muted uppercase block">Peak Expense</span>
-              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 capitalize">
-                -<span className="font-sans font-bold">₹</span>{formatRupees(sixMonthTrendData.peakExp?.expense || 0)}
-              </span>
-              <span className="text-[10px] text-muted block capitalize">
-                {sixMonthTrendData.peakExp?.monthLabel}
-              </span>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
-              <span className="text-[10px] font-bold text-muted uppercase block">Daily Avg Spend</span>
-              <span className="font-mono font-bold text-main">
-                <span className="font-sans font-bold">₹</span>{formatRupees(insights.avgDailySpend)}
-              </span>
-              <span className="text-[10px] text-muted block">This Month</span>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-sunken/50 border border-subtle/40">
-              <span className="text-[10px] font-bold text-muted uppercase block">6-Month Net</span>
-              <span
-                className={`font-mono font-bold ${
-                  sixMonthTrendData.totalTrendNet >= 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-rose-600 dark:text-rose-400'
-                }`}
-              >
-                {sixMonthTrendData.totalTrendNet >= 0 ? '+' : '-'}
-                <span className="font-sans font-bold">₹</span>
-                {formatRupees(Math.abs(sixMonthTrendData.totalTrendNet))}
-              </span>
-              <span className="text-[10px] text-muted block">Cumulative</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 5. CATEGORY SPENDING BREAKDOWN METERS (DETAILED) */}
-      {categoryBreakdown.length > 0 && (
-        <div className="p-5 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h4 className="font-extrabold text-xs text-main uppercase tracking-wider flex items-center gap-1.5">
-              <span>Category Spending Breakdown</span>
-            </h4>
-            <span className="text-[11px] font-mono text-muted">
-              {categoryBreakdown.length} active spending channels
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {categoryBreakdown.map((cat, idx) => (
-              <div key={cat.name} className="space-y-1.5 p-2 rounded-2xl hover:bg-sunken/40 transition">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-sunken font-mono font-bold text-muted">
-                      #{idx + 1}
-                    </span>
-                    <span className="text-base select-none">{cat.icon}</span>
-                    <span className="font-bold text-main truncate">{cat.name}</span>
-                    <span className="text-[10px] text-muted">({cat.count} payments)</span>
-                  </div>
-                  <div className="text-right font-mono">
-                    <span className="font-bold text-main">
-                      <span className="font-sans font-bold">₹</span>{formatRupees(cat.amount)}
-                    </span>
-                    <span className="text-[10px] text-muted ml-1.5">({cat.pct}%)</span>
-                  </div>
-                </div>
-
-                <div className="w-full bg-sunken rounded-full h-2.5 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${cat.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
 
-      {/* 6. COMPREHENSIVE PERIOD FINANCIAL LEDGER SUMMARY CARD ("MAKE THE TOTAL EVEN MORE") */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-subtle shadow-soft space-y-3.5">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h4 className="font-black text-xs sm:text-sm uppercase tracking-wider text-main flex items-center gap-2">
-            <span>📊 Period Ledger Totals & Summary</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-sunken text-muted font-mono font-bold">
-              {periodTotals.count} Transactions
-            </span>
-          </h4>
-          <span className="text-xs font-mono font-bold text-main">
-            Net:{' '}
-            <span
-              className={
-                periodTotals.net >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-rose-600 dark:text-rose-400'
-              }
-            >
-              {periodTotals.net >= 0 ? '+' : '-'}
-              <span className="font-sans font-bold">₹</span>
-              {formatRupees(Math.abs(periodTotals.net))}
-            </span>
-          </span>
-        </div>
-
-        {/* 4-Box Comprehensive Total Breakdown */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
-          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-200">
-              Total Inflow ({periodTotals.incCount})
-            </p>
-            <p className="text-sm sm:text-base font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-              +<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.income)}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-            <p className="text-[10px] uppercase font-bold text-rose-800 dark:text-rose-200">
-              Total Outflow ({periodTotals.expCount})
-            </p>
-            <p className="text-sm sm:text-base font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
-              -<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.expense)}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-2xl bg-sunken/70 border border-subtle/50">
-            <p className="text-[10px] uppercase font-bold text-muted">Avg Transaction</p>
-            <p className="text-sm sm:text-base font-black font-mono text-main mt-0.5">
-              <span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.avg)}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-2xl bg-sunken/70 border border-subtle/50">
-            <p className="text-[10px] uppercase font-bold text-muted">Largest Spend</p>
-            <p className="text-sm sm:text-base font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
-              -<span className="font-sans font-bold">₹</span>{formatRupees(periodTotals.maxExpense)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 7. RECENT PAYMENTS FEED WITH SPLIT SUB-TOTALS */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <h3 className="font-extrabold text-xs sm:text-sm text-main uppercase tracking-wider">
-            Payment History
-          </h3>
-
-          {/* Type Filter Pills: All | Expenses | Income */}
-          <div className="flex items-center gap-1 p-1 rounded-2xl bg-sunken border border-subtle text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => {
-                playPopSound();
-                setTypeFilter('all');
-              }}
-              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
-                typeFilter === 'all'
-                  ? 'bg-surface text-main font-bold shadow-2xs'
-                  : 'text-muted hover:text-main'
-              }`}
-            >
-              All ({filteredTransactions.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                playPopSound();
-                setTypeFilter('expense');
-              }}
-              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
-                typeFilter === 'expense'
-                  ? 'bg-surface text-main font-bold shadow-2xs'
-                  : 'text-muted hover:text-main'
-              }`}
-            >
-              Expenses
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                playPopSound();
-                setTypeFilter('income');
-              }}
-              className={`px-3 py-1 rounded-xl transition cursor-pointer ${
-                typeFilter === 'income'
-                  ? 'bg-surface text-main font-bold shadow-2xs'
-                  : 'text-muted hover:text-main'
-              }`}
-            >
-              Income
-            </button>
-          </div>
-        </div>
-
-        {groupedTransactions.length === 0 ? (
-          <div className="bg-surface rounded-3xl p-8 border border-subtle text-center space-y-3 shadow-soft">
-            <div className="w-12 h-12 rounded-2xl bg-sunken flex items-center justify-center mx-auto text-xl">
-              💸
-            </div>
-            <h4 className="text-sm font-bold text-main">No payment records found</h4>
-            <p className="text-xs text-muted max-w-sm mx-auto">
-              {searchQuery
-                ? 'Try another search query.'
-                : 'Tap Add Entry above to record your first transaction in Indian Rupees.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => onOpenAddModal()}
-              className="px-4 py-2 rounded-2xl bg-accent text-on-accent font-bold text-xs shadow-soft hover:bg-accent-hover transition cursor-pointer"
-            >
-              + Record in Rupees
-            </button>
-          </div>
-        ) : (
-          groupedTransactions.map((group) => (
-            <div key={group.dateStr} className="space-y-2">
-              {/* Detailed Date Header with Inflow & Outflow Split Badges */}
-              <div className="flex items-center justify-between px-2 text-xs font-mono">
-                <span className="font-bold text-muted capitalize tracking-tight flex items-center gap-1.5">
-                  <Calendar size={12} />
-                  <span>{group.label}</span>
-                </span>
-                
-                <div className="flex items-center gap-2 font-semibold">
-                  {group.income > 0 && (
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                      +<span className="font-sans font-bold">₹</span>{formatRupees(group.income)}
-                    </span>
-                  )}
-                  {group.expense > 0 && (
-                    <span className="text-[11px] text-rose-600 dark:text-rose-400">
-                      -<span className="font-sans font-bold">₹</span>{formatRupees(group.expense)}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-muted">
-                    Net: {group.net >= 0 ? '+' : '-'}
-                    <span className="font-sans font-bold">₹</span>{formatRupees(Math.abs(group.net))}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-surface rounded-3xl border border-subtle divide-y divide-subtle/50 shadow-soft overflow-hidden">
-                {group.items.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between p-3.5 hover:bg-sunken/40 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 pr-2">
-                      <div className="w-10 h-10 rounded-2xl bg-sunken border border-subtle flex items-center justify-center text-lg shrink-0 shadow-2xs">
-                        {tx.categoryIcon || '💸'}
-                      </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-xs sm:text-sm font-bold text-main truncate flex items-center gap-1">
-                          <span>{tx.category}</span>
-                          <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
-                        </p>
-                        {(tx.merchant || tx.note) && (
-                          <p className="text-[11px] text-muted truncate">
-                            {tx.merchant || tx.note}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <span
-                        className={`text-xs sm:text-sm font-extrabold font-mono ${
-                          tx.type === 'income'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {tx.type === 'income' ? '+' : '-'}
-                        <span className="font-sans font-bold">₹</span>
-                        {formatRupees(Number(tx.amount))}
-                      </span>
-
-                      <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            playPopSound();
-                            onEditTransaction(tx);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-sunken text-muted hover:text-main cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit3 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            playPopSound();
-                            if (window.confirm(`Delete ${tx.category} payment of ₹${tx.amount}?`)) {
-                              onDeleteTransaction(tx.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-
-        {/* Grand Total Ledger Footer */}
-        {groupedTransactions.length > 0 && (
-          <div className="p-3.5 rounded-2xl bg-sunken/60 border border-subtle/50 text-center flex flex-col sm:flex-row items-center justify-between text-xs text-muted font-mono gap-1">
-            <span>Grand Total for Filtered Records:</span>
-            <div className="flex items-center gap-3 font-bold">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                In: +₹{formatRupees(periodTotals.income)}
-              </span>
-              <span>•</span>
-              <span className="text-rose-600 dark:text-rose-400">
-                Out: -₹{formatRupees(periodTotals.expense)}
-              </span>
-              <span>•</span>
-              <span className="text-main">
-                Net: {periodTotals.net >= 0 ? '+' : '-'}₹{formatRupees(Math.abs(periodTotals.net))}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 8. CATEGORY MANAGER MODAL */}
-      {isCategoryManagerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/50 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-surface text-main rounded-3xl border border-subtle shadow-raised p-5 space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-subtle pb-3">
-              <div className="flex items-center gap-2">
-                <Tag size={16} className="text-accent" />
-                <h3 className="font-extrabold text-sm sm:text-base text-main">
-                  Manage Categories
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCategoryManagerOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-sunken text-muted hover:text-main cursor-pointer"
-              >
-                <X size={16} />
+      {/* Sheet Modal 2: Manage Categories */}
+      {isCatModalOpen && (
+        <div
+          className="sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCatModalOpen(false);
+          }}
+        >
+          <div className="panel" style={{ maxHeight: '88vh', overflowY: 'auto' }}>
+            <div className="hrow">
+              <h2>My categories 🏷️</h2>
+              <button className="icon" onClick={() => setIsCatModalOpen(false)} aria-label="Close">
+                ✕
               </button>
             </div>
 
-            {/* Category Form */}
-            <div className="p-3.5 bg-sunken rounded-2xl border border-subtle space-y-3">
-              <p className="text-xs font-bold text-main">
-                {editingCategory ? `Edit "${editingCategory.name}"` : 'Create New Category'}
-              </p>
-
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-2xl bg-surface border border-subtle flex items-center justify-center text-xl shrink-0 shadow-2xs">
-                  {catIconInput}
-                </div>
-                <input
-                  type="text"
-                  value={catNameInput}
-                  onChange={(e) => setCatNameInput(e.target.value)}
-                  placeholder="Category Name (e.g. Swiggy, Gym, Fuel)..."
-                  className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-main focus:outline-hidden focus:ring-2 focus:ring-ring/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => setCatTypeInput(catTypeInput === 'expense' ? 'income' : 'expense')}
-                  className="px-2.5 py-2 rounded-xl bg-surface border border-subtle text-[11px] font-bold text-muted hover:text-main uppercase cursor-pointer"
-                >
-                  {catTypeInput}
-                </button>
-              </div>
-
-              {/* Emoji Grid */}
-              <div className="grid grid-cols-8 gap-1 max-h-24 overflow-y-auto p-1 bg-surface rounded-xl border border-subtle/50">
-                {CUTE_CATEGORY_ICONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => {
-                      playPopSound();
-                      setCatIconInput(emoji);
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {Object.entries(emojis).map(([name, emoji]) => (
+                <div key={name} className="crow">
+                  <input
+                    className="ce"
+                    value={emoji}
+                    maxLength={4}
+                    onChange={(e) => {
+                      const val = e.target.value.trim() || '✨';
+                      const updated = { ...emojis, [name]: val };
+                      saveCats(updated);
                     }}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm transition-transform cursor-pointer ${
-                      catIconInput === emoji ? 'bg-accent text-on-accent scale-110 shadow-2xs' : 'hover:bg-sunken'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-1">
-                {editingCategory && (
+                    aria-label={`Emoji for ${name}`}
+                  />
+                  <input
+                    className="cn"
+                    value={name}
+                    onChange={(e) => {
+                      const newN = e.target.value.trim();
+                      if (!newN || newN === name) return;
+                      if (emojis[newN]) {
+                        showToast('That name already exists');
+                        return;
+                      }
+                      const updated: Record<string, string> = {};
+                      Object.entries(emojis).forEach(([k, v]) => {
+                        updated[k === name ? newN : k] = v;
+                      });
+                      saveCats(updated);
+                    }}
+                    aria-label={`Name for ${name}`}
+                  />
                   <button
                     type="button"
+                    className="del"
                     onClick={() => {
-                      setEditingCategory(null);
-                      setCatNameInput('');
+                      if (Object.keys(emojis).length <= 1) {
+                        showToast('Keep at least one category');
+                        return;
+                      }
+                      const hasEntries = allRows.some((r) => r.c === name);
+                      if (hasEntries) {
+                        showToast('Entries use it. Rename it instead');
+                        return;
+                      }
+                      const updated = { ...emojis };
+                      delete updated[name];
+                      saveCats(updated);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-surface hover:bg-sunken text-xs font-semibold text-muted cursor-pointer"
+                    aria-label={`Delete ${name}`}
                   >
-                    Clear Form
+                    ✕
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!catNameInput.trim()) return;
-                    playPopSound();
-                    const updatedCat: FinanceCategory = {
-                      id: editingCategory ? editingCategory.id : `fcat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                      name: catNameInput.trim(),
-                      icon: catIconInput.trim() || '🏷️',
-                      type: catTypeInput,
-                    };
-                    onSaveCategory(updatedCat);
-                    setEditingCategory(null);
-                    setCatNameInput('');
-                  }}
-                  className="px-4 py-1.5 rounded-xl bg-accent text-on-accent text-xs font-bold shadow-soft hover:bg-accent-hover transition cursor-pointer"
-                >
-                  {editingCategory ? 'Update Category' : '+ Add Category'}
-                </button>
-              </div>
-            </div>
-
-            {/* List of Existing Categories */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-60">
-              <span className="text-[11px] font-bold text-muted uppercase tracking-wider block px-1">
-                Your Categories ({categories.length})
-              </span>
-              {categories.length === 0 ? (
-                <p className="text-xs text-muted px-1 py-2">
-                  No custom categories yet. Use the form above to add your own!
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {categories.map((cat) => (
-                    <div
-                      key={cat.id}
-                      className="flex items-center justify-between p-2 rounded-xl bg-surface border border-subtle text-xs font-semibold group"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-base">{cat.icon}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-main font-bold">{cat.name}</p>
-                          <p className="text-[10px] text-muted capitalize">{cat.type}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingCategory(cat);
-                            setCatNameInput(cat.name);
-                            setCatIconInput(cat.icon);
-                            setCatTypeInput(cat.type);
-                          }}
-                          className="p-1 rounded-lg hover:bg-sunken text-muted hover:text-main cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit3 size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Delete "${cat.name}" category?`)) {
-                              playPopSound();
-                              onDeleteCategory(cat.id);
-                            }
-                          }}
-                          className="p-1 rounded-lg hover:bg-rose-500/10 text-muted hover:text-rose-600 cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              )}
+              ))}
             </div>
 
-            <div className="pt-2 border-t border-subtle flex justify-end">
+            {/* Add New Category Row */}
+            <div className="crow add">
+              <input
+                className="ce"
+                value={newCatEmoji}
+                maxLength={4}
+                onChange={(e) => setNewCatEmoji(e.target.value)}
+                placeholder="🍩"
+                aria-label="New category emoji"
+              />
+              <input
+                className="cn"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="New category name"
+                aria-label="New category name"
+              />
               <button
                 type="button"
-                onClick={() => setIsCategoryManagerOpen(false)}
-                className="px-4 py-2 rounded-2xl bg-sunken hover:bg-surface border border-subtle text-xs font-bold text-main cursor-pointer"
+                className="btn"
+                style={{ padding: '10px 16px' }}
+                onClick={() => {
+                  const n = newCatName.trim();
+                  if (!n) return;
+                  if (emojis[n]) {
+                    showToast('That name already exists');
+                    return;
+                  }
+                  const updated = { ...emojis, [n]: newCatEmoji.trim() || '✨' };
+                  saveCats(updated);
+                  setNewCatName('');
+                  setNewCatEmoji('🍩');
+                  showToast('Category added 🌟');
+                }}
               >
-                Done
+                Add
               </button>
             </div>
           </div>
