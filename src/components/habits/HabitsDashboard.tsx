@@ -79,6 +79,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   onArchiveCompletedDaily,
   onSaveRoutine,
   onDeleteRoutine,
+  onOpenEditGoal,
 }) => {
   const TODAY = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
 
@@ -128,9 +129,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   // UI state
   const [addMode, setAddMode] = useState<'once' | 'routine'>('once');
   const [newTaskInput, setNewTaskInput] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [taskViewTab, setTaskViewTab] = useState<'all' | 'routine' | 'today'>('all');
   const [isManageRoutinesOpen, setIsManageRoutinesOpen] = useState(false);
   const [isInsightsModalOpen, setIsInsightsModalOpen] = useState(false);
   const [reflectionSavedNotice, setReflectionSavedNotice] = useState(false);
+  const [isEditingReflection, setIsEditingReflection] = useState(false);
   const [timelineHint, setTimelineHint] = useState<string>('');
   const [goalsView, setGoalsView] = useState<'cards' | 'time'>('cards');
   const [goalsFilter, setGoalsFilter] = useState<'all' | 'active' | 'done'>('all');
@@ -267,11 +271,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       });
   }, [routines, dailyTodos, selectedDate]);
 
-  // Combined visible tasks
-  const combinedTasks = useMemo(() => {
-    const list = [
-      ...routineTasks,
-      ...selectedDateTasks.filter((t) => !t.recurringId).map((t) => ({
+  // Standalone one-off daily tasks
+  const standaloneTasks = useMemo(() => {
+    return selectedDateTasks
+      .filter((t) => !t.recurringId)
+      .map((t) => ({
         id: t.id,
         routineId: undefined,
         text: t.text,
@@ -280,15 +284,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         isRoutine: false,
         tag: t.tags?.[0] || '',
         carried: (t.date || t.createdAt.slice(0, 10)) < selectedDate
-      }))
-    ];
-    return list;
-  }, [routineTasks, selectedDateTasks, selectedDate]);
+      }));
+  }, [selectedDateTasks, selectedDate]);
+
+  // Combined visible tasks
+  const combinedTasks = useMemo(() => {
+    return [...routineTasks, ...standaloneTasks];
+  }, [routineTasks, standaloneTasks]);
 
   const totalTasksCount = combinedTasks.length;
   const doneTasksCount = combinedTasks.filter((t) => t.completed).length;
   const remainingCount = totalTasksCount - doneTasksCount;
   const focusPercent = totalTasksCount > 0 ? Math.round((doneTasksCount / totalTasksCount) * 100) : 0;
+
+  const routineDoneCount = routineTasks.filter((t) => t.completed).length;
+  const standaloneDoneCount = standaloneTasks.filter((t) => t.completed).length;
 
   // Master goals
   const masterGoals = useMemo(() => {
@@ -452,10 +462,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     let text = newTaskInput.trim();
     if (!text) return;
 
-    let priority: 'low' | 'medium' | 'high' = 'medium';
+    let priority: 'low' | 'medium' | 'high' = newTaskPriority;
     let tag = '';
 
-    text = text.replace(/!(high|h|low|l|med|normal)\b/i, (_, p) => {
+    text = text.replace(/!(high|h|low|l|med|medium|normal)\b/i, (_, p) => {
       priority = /^h/i.test(p) ? 'high' : /^l/i.test(p) ? 'low' : 'medium';
       return '';
     }).replace(/#(\w+)/, (_, x) => {
@@ -516,6 +526,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   // Set / Save Reflection handler
   const handleSaveReflection = () => {
     setReflectionSavedNotice(true);
+    setIsEditingReflection(false);
     triggerCelebration();
     setTimeout(() => setReflectionSavedNotice(false), 2500);
   };
@@ -824,6 +835,32 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               </button>
             </div>
 
+            {/* Priority Selector (Applicable to both Today's Tasks and Fixed Routines) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 10px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--mute)' }}>Priority:</span>
+              <button
+                type="button"
+                className={`p-chip high ${newTaskPriority === 'high' ? 'active' : ''}`}
+                onClick={() => setNewTaskPriority('high')}
+              >
+                🔴 High (+15 pts)
+              </button>
+              <button
+                type="button"
+                className={`p-chip medium ${newTaskPriority === 'medium' ? 'active' : ''}`}
+                onClick={() => setNewTaskPriority('medium')}
+              >
+                🟡 Medium (+10 pts)
+              </button>
+              <button
+                type="button"
+                className={`p-chip low ${newTaskPriority === 'low' ? 'active' : ''}`}
+                onClick={() => setNewTaskPriority('low')}
+              >
+                🟢 Low (+5 pts)
+              </button>
+            </div>
+
             {/* Add Task Input */}
             <div className="add">
               <input 
@@ -885,45 +922,135 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               </div>
             )}
 
-            {/* Visible Tasks List */}
+            {/* Task Section Filter Tabs for Easy Access */}
+            <div className="chips" style={{ marginTop: '16px', marginBottom: '4px' }}>
+              <button
+                className="chip"
+                aria-pressed={taskViewTab === 'all'}
+                onClick={() => setTaskViewTab('all')}
+              >
+                All ({totalTasksCount})
+              </button>
+              <button
+                className="chip"
+                aria-pressed={taskViewTab === 'routine'}
+                onClick={() => setTaskViewTab('routine')}
+              >
+                🔁 Fixed ({routineTasks.length})
+              </button>
+              <button
+                className="chip"
+                aria-pressed={taskViewTab === 'today'}
+                onClick={() => setTaskViewTab('today')}
+              >
+                ☀️ Today's ({standaloneTasks.length})
+              </button>
+            </div>
+
+            {/* Visible Tasks List with Clear Section Separation */}
             <div style={{ marginTop: '10px' }}>
               {combinedTasks.length === 0 ? (
                 <div className="empty">Nothing planned. Add a task above 🌱</div>
               ) : (
-                combinedTasks.map((t) => (
-                  <div key={t.id} className="task">
-                    <button 
-                      className="ck" 
-                      aria-pressed={t.completed}
-                      disabled={selectedDate > TODAY}
-                      onClick={() => handleToggleTask(t)}
-                      aria-label={`Mark ${t.text} done`}
-                    >
-                      {t.completed ? '✓' : ''}
-                    </button>
-                    <div className={`t ${t.completed ? 'dn' : ''}`}>
-                      {t.text}
-                      <div>
-                        {t.carried && <span className="tg c">Carried</span>}
-                        {t.isRoutine && <span className="tg">🔁 Fixed routine</span>}
-                        {t.priority === 'high' ? (
-                          <span className="tg h">High</span>
-                        ) : t.priority === 'low' ? (
-                          <span className="tg l">Low</span>
-                        ) : null}
-                        {t.tag && <span className="tg p">#{t.tag}</span>}
-                        <span className="tg">+{getTaskPoints(t.priority)}</span>
+                <>
+                  {/* Fixed Routines Section */}
+                  {(taskViewTab === 'all' || taskViewTab === 'routine') && routineTasks.length > 0 && (
+                    <div className="task-section">
+                      <div className="task-section-header">
+                        <span>🔁 Fixed Habits &amp; Routines</span>
+                        <span className="count-pill">{routineDoneCount}/{routineTasks.length} done</span>
                       </div>
+                      {routineTasks.map((t) => (
+                        <div key={t.id} className="task">
+                          <button 
+                            className="ck" 
+                            aria-pressed={t.completed}
+                            disabled={selectedDate > TODAY}
+                            onClick={() => handleToggleTask(t)}
+                            aria-label={`Mark ${t.text} done`}
+                          >
+                            {t.completed ? '✓' : ''}
+                          </button>
+                          <div className={`t ${t.completed ? 'dn' : ''}`}>
+                            {t.text}
+                            <div>
+                              <span className="tg">🔁 Fixed routine</span>
+                              {t.priority === 'high' ? (
+                                <span className="tg h">High</span>
+                              ) : t.priority === 'low' ? (
+                                <span className="tg l">Low</span>
+                              ) : (
+                                <span className="tg">Med</span>
+                              )}
+                              {t.tag && <span className="tg p">#{t.tag}</span>}
+                              <span className="tg">+{getTaskPoints(t.priority)}</span>
+                            </div>
+                          </div>
+                          <button 
+                            className="x" 
+                            onClick={() => setItemToDelete({ id: t.id, name: t.text, type: 'routine' })}
+                            aria-label={`Remove ${t.text}`}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <button 
-                      className="x" 
-                      onClick={() => setItemToDelete({ id: t.id, name: t.text, type: t.isRoutine ? 'routine' : 'task' })}
-                      aria-label={`Remove ${t.text}`}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
+                  )}
+
+                  {/* Today's Tasks Section */}
+                  {(taskViewTab === 'all' || taskViewTab === 'today') && standaloneTasks.length > 0 && (
+                    <div className="task-section">
+                      <div className="task-section-header" style={{ marginTop: taskViewTab === 'all' && routineTasks.length > 0 ? '16px' : '4px' }}>
+                        <span>☀️ Today's Tasks</span>
+                        <span className="count-pill">{standaloneDoneCount}/{standaloneTasks.length} done</span>
+                      </div>
+                      {standaloneTasks.map((t) => (
+                        <div key={t.id} className="task">
+                          <button 
+                            className="ck" 
+                            aria-pressed={t.completed}
+                            disabled={selectedDate > TODAY}
+                            onClick={() => handleToggleTask(t)}
+                            aria-label={`Mark ${t.text} done`}
+                          >
+                            {t.completed ? '✓' : ''}
+                          </button>
+                          <div className={`t ${t.completed ? 'dn' : ''}`}>
+                            {t.text}
+                            <div>
+                              {t.carried && <span className="tg c">Carried</span>}
+                              {t.priority === 'high' ? (
+                                <span className="tg h">High</span>
+                              ) : t.priority === 'low' ? (
+                                <span className="tg l">Low</span>
+                              ) : (
+                                <span className="tg">Med</span>
+                              )}
+                              {t.tag && <span className="tg p">#{t.tag}</span>}
+                              <span className="tg">+{getTaskPoints(t.priority)}</span>
+                            </div>
+                          </div>
+                          <button 
+                            className="x" 
+                            onClick={() => setItemToDelete({ id: t.id, name: t.text, type: 'task' })}
+                            aria-label={`Remove ${t.text}`}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty state when tab filter returns 0 */}
+                  {taskViewTab === 'routine' && routineTasks.length === 0 && (
+                    <div className="empty">No fixed routines active for this day.</div>
+                  )}
+                  {taskViewTab === 'today' && standaloneTasks.length === 0 && (
+                    <div className="empty">No one-off tasks added for today.</div>
+                  )}
+                </>
               )}
             </div>
 
@@ -941,52 +1068,130 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               )}
             </div>
 
-            {/* Reflection 🌿 Box with Set Reflection Button */}
-            <div 
-              id="habit-reflection-box" 
-              style={{ marginTop: '16px', padding: '16px', borderRadius: '22px', background: 'var(--c4)' }}
-            >
-              <div className="rw">
-                <b>Reflection 🌿</b>
-                {reflectionSavedNotice && (
-                  <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 700 }}>
-                    Reflection saved ✨
-                  </span>
-                )}
-              </div>
-              <div className="moods">
-                {MOOD_MAP.map((m) => {
-                  const isSelected = dayLogs[selectedDate]?.mood === m.score;
-                  return (
-                    <button
-                      key={m.label}
-                      aria-pressed={isSelected}
-                      onClick={() => {
-                        onSaveDayLog(selectedDate, { mood: isSelected ? undefined : m.score });
-                      }}
-                    >
-                      {m.emoji} {m.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <textarea 
-                rows={3}
-                value={dayLogs[selectedDate]?.reflection || ''}
-                onChange={(e) => onSaveDayLog(selectedDate, { reflection: e.target.value })}
-                placeholder="How did this day go? Write a line or two."
-                aria-label="Reflection"
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button 
-                  className="btn" 
-                  onClick={handleSaveReflection}
-                  style={{ padding: '9px 18px', fontSize: '13.5px' }}
+            {/* Reflection 🌿: Separate Saved View Card vs Active Edit Form */}
+            {(() => {
+              const currentDayLog = dayLogs[selectedDate];
+              const hasSavedReflection = Boolean(currentDayLog?.reflection?.trim() || currentDayLog?.mood);
+              const activeMoodObj = MOOD_MAP.find((m) => m.score === currentDayLog?.mood);
+
+              if (hasSavedReflection && !isEditingReflection) {
+                return (
+                  <div className="saved-reflection-card" id="habit-reflection-box">
+                    <div className="rw" style={{ marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <b>Daily Reflection 🌿</b>
+                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(44,154,107,0.15)', color: '#2C9A6B', fontWeight: 700 }}>
+                          Saved ✨
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: '5px 12px', fontSize: '12.5px' }}
+                        onClick={() => setIsEditingReflection(true)}
+                      >
+                        ✎ Edit
+                      </button>
+                    </div>
+
+                    {activeMoodObj && (
+                      <div style={{ margin: '8px 0 10px' }}>
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          padding: '4px 12px', 
+                          borderRadius: '999px', 
+                          background: 'var(--card)', 
+                          fontSize: '13px', 
+                          fontWeight: 600,
+                          border: '1px solid var(--line)'
+                        }}>
+                          {activeMoodObj.emoji} Mood: {activeMoodObj.label}
+                        </span>
+                      </div>
+                    )}
+
+                    {currentDayLog?.reflection?.trim() ? (
+                      <div style={{ 
+                        background: 'var(--card)', 
+                        padding: '12px 14px', 
+                        borderRadius: '14px', 
+                        border: '1px solid var(--line)',
+                        fontSize: '13.5px',
+                        lineHeight: 1.5,
+                        color: 'var(--ink)',
+                        fontStyle: 'italic',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        "{currentDayLog.reflection.trim()}"
+                      </div>
+                    ) : (
+                      <div className="sm" style={{ fontStyle: 'italic' }}>
+                        No written notes added for this reflection.
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div 
+                  id="habit-reflection-box" 
+                  style={{ marginTop: '16px', padding: '16px', borderRadius: '22px', background: 'var(--c4)' }}
                 >
-                  Set Reflection 🌿
-                </button>
-              </div>
-            </div>
+                  <div className="rw">
+                    <b>Daily Reflection 🌿 {hasSavedReflection && <span style={{ fontSize: '11px', color: 'var(--mute)' }}>(Editing)</span>}</b>
+                    {reflectionSavedNotice && (
+                      <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 700 }}>
+                        Reflection saved ✨
+                      </span>
+                    )}
+                  </div>
+                  <div className="moods">
+                    {MOOD_MAP.map((m) => {
+                      const isSelected = dayLogs[selectedDate]?.mood === m.score;
+                      return (
+                        <button
+                          key={m.label}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            onSaveDayLog(selectedDate, { mood: isSelected ? undefined : m.score });
+                          }}
+                        >
+                          {m.emoji} {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <textarea 
+                    rows={3}
+                    value={dayLogs[selectedDate]?.reflection || ''}
+                    onChange={(e) => onSaveDayLog(selectedDate, { reflection: e.target.value })}
+                    placeholder="How did this day go? Write a line or two."
+                    aria-label="Reflection"
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+                    {hasSavedReflection && (
+                      <button
+                        type="button"
+                        className="chip"
+                        onClick={() => setIsEditingReflection(false)}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button 
+                      className="btn" 
+                      onClick={handleSaveReflection}
+                      style={{ padding: '9px 18px', fontSize: '13.5px' }}
+                    >
+                      Set Reflection 🌿
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* RIGHT COLUMN: SCORE, REWARDS & MASTER GOALS */}
@@ -1288,19 +1493,29 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                         : 'Overdue';
 
                       return (
-                        <div key={g.id}>
-                          <b>{g.text}</b>
-                          <div className="sm">
-                            {g.completed ? 'Completed 🎉 +50 pts' : `${dueText} · ${pct}%`}
-                          </div>
-                          <div className="gbar" style={{ background: 'var(--card)' }}>
-                            <i style={{ width: `${pct}%` }} />
+                        <div key={g.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                          <button 
+                            className="ck" 
+                            aria-pressed={g.completed}
+                            onClick={() => onToggleTodo(g.id)}
+                            aria-label={`Toggle ${g.text}`}
+                            style={{ flexShrink: 0, marginTop: '2px' }}
+                          >
+                            {g.completed ? '✓' : ''}
+                          </button>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <b style={{ textDecoration: g.completed ? 'line-through' : 'none' }}>{g.text}</b>
+                            <div className="sm">
+                              {g.completed ? 'Completed 🎉 +50 pts' : `${dueText} · ${pct}%`}
+                            </div>
+                            <div className="gbar" style={{ background: 'var(--card)' }}>
+                              <i style={{ width: `${pct}%`, background: g.completed ? 'var(--green, #2C9A6B)' : undefined }} />
+                            </div>
                           </div>
                           <button 
                             className="x" 
                             onClick={() => setItemToDelete({ id: g.id, name: g.text, type: 'goal' })}
                             aria-label="Remove goal"
-                            style={{ position: 'absolute', right: 0, top: 0 }}
                           >
                             ✕
                           </button>
@@ -1328,14 +1543,50 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
                     return (
                       <div key={g.id} className="gc">
-                        <div className="rw" style={{ alignItems: 'flex-start' }}>
+                        <div className="rw" style={{ alignItems: 'flex-start', gap: '10px' }}>
+                          <button 
+                            className="ck" 
+                            aria-pressed={g.completed}
+                            onClick={() => onToggleTodo(g.id)}
+                            aria-label={`Toggle ${g.text}`}
+                            style={{ flexShrink: 0, marginTop: '2px' }}
+                          >
+                            {g.completed ? '✓' : ''}
+                          </button>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <b>{g.text}</b>
-                            <div className="sm">
-                              {g.completed ? 'Completed 🎉 +50 pts' : `${dueText} · ${pct}%`}
+                            <div className="rw" style={{ justifyContent: 'space-between', marginBottom: '2px' }}>
+                              <b style={{ fontSize: '14.5px', textDecoration: g.completed ? 'line-through' : 'none' }}>
+                                {g.text}
+                              </b>
+                              {onOpenEditGoal && (
+                                <button
+                                  type="button"
+                                  className="mini"
+                                  onClick={() => onOpenEditGoal(g)}
+                                  style={{ padding: '2px 8px', fontSize: '11px', marginLeft: '6px' }}
+                                  title="Edit goal"
+                                >
+                                  ✎ Edit
+                                </button>
+                              )}
                             </div>
-                            <div className="gbar" style={{ background: 'var(--card)' }}>
-                              <i style={{ width: `${pct}%` }} />
+                            <div className="sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '3px' }}>
+                              {g.completed ? (
+                                <span className="tg" style={{ background: '#DDF0E5', color: '#2C5A45', fontWeight: 700 }}>
+                                  Completed 🎉 +50 pts
+                                </span>
+                              ) : (
+                                <>
+                                  <span className={`tg ${dueDays !== null && dueDays <= 0 ? 'h' : ''}`}>
+                                    {dueText}
+                                  </span>
+                                  <span>·</span>
+                                  <span>{pct}% progress</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="gbar" style={{ background: 'var(--card)', marginTop: '8px' }}>
+                              <i style={{ width: `${pct}%`, background: g.completed ? 'var(--green, #2C9A6B)' : undefined }} />
                             </div>
                             {!g.completed && (
                               <div className="rw" style={{ marginTop: '10px' }}>
@@ -1344,7 +1595,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                                     className="mini" 
                                     onClick={() => onToggleTodo(g.id)}
                                   >
-                                    Complete ✓
+                                    Mark Done ✓
                                   </button>
                                 </span>
                               </div>

@@ -220,20 +220,20 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     if (topCat && exp > 0) {
       it.push([
         emojis[topCat] || '✨',
-        <span><b>{topCat}</b> is your top spend, {Math.round((by[topCat].a / exp) * 100)}% of expenses.</span>
+        <><b>{topCat}</b> is your top spend, {Math.round((by[topCat].a / exp) * 100)}% of expenses.</>
       ]);
     }
 
     if (exp > 0 && el > 0) {
-      it.push(['📅', <span>You spend about <b>{inr(exp / el)}</b> a day.</span>]);
+      it.push(['📅', <>You spend about <b>{inr(exp / el)}</b> a day.</>]);
     }
 
     if (isCur && exp > 0 && el > 0) {
-      it.push(['🔮', <span>At this pace you’ll spend <b>{inr((exp / el) * dim)}</b> by month end.</span>]);
+      it.push(['🔮', <>At this pace you’ll spend <b>{inr((exp / el) * dim)}</b> by month end.</>]);
     }
 
     if (inc > 0) {
-      it.push(['🐷', <span>Your savings rate is <b>{Math.round(((inc - exp) / inc) * 100)}%</b>.</span>]);
+      it.push(['🐷', <>Your savings rate is <b>{Math.round(((inc - exp) / inc) * 100)}%</b>.</>]);
     }
 
     // Comparison vs previous month
@@ -247,13 +247,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       const diff = exp - prevExp;
       it.push([
         diff > 0 ? '📈' : '📉',
-        <span>Spending is <b>{inr(Math.abs(diff))}</b> {diff > 0 ? 'higher' : 'lower'} than last month.</span>
+        <>Spending is <b>{inr(Math.abs(diff))}</b> {diff > 0 ? 'higher' : 'lower'} than last month.</>
       ]);
     }
 
     if (ex.length > 0) {
       const biggest = ex.reduce((a, r) => (r.a > a.a ? r : a));
-      it.push(['🎈', <span>Biggest expense: <b>{inr(biggest.a)}</b> on {biggest.c}.</span>]);
+      it.push(['🎈', <>Biggest expense: <b>{inr(biggest.a)}</b> on {biggest.c}.</>]);
     }
 
     return it;
@@ -669,7 +669,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   insightsList.map(([icon, textNode], idx) => (
                     <div key={idx} className="it">
                       <span className="it-icon">{icon}</span>
-                      <p className="it-text">{textNode}</p>
+                      <div className="it-text">{textNode}</div>
                     </div>
                   ))
                 )}
