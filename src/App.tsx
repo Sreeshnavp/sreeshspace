@@ -102,6 +102,9 @@ import { DesignGuideModal } from './components/DesignGuideModal';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
+import { HomeDashboard } from './components/home/HomeDashboard';
+import { MobileBottomNav } from './components/navigation/MobileBottomNav';
+import './components/home/home.css';
 import { LockScreen } from './components/LockScreen';
 import { isDeviceUnlocked, lockDevice } from './utils/security';
 
@@ -130,7 +133,7 @@ export function App() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [sketches, setSketches] = useState<SketchItem[]>([]);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('links');
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('home');
   const [isLoading, setIsLoading] = useState(true);
 
   // 🔒 Master PIN Security Gate
@@ -685,7 +688,7 @@ export function App() {
   // ==========================================
   // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> REELS <-> FINANCES <-> NOTES & SKETCHPAD)
   // ==========================================
-  const WORKSPACE_SECTIONS: WorkspaceView[] = ['links', 'notebook', 'reels', 'finance', 'notes'];
+  const WORKSPACE_SECTIONS: WorkspaceView[] = ['home', 'links', 'notebook', 'reels', 'finance', 'notes'];
 
   const navigateToView = useCallback((targetView: WorkspaceView, replace: boolean = false) => {
     setWorkspaceView((current) => {
@@ -703,7 +706,7 @@ export function App() {
   // 📲 Mobile Back Button & History Navigation Support
   useEffect(() => {
     const rawHash = window.location.hash.replace('#', '') as WorkspaceView;
-    const initialView: WorkspaceView = WORKSPACE_SECTIONS.includes(rawHash) ? rawHash : 'links';
+    const initialView: WorkspaceView = WORKSPACE_SECTIONS.includes(rawHash) ? rawHash : 'home';
 
     setWorkspaceView(initialView);
     window.history.replaceState({ view: initialView }, '', '#' + initialView);
@@ -724,7 +727,7 @@ export function App() {
       const currentHash = window.location.hash.replace('#', '') as WorkspaceView;
       const targetView: WorkspaceView = (stateView && WORKSPACE_SECTIONS.includes(stateView))
         ? stateView
-        : (WORKSPACE_SECTIONS.includes(currentHash) ? currentHash : 'links');
+        : (WORKSPACE_SECTIONS.includes(currentHash) ? currentHash : 'home');
 
       setWorkspaceView(targetView);
     };
@@ -735,10 +738,11 @@ export function App() {
 
   const showSwipePill = (section: WorkspaceView) => {
     const config: Record<WorkspaceView, { label: string; icon: string }> = {
+      home: { label: 'Home', icon: '🏠' },
       links: { label: 'Links', icon: '🔗' },
       notebook: { label: 'Habits & Tasks', icon: '📖' },
       reels: { label: 'Reels Vault', icon: '🎬' },
-      finance: { label: 'Finances', icon: '💳' },
+      finance: { label: 'Finances', icon: '👛' },
       notes: { label: 'Notes & Sketchpad', icon: '🎨' },
       both: { label: 'Workspace', icon: '✨' },
     };
@@ -2127,29 +2131,31 @@ export function App() {
 
       {/* Main Content Layer */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header */}
-        <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onOpenAddModal={() => {
-            setEditingLink(null);
-            setPrefilledUrl('');
-            setPrefilledCategory('Uncategorized');
-            setIsAddModalOpen(true);
-          }}
-          onOpenBackupModal={() => setIsBackupModalOpen(true)}
-          onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
-          onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
-          onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
-          onLock={() => {
-            lockDevice();
-            setIsLocked(true);
-            showToast('Space locked 🔒');
-          }}
-          darkMode={darkMode}
-          onToggleDarkMode={() => setDarkMode(!darkMode)}
-          totalCount={links.length}
-        />
+        {/* Header - shown on non-home tabs or when search is active */}
+        {(workspaceView !== 'home' || Boolean(searchQuery.trim())) && (
+          <Header
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenAddModal={() => {
+              setEditingLink(null);
+              setPrefilledUrl('');
+              setPrefilledCategory('Uncategorized');
+              setIsAddModalOpen(true);
+            }}
+            onOpenBackupModal={() => setIsBackupModalOpen(true)}
+            onOpenPwaGuide={() => setIsPwaPromptOpen(true)}
+            onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
+            onOpenWallpaper={() => setIsWallpaperModalOpen(true)}
+            onLock={() => {
+              lockDevice();
+              setIsLocked(true);
+              showToast('Space locked 🔒');
+            }}
+            darkMode={darkMode}
+            onToggleDarkMode={() => setDarkMode(!darkMode)}
+            totalCount={links.length}
+          />
+        )}
 
       {/* Floating Toast Notification / Undo Toast */}
       {undoArchive ? (
@@ -2171,7 +2177,25 @@ export function App() {
       ) : null}
 
       {/* Main Single Screen Canvas */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-7 space-y-5 sm:space-y-6">
+      {workspaceView === 'home' && !searchQuery.trim() ? (
+        <HomeDashboard
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          links={links}
+          todos={todos}
+          reels={reels}
+          transactions={transactions}
+          notes={notes}
+          sketches={sketches}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          onOpenHistoryTimeline={() => setIsHistoryTimelineOpen(true)}
+          onOpenDesignGuide={() => setIsDesignGuideOpen(true)}
+        />
+      ) : (
+        <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-7 space-y-5 sm:space-y-6">
         
         {/* Quick Add Bar */}
         <QuickAddBar
@@ -2234,8 +2258,20 @@ export function App() {
           /* MAIN WORKSPACE CANVAS: VIEW SWITCHER + LINKS + NOTEBOOK & TASKS */
           <div className="space-y-5 sm:space-y-6">
 
-            {/* Workspace View Switcher: Links vs Habits & Tasks vs Finances vs Notes & Sketchpad */}
+            {/* Workspace View Switcher (Desktop): Home vs Links vs Habits & Tasks vs Reels vs Finances vs Notes */}
             <nav className="orbit-nav-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === 'home'}
+                onClick={() => {
+                  navigateToView('home');
+                  playPopSound();
+                }}
+                className={`orbit-nav-tab ${workspaceView === 'home' ? 'active' : ''}`}
+              >
+                <span>🏠 Home</span>
+              </button>
               <button
                 type="button"
                 role="tab"
@@ -2581,9 +2617,8 @@ export function App() {
           </div>
         )}
 
-
-
       </main>
+      )}
 
       {/* 📲 Cute Swipe Gesture Section Indicator */}
       {swipePill && (
@@ -2595,8 +2630,8 @@ export function App() {
         </div>
       )}
 
-      {/* Floating Action Button for Mobile (Hidden on finance where the new + Add button is used) */}
-      {workspaceView !== 'finance' && (
+      {/* Floating Action Button for Mobile (Hidden on finance and home where not needed) */}
+      {workspaceView !== 'finance' && workspaceView !== 'home' && (
         <button
           onClick={() => {
             setEditingLink(null);
@@ -2604,12 +2639,26 @@ export function App() {
             setPrefilledCategory('Uncategorized');
             setIsAddModalOpen(true);
           }}
-          className="fixed bottom-5 right-5 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
+          className="fixed bottom-20 right-4 sm:hidden z-40 w-12 h-12 rounded-full bg-accent text-on-accent flex items-center justify-center shadow-raised active:scale-95 transition-transform"
           aria-label="Add Bookmark"
         >
           <Plus size={24} className="stroke-[2.5]" />
         </button>
       )}
+
+      {/* Mobile Fixed Bottom Navigation Bar (Across ALL tabs on mobile!) */}
+      <MobileBottomNav
+        currentView={workspaceView}
+        onNavigate={(view) => {
+          navigateToView(view);
+          playPopSound();
+        }}
+        linksCount={links.length}
+        tasksCount={todos.filter(t => !t.completed && t.status !== 'archived').length}
+        reelsCount={reels.length}
+        financeCount={transactions.length}
+        notesCount={notes.length + sketches.length}
+      />
 
       {/* MODALS */}
 

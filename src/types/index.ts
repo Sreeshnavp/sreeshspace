@@ -36,7 +36,7 @@ export interface CategoryInfo {
 
 export type MainTab = 'all' | 'categories';
 export type ViewMode = 'grid' | 'list';
-export type WorkspaceView = 'links' | 'notebook' | 'reels' | 'finance' | 'notes' | 'both';
+export type WorkspaceView = 'home' | 'links' | 'notebook' | 'reels' | 'finance' | 'notes' | 'both';
 export type AccentTheme = 'sage' | 'peach' | 'wisteria' | 'sky' | 'honey';
 
 export * from './todo';
