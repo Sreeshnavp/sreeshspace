@@ -104,6 +104,7 @@ import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { LinksArea } from './components/links/LinksArea';
+import { HabitsDashboard } from './components/habits/HabitsDashboard';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { SplashScreen } from './components/SplashScreen';
 import './components/home/home.css';
@@ -2208,6 +2209,39 @@ export function App() {
           onDropLinkOnCategory={handleDropLinkOnCategory}
           onReorderCategory={handleReorderCategory}
           onOpenHistoryTimeline={() => setIsHistoryTimelineOpen(true)}
+        />
+      ) : workspaceView === 'notebook' && !searchQuery.trim() ? (
+        <HabitsDashboard
+          todos={todos}
+          routines={routines}
+          streakState={streakState}
+          events={events}
+          selectedDate={selectedDate}
+          onSelectDate={(d) => setSelectedDate(d)}
+          dayLogs={dayLogs}
+          onSaveDayLog={handleSaveDayLog}
+          onAddTodo={handleAddTodo}
+          onToggleTodo={handleToggleTodo}
+          onDeleteTodo={handleDeleteTodo}
+          onArchiveCompletedDaily={handleArchiveCompletedDaily}
+          onArchiveCompletedPermanent={handleArchiveCompletedPermanent}
+          onSaveRoutine={handleSaveRoutine}
+          onDeleteRoutine={handleDeleteRoutine}
+          onOpenCreateGoal={() => setIsGoalModalOpen(true)}
+          onOpenEditGoal={(goal) => {
+            setActiveGoalForModal(goal);
+            setIsGoalModalOpen(true);
+          }}
+          onOpenInsights={() => setIsHistoryTimelineOpen(true)}
+          onOpenWeeklyReview={() => setIsHistoryTimelineOpen(true)}
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
         />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
