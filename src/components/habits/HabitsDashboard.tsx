@@ -111,17 +111,41 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 }) => {
   const isHeaderVisible = useScrollVisibility();
   const TODAY = useMemo(() => todayKey(), []);
-  const activeDateKey = selectedDate || TODAY;
 
-  // Calendar base date for browsing the 7-day strip across weeks
-  const [calendarBaseDate, setCalendarBaseDate] = useState<string>(activeDateKey);
+  // Compute Monday of current week for 7-day strip
+  const weekStart = useMemo(() => startOfWeek(TODAY, 1), [TODAY]);
+  const dayDateMap = useMemo(() => {
+    return {
+      MON: addDays(weekStart, 0),
+      TUE: addDays(weekStart, 1),
+      WED: addDays(weekStart, 2),
+      THU: addDays(weekStart, 3),
+      FRI: addDays(weekStart, 4),
+      SAT: addDays(weekStart, 5),
+      SUN: addDays(weekStart, 6),
+    } as Record<string, string>;
+  }, [weekStart]);
 
-  // Sync calendarBaseDate when selectedDate changes externally
+  const [selectedDay, setSelectedDay] = useState<string>('FRI');
+
+  const activeDateKey = useMemo(() => {
+    if (selectedDate && Object.values(dayDateMap).includes(selectedDate)) {
+      return selectedDate;
+    }
+    return dayDateMap[selectedDay] || selectedDate || TODAY;
+  }, [selectedDate, selectedDay, dayDateMap, TODAY]);
+
+  // Sync selectedDay if selectedDate changes externally
   useEffect(() => {
     if (selectedDate) {
-      setCalendarBaseDate(selectedDate);
+      for (const [k, v] of Object.entries(dayDateMap)) {
+        if (v === selectedDate) {
+          setSelectedDay(k);
+          break;
+        }
+      }
     }
-  }, [selectedDate]);
+  }, [selectedDate, dayDateMap]);
 
   // Date for modal priority creation
   const [newTaskDate, setNewTaskDate] = useState<string>(activeDateKey);
@@ -264,52 +288,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 75;
   const progressOffset = 175.9 - (175.9 * (focusPercent / 100));
-
-  // Week calculation starting Monday
-  const weekStart = useMemo(() => startOfWeek(calendarBaseDate, 1), [calendarBaseDate]);
-
-  const weekRangeTitle = useMemo(() => {
-    const startObj = parseLocalDateKey(weekStart);
-    const endObj = parseLocalDateKey(addDays(weekStart, 6));
-    const startMonth = startObj.toLocaleDateString('en-US', { month: 'short' });
-    const endMonth = endObj.toLocaleDateString('en-US', { month: 'short' });
-    if (startMonth === endMonth) {
-      return `${startMonth} ${startObj.getDate()} – ${endObj.getDate()}, ${startObj.getFullYear()}`;
-    }
-    return `${startMonth} ${startObj.getDate()} – ${endMonth} ${endObj.getDate()}, ${startObj.getFullYear()}`;
-  }, [weekStart]);
-
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const dKey = addDays(weekStart, i);
-      const dObj = parseLocalDateKey(dKey);
-      const dayNarrow = dObj.toLocaleDateString('en-US', { weekday: 'narrow' });
-      const dayShort = dObj.toLocaleDateString('en-US', { weekday: 'short' });
-      const dayNum = dObj.getDate();
-      const isToday = dKey === TODAY;
-      const isSelected = dKey === activeDateKey;
-      const isAdvance = isAfter(dKey, TODAY);
-      const isPast = isBefore(dKey, TODAY);
-
-      const dayTasks = prioritiesList.filter((p) => (p.date || TODAY) === dKey);
-      const dayTodos = userDailyTodos.filter((t) => (t.date || TODAY) === dKey && !prioritiesList.some(p => p.id === t.id || p.text.trim().toLowerCase() === t.text.trim().toLowerCase()));
-      const totalCount = dayTasks.length + dayTodos.length;
-      const completedCount = dayTasks.filter(p => p.completed).length + dayTodos.filter(t => t.completed).length;
-
-      return {
-        dateKey: dKey,
-        dayNarrow,
-        dayShort,
-        dayNum,
-        isToday,
-        isSelected,
-        isAdvance,
-        isPast,
-        totalCount,
-        completedCount,
-      };
-    });
-  }, [weekStart, activeDateKey, TODAY, prioritiesList, userDailyTodos]);
 
   // Toggle daily habit
   const handleToggleHabit = (id: string) => {
@@ -726,10 +704,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         onAddTodo(text, 'daily', newTaskPriority, targetDate, ['priority']);
       }
 
-      // If scheduled for an advance or different date, switch calendar and active date to that date
+      // If scheduled for an advance or different date, switch active date
       if (targetDate !== activeDateKey && onSelectDate) {
         onSelectDate(targetDate);
-        setCalendarBaseDate(targetDate);
       }
     }
 
@@ -880,127 +857,79 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           {/* Section 2: Week at a Glance mini calendar pills */}
           <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle">
             <div className="flex items-center justify-between mb-space-sm px-1">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    playPopSound();
-                    setCalendarBaseDate((prev) => addDays(prev, -7));
-                  }}
-                  className="w-7 h-7 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-                  title="Previous Week"
-                >
-                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-                </button>
-                <span className="font-label-md text-label-md font-semibold text-on-surface">
-                  {weekRangeTitle}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    playPopSound();
-                    setCalendarBaseDate((prev) => addDays(prev, 7));
-                  }}
-                  className="w-7 h-7 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-                  title="Next Week"
-                >
-                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                </button>
-              </div>
-
-              {(calendarBaseDate !== TODAY || activeDateKey !== TODAY) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    playPopSound();
-                    setCalendarBaseDate(TODAY);
-                    onSelectDate(TODAY);
-                  }}
-                  className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-lavender-subtle px-2.5 py-1 rounded-full font-bold cursor-pointer hover:bg-lavender-subtle/80 transition-colors shadow-xs"
-                  title="Jump to Today"
-                >
-                  <span>🌟</span> Jump to Today
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
-                  <span>★</span> Current Week
-                </span>
-              )}
+              <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
+              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
+                <span>★</span> 100% on Mon–Thu
+              </span>
             </div>
-
             <div className="space-y-2">
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-                {weekDays.map((d) => {
-                  return (
-                    <button
-                      key={d.dateKey}
-                      type="button"
-                      onClick={() => {
-                        playPopSound();
-                        onSelectDate(d.dateKey);
-                      }}
-                      className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 relative ${
-                        d.isSelected
-                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed z-10'
-                          : d.isToday
-                          ? 'bg-lavender-subtle text-primary border border-primary/30 font-bold'
-                          : d.totalCount > 0 && d.completedCount === d.totalCount
-                          ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
-                          : 'bg-surface-container text-on-surface-variant opacity-85 hover:opacity-100 hover:bg-surface-container-high'
-                      }`}
-                      title={`${d.dayShort}, ${d.dateKey}: ${d.completedCount}/${d.totalCount} completed`}
-                    >
-                      <span className="font-label-sm text-[11px] font-semibold opacity-90">{d.dayShort}</span>
-                      <span className={`text-[13px] font-bold mt-0.5 ${d.isSelected ? 'text-on-primary' : 'text-on-surface'}`}>
-                        {d.dayNum}
-                      </span>
-                      {d.isToday ? (
-                        <span className="text-[10px] mt-0.5">🌟</span>
-                      ) : d.totalCount > 0 ? (
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold mt-0.5 ${
-                          d.isSelected
-                            ? 'bg-white/20 text-on-primary'
-                            : d.completedCount === d.totalCount
-                            ? 'bg-secondary text-on-secondary'
-                            : 'bg-peach-subtle text-tertiary'
-                        }`}>
-                          {d.totalCount}
-                        </span>
-                      ) : (
-                        <span className="text-[12px] opacity-40 mt-0.5">•</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Interactive Day Status Banner */}
-              <div className="p-2.5 rounded-xl bg-surface-container-low text-xs text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
-                <div className="flex items-center gap-1.5 font-medium truncate">
-                  <span>📅</span>
-                  <span className="truncate">
-                    {activeDateKey === TODAY ? (
-                      <span><strong>Today</strong> ({formatDisplayDate(TODAY)}) · {remainingPriorities > 0 ? `${remainingPriorities} tasks remaining` : 'All tasks completed 🎉'}</span>
-                    ) : isAfter(activeDateKey, TODAY) ? (
-                      <span><strong>Advance Date:</strong> {formatDisplayDate(activeDateKey)} (+{diffInDays(activeDateKey, TODAY)} {diffInDays(activeDateKey, TODAY) === 1 ? 'day' : 'days'} ahead) · {displayPriorities.length} scheduled</span>
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+              {[
+                { key: 'MON', label: 'M', completed: true, icon: 'check_circle', desc: 'Monday: 4 of 4 completed (100%)' },
+                { key: 'TUE', label: 'T', completed: true, icon: 'check_circle', desc: 'Tuesday: 4 of 4 completed (100%)' },
+                { key: 'WED', label: 'W', completed: true, icon: 'check_circle', desc: 'Wednesday: 4 of 4 completed (100%)' },
+                { key: 'THU', label: 'T', completed: true, icon: 'check_circle', desc: 'Thursday: 4 of 4 completed (100%)' },
+                { key: 'FRI', label: 'FRI', isToday: true, icon: '🌟', desc: `Friday (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)` },
+                { key: 'SAT', label: 'S', completed: false, icon: '•', desc: 'Saturday: Weekend rituals planned' },
+                { key: 'SUN', label: 'S', completed: false, icon: '•', desc: 'Sunday: Rest & Weekly Reflection' },
+              ].map((d) => {
+                const isSelected = selectedDay === d.key;
+                return (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setSelectedDay(d.key);
+                      const targetDate = dayDateMap[d.key];
+                      if (onSelectDate && targetDate) {
+                        onSelectDate(targetDate);
+                      }
+                    }}
+                    className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
+                      d.isToday
+                        ? isSelected
+                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
+                          : 'bg-primary/90 text-on-primary shadow-sm'
+                        : isSelected
+                        ? 'bg-mint-subtle text-secondary ring-2 ring-secondary font-bold scale-105'
+                        : d.completed
+                        ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
+                        : 'bg-surface-container text-on-surface-variant opacity-75 hover:opacity-100'
+                    }`}
+                    title={d.desc}
+                  >
+                    <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
+                    {d.isToday ? (
+                      <span className="text-[13px] mt-1 font-bold">🌟</span>
+                    ) : d.completed ? (
+                      <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
                     ) : (
-                      <span><strong>Past Date:</strong> {formatDisplayDate(activeDateKey)} ({diffInDays(TODAY, activeDateKey)} {diffInDays(TODAY, activeDateKey) === 1 ? 'day' : 'days'} ago) · {displayPriorities.length} logged</span>
+                      <span className="font-body-sm text-body-sm mt-1">•</span>
                     )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className={`font-bold text-[10px] px-2 py-0.5 rounded-full ${
-                    activeDateKey === TODAY
-                      ? 'bg-primary text-on-primary'
-                      : isAfter(activeDateKey, TODAY)
-                      ? 'bg-mint-subtle text-secondary'
-                      : 'bg-surface-container-high text-on-surface-variant'
-                  }`}>
-                    {activeDateKey === TODAY ? 'Today' : isAfter(activeDateKey, TODAY) ? `+${diffInDays(activeDateKey, TODAY)}d Ahead` : 'Past Log'}
-                  </span>
-                </div>
-              </div>
+                  </button>
+                );
+              })}
             </div>
+            {/* Interactive Day Status Banner */}
+            <div className="p-2 rounded-xl bg-surface-container-low text-[11px] text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
+              <span className="flex items-center gap-1 font-medium">
+                <span>📅</span>
+                <span>
+                  {selectedDay === 'MON' && 'Monday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'TUE' && 'Tuesday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'WED' && 'Wednesday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'THU' && 'Thursday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'FRI' && `Friday (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`}
+                  {selectedDay === 'SAT' && 'Saturday: Light review & rest'}
+                  {selectedDay === 'SUN' && 'Sunday: Sanctuary planning & recharge'}
+                </span>
+              </span>
+              <span className="text-primary font-bold text-[10px]">
+                {selectedDay === 'FRI' ? 'Active' : 'Logged'}
+              </span>
+            </div>
+          </div>
           </section>
 
           {/* Section 3: Habits Checklist Section */}
@@ -1152,76 +1081,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   <span>Set Priority</span>
                 </button>
               </div>
-            </div>
-
-            {/* Quick Advance Scheduling Shortcuts Bar */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-              <span className="text-[11px] font-bold text-on-surface-variant whitespace-nowrap pl-1">
-                Quick Jump:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  onSelectDate(TODAY);
-                  setCalendarBaseDate(TODAY);
-                }}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                  activeDateKey === TODAY
-                    ? 'bg-primary text-on-primary border-primary shadow-xs'
-                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  const tomorrow = addDays(TODAY, 1);
-                  onSelectDate(tomorrow);
-                  setCalendarBaseDate(tomorrow);
-                }}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                  activeDateKey === addDays(TODAY, 1)
-                    ? 'bg-primary text-on-primary border-primary shadow-xs'
-                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
-                }`}
-              >
-                Tomorrow (+1d)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  const in2Days = addDays(TODAY, 2);
-                  onSelectDate(in2Days);
-                  setCalendarBaseDate(in2Days);
-                }}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                  activeDateKey === addDays(TODAY, 2)
-                    ? 'bg-primary text-on-primary border-primary shadow-xs'
-                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
-                }`}
-              >
-                In 2 Days (+2d)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  playPopSound();
-                  const nextWeek = addDays(TODAY, 7);
-                  onSelectDate(nextWeek);
-                  setCalendarBaseDate(nextWeek);
-                }}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                  activeDateKey === addDays(TODAY, 7)
-                    ? 'bg-primary text-on-primary border-primary shadow-xs'
-                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
-                }`}
-              >
-                Next Week (+7d)
-              </button>
             </div>
 
             {/* Task Cards Container */}
