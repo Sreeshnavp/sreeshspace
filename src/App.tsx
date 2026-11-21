@@ -533,11 +533,16 @@ export function App() {
         syncWithCloud({ onMerged: refreshDataFromStorage });
       } catch (err) {
         console.error('Failed to load data:', err);
-      } finally {
-        setIsLoading(false);
       }
     }
     init();
+
+    // Safety fallback timer ensuring loading finishes even if animation frame halts
+    const fallbackTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 4500);
+
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   // Midnight rollover watcher & visibility check

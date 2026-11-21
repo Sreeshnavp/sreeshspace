@@ -56,7 +56,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-[#fff9f6] text-stone-800 font-sans antialiased flex flex-col justify-between items-center relative overflow-hidden select-none px-6 py-12 transition-opacity duration-300 ease-in-out ${
+      className={`fixed inset-0 z-[9999] bg-[#fff9f6] text-stone-800 font-sans antialiased flex flex-col justify-between items-center relative overflow-hidden select-none px-4 sm:px-6 py-6 sm:py-10 min-h-[100dvh] max-h-[100dvh] transition-opacity duration-300 ease-in-out ${
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
@@ -72,23 +72,23 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       <div className="absolute bottom-48 right-14 text-emerald-400 text-lg animate-float-gentle select-none" style={{ animationDelay: '0.7s' }}>🌱</div>
 
       {/* Top Status Pill */}
-      <div className="w-full max-w-sm flex justify-center pt-4 z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-violet-100 shadow-sm backdrop-blur-md">
+      <div className="w-full max-w-sm flex justify-center pt-2 sm:pt-4 z-10">
+        <div className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-full bg-white/80 border border-violet-100 shadow-sm backdrop-blur-md">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <span className="text-xs font-semibold tracking-wide text-violet-900/80">Personal Sanctuary • v2.0</span>
+          <span className="text-[11px] sm:text-xs font-semibold tracking-wide text-violet-900/80">Personal Sanctuary • v2.0</span>
         </div>
       </div>
 
       {/* Central Logo, Greeting & Brand Title */}
       <div className="w-full max-w-sm flex flex-col items-center text-center my-auto z-10">
         {/* Outer Glowing Rings for Logo */}
-        <div className="relative mb-6">
-          <div className="absolute -inset-3 rounded-full bg-gradient-to-tr from-violet-300/40 via-pink-200/40 to-amber-200/40 blur-md animate-pulse-subtle" />
+        <div className="relative mb-4 sm:mb-6">
+          <div className="absolute -inset-2.5 sm:-inset-3 rounded-full bg-gradient-to-tr from-violet-300/40 via-pink-200/40 to-amber-200/40 blur-md animate-pulse-subtle" />
           <div className="relative p-1.5 rounded-full bg-white shadow-xl shadow-violet-500/10 ring-4 ring-violet-100/80">
             <img
               src={avatarImg}
               alt="Sreeshnav's Space Logo"
-              className="w-32 h-32 md:w-36 md:h-36 rounded-full object-cover shadow-inner"
+              className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full object-cover shadow-inner"
             />
             {/* Mini Floating Status Badge */}
             <div className="absolute bottom-1 right-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white p-1.5 rounded-full shadow-md border-2 border-white flex items-center justify-center">
@@ -98,21 +98,21 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         </div>
 
         {/* Title & Subtitle */}
-        <h1 className="text-3xl font-extrabold tracking-tight text-stone-900 font-serif mb-2">
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 font-serif mb-1.5 sm:mb-2">
           Sreeshnav's Space
         </h1>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-semibold border border-amber-200/60 mb-4 shadow-sm">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] sm:text-xs font-semibold border border-amber-200/60 mb-3 sm:mb-4 shadow-sm">
           <span>✨</span>
           <span>Quiet flow, cozy vibes & everyday focus</span>
         </div>
 
-        <p className="text-sm text-stone-600 max-w-xs leading-relaxed mb-6 font-medium">
+        <p className="text-xs sm:text-sm text-stone-600 max-w-xs leading-relaxed mb-4 sm:mb-6 font-medium px-2">
           Your all-in-one sanctuary for links, habits, finances, reels, and cozy thoughts.
         </p>
 
         {/* Cute Loading Bar & Indicator */}
-        <div className="w-56 flex flex-col items-center gap-2.5">
+        <div className="w-52 sm:w-56 flex flex-col items-center gap-2 sm:gap-2.5">
           <div className="w-full h-2 rounded-full bg-stone-200/70 overflow-hidden relative shadow-inner p-0.5">
             <div
               className="h-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-400 rounded-full relative overflow-hidden shadow-sm transition-all duration-75 ease-linear"
@@ -133,8 +133,8 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
       {/* Bottom Quote & Safety Note */}
       <div className="w-full max-w-sm flex flex-col items-center gap-2 text-center pb-2 z-10">
-        <div className="px-4 py-2.5 rounded-2xl bg-white/70 border border-violet-100/70 shadow-sm backdrop-blur-sm">
-          <p className="text-xs italic text-stone-600 font-serif">
+        <div className="px-4 py-2 sm:py-2.5 rounded-2xl bg-white/70 border border-violet-100/70 shadow-sm backdrop-blur-sm">
+          <p className="text-[11px] sm:text-xs italic text-stone-600 font-serif">
             "Small daily disciplines compound into quiet confidence."
           </p>
         </div>

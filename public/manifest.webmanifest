@@ -1,13 +1,13 @@
 {
-  "name": "Orbit — Personal Link Vault & Habit Hub",
-  "short_name": "Orbit",
+  "name": "Sreeshnav's Space",
+  "short_name": "Sreeshnav",
   "id": "./",
   "description": "Personal link vault, daily habits, notebook, and goal tracker.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#FAF8F4",
-  "theme_color": "#3C6E57",
+  "background_color": "#fff9f6",
+  "theme_color": "#6b38d4",
   "orientation": "any",
   "icons": [
     {
