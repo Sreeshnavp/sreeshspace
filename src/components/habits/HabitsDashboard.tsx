@@ -11,6 +11,16 @@ import type {
 import avatarImg from '../../assets/avatar.jpg';
 import { playPopSound } from '../../utils/delight';
 import { useScrollVisibility } from '../../utils/useScrollVisibility';
+import {
+  todayKey,
+  toLocalDateKey,
+  parseLocalDateKey,
+  addDays,
+  diffInDays,
+  startOfWeek,
+  isAfter,
+  isBefore,
+} from '../../utils/dates';
 
 export interface HabitsDashboardProps {
   todos: TodoItem[];
@@ -37,6 +47,15 @@ export interface HabitsDashboardProps {
 }
 
 const HABITS_STORAGE_KEY = 'orbit-habits-v2';
+
+function formatDisplayDate(dateKey: string): string {
+  try {
+    const d = parseLocalDateKey(dateKey);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch {
+    return dateKey;
+  }
+}
 
 interface HabitItemDef {
   id: string;
@@ -67,11 +86,21 @@ interface GoalArcDef {
   subtasks: Array<{ id: string; text: string; completed: boolean }>;
 }
 
+export interface PriorityTaskDef {
+  id: string;
+  priority: 'high' | 'medium' | 'gentle';
+  time: string;
+  text: string;
+  completed: boolean;
+  date?: string;
+}
+
 export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
   routines = [],
   streakState,
   selectedDate,
+  onSelectDate,
   dayLogs = {},
   onAddTodo,
   onToggleTodo,
@@ -81,7 +110,25 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   onLock,
 }) => {
   const isHeaderVisible = useScrollVisibility();
-  const TODAY = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+  const TODAY = useMemo(() => todayKey(), []);
+  const activeDateKey = selectedDate || TODAY;
+
+  // Calendar base date for browsing the 7-day strip across weeks
+  const [calendarBaseDate, setCalendarBaseDate] = useState<string>(activeDateKey);
+
+  // Sync calendarBaseDate when selectedDate changes externally
+  useEffect(() => {
+    if (selectedDate) {
+      setCalendarBaseDate(selectedDate);
+    }
+  }, [selectedDate]);
+
+  // Date for modal priority creation
+  const [newTaskDate, setNewTaskDate] = useState<string>(activeDateKey);
+
+  useEffect(() => {
+    setNewTaskDate(activeDateKey);
+  }, [activeDateKey]);
 
   // Celebration helper
   const triggerCelebration = () => {
@@ -117,7 +164,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [showBonusToast, setShowBonusToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>('FRI');
   const [activePriorityMenuId, setActivePriorityMenuId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<'daily' | 'routine' | 'goal'>('daily');
   const [newRoutineDetail, setNewRoutineDetail] = useState('');
@@ -160,15 +206,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return [];
   });
 
-  // Today's Priorities (zero dummy items)
-  interface PriorityTaskDef {
-    id: string;
-    priority: 'high' | 'medium' | 'gentle';
-    time: string;
-    text: string;
-    completed: boolean;
-  }
-
+  // Today's & Advance Priorities stored locally
   const [prioritiesList, setPrioritiesList] = useState<PriorityTaskDef[]>(() => {
     try {
       const saved = localStorage.getItem('sreesh-priorities-list-v2');
@@ -193,16 +231,85 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     );
   }, [todos]);
 
+  // Unified display priorities for activeDateKey:
+  const displayPriorities = useMemo(() => {
+    const local = prioritiesList
+      .filter((p) => (p.date || TODAY) === activeDateKey)
+      .map((p) => ({ ...p, date: p.date || TODAY, isExternalTodo: false }));
+
+    const external = userDailyTodos
+      .filter((t) => (t.date || TODAY) === activeDateKey)
+      .filter((t) => !local.some(l => l.id === t.id || l.text.trim().toLowerCase() === t.text.trim().toLowerCase()))
+      .map((t) => ({
+        id: t.id,
+        priority: (t.priority === 'low' ? 'gentle' : (t.priority || 'medium')) as 'high' | 'medium' | 'gentle',
+        time: 'Scheduled',
+        text: t.text,
+        completed: !!t.completed,
+        date: t.date || TODAY,
+        isExternalTodo: true,
+      }));
+
+    return [...local, ...external];
+  }, [prioritiesList, userDailyTodos, activeDateKey, TODAY]);
+
   // Combined counts for progress calculation
   const totalRoutines = habitsList.length;
   const completedRoutines = habitsList.filter((h) => h.completed).length;
   const remainingRoutines = totalRoutines - completedRoutines;
 
-  const totalPriorities = prioritiesList.length;
-  const remainingPriorities = prioritiesList.filter((p) => !p.completed).length;
+  const remainingPriorities = useMemo(() => {
+    return displayPriorities.filter((p) => !p.completed).length;
+  }, [displayPriorities]);
 
   const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 75;
   const progressOffset = 175.9 - (175.9 * (focusPercent / 100));
+
+  // Week calculation starting Monday
+  const weekStart = useMemo(() => startOfWeek(calendarBaseDate, 1), [calendarBaseDate]);
+
+  const weekRangeTitle = useMemo(() => {
+    const startObj = parseLocalDateKey(weekStart);
+    const endObj = parseLocalDateKey(addDays(weekStart, 6));
+    const startMonth = startObj.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endObj.toLocaleDateString('en-US', { month: 'short' });
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startObj.getDate()} – ${endObj.getDate()}, ${startObj.getFullYear()}`;
+    }
+    return `${startMonth} ${startObj.getDate()} – ${endMonth} ${endObj.getDate()}, ${startObj.getFullYear()}`;
+  }, [weekStart]);
+
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const dKey = addDays(weekStart, i);
+      const dObj = parseLocalDateKey(dKey);
+      const dayNarrow = dObj.toLocaleDateString('en-US', { weekday: 'narrow' });
+      const dayShort = dObj.toLocaleDateString('en-US', { weekday: 'short' });
+      const dayNum = dObj.getDate();
+      const isToday = dKey === TODAY;
+      const isSelected = dKey === activeDateKey;
+      const isAdvance = isAfter(dKey, TODAY);
+      const isPast = isBefore(dKey, TODAY);
+
+      const dayTasks = prioritiesList.filter((p) => (p.date || TODAY) === dKey);
+      const dayTodos = userDailyTodos.filter((t) => (t.date || TODAY) === dKey && !prioritiesList.some(p => p.id === t.id || p.text.trim().toLowerCase() === t.text.trim().toLowerCase()));
+      const totalCount = dayTasks.length + dayTodos.length;
+      const completedCount = dayTasks.filter(p => p.completed).length + dayTodos.filter(t => t.completed).length;
+
+      return {
+        dateKey: dKey,
+        dayNarrow,
+        dayShort,
+        dayNum,
+        isToday,
+        isSelected,
+        isAdvance,
+        isPast,
+        totalCount,
+        completedCount,
+      };
+    });
+  }, [weekStart, activeDateKey, TODAY, prioritiesList, userDailyTodos]);
 
   // Toggle daily habit
   const handleToggleHabit = (id: string) => {
@@ -225,7 +332,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   };
 
   // Toggle priority task
-  const handleTogglePriority = (id: string) => {
+  const handleTogglePriority = (id: string, isExternal?: boolean) => {
+    if (isExternal) {
+      onToggleTodo(id);
+      const item = displayPriorities.find(p => p.id === id);
+      if (item && !item.completed) triggerCelebration();
+      else playPopSound();
+      return;
+    }
+
     setPrioritiesList((prev) =>
       prev.map((p) => {
         if (p.id === id) {
@@ -237,6 +352,43 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         return p;
       })
     );
+
+    const matchingTodo = userDailyTodos.find(t => t.id === id || t.text.trim().toLowerCase() === displayPriorities.find(p => p.id === id)?.text.trim().toLowerCase());
+    if (matchingTodo) {
+      onToggleTodo(matchingTodo.id);
+    }
+  };
+
+  // Delete priority task
+  const handleDeletePriority = (id: string, isExternal?: boolean) => {
+    playPopSound();
+    if (isExternal) {
+      onDeleteTodo(id);
+      return;
+    }
+
+    setPrioritiesList((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    const matchingTodo = userDailyTodos.find(t => t.id === id || t.text.trim().toLowerCase() === displayPriorities.find(p => p.id === id)?.text.trim().toLowerCase());
+    if (matchingTodo) {
+      onDeleteTodo(matchingTodo.id);
+    }
+  };
+
+  // Postpone priority task to tomorrow or future date
+  const handlePostponePriority = (id: string, daysAhead = 1) => {
+    playPopSound();
+    const nextDate = addDays(activeDateKey, daysAhead);
+    setPrioritiesList((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, date: nextDate, time: formatDisplayDate(nextDate) } : p));
+      try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    triggerCelebration();
   };
 
   // Toggle goal subtask
@@ -371,11 +523,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     } catch {}
   };
 
-  // Clear completed priorities
+  // Clear completed priorities on active date
   const handleClearDone = () => {
-    setPrioritiesList((prev) => prev.filter((p) => !p.completed));
+    setPrioritiesList((prev) => prev.filter((p) => {
+      const pDate = p.date || TODAY;
+      return !(pDate === activeDateKey && p.completed);
+    }));
     if (onArchiveCompletedDaily) {
-      onArchiveCompletedDaily(selectedDate || TODAY);
+      onArchiveCompletedDaily(activeDateKey);
     }
     playPopSound();
   };
@@ -550,13 +705,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         });
       }
     } else {
-      // Daily task
+      // Daily priority or Advance priority task
+      const targetDate = newTaskDate || activeDateKey || TODAY;
       const newP: PriorityTaskDef = {
         id: 'p-' + Date.now(),
         priority: newTaskPriority === 'low' ? 'gentle' : newTaskPriority,
-        time: newTaskTime.trim() || 'Today',
+        time: newTaskTime.trim() || (targetDate === TODAY ? 'Today' : formatDisplayDate(targetDate)),
         text,
         completed: false,
+        date: targetDate,
       };
 
       setPrioritiesList((prev) => {
@@ -566,7 +723,13 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       });
 
       if (onAddTodo) {
-        onAddTodo(text, 'daily', newTaskPriority, selectedDate || TODAY, ['priority']);
+        onAddTodo(text, 'daily', newTaskPriority, targetDate, ['priority']);
+      }
+
+      // If scheduled for an advance or different date, switch calendar and active date to that date
+      if (targetDate !== activeDateKey && onSelectDate) {
+        onSelectDate(targetDate);
+        setCalendarBaseDate(targetDate);
       }
     }
 
@@ -717,75 +880,127 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           {/* Section 2: Week at a Glance mini calendar pills */}
           <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle">
             <div className="flex items-center justify-between mb-space-sm px-1">
-              <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
-              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
-                <span>★</span> 100% on Mon–Thu
-              </span>
-            </div>
-            <div className="space-y-2">
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-              {[
-                { key: 'MON', label: 'M', completed: true, icon: 'check_circle', desc: 'Monday: 4 of 4 completed (100%)' },
-                { key: 'TUE', label: 'T', completed: true, icon: 'check_circle', desc: 'Tuesday: 4 of 4 completed (100%)' },
-                { key: 'WED', label: 'W', completed: true, icon: 'check_circle', desc: 'Wednesday: 4 of 4 completed (100%)' },
-                { key: 'THU', label: 'T', completed: true, icon: 'check_circle', desc: 'Thursday: 4 of 4 completed (100%)' },
-                { key: 'FRI', label: 'FRI', isToday: true, icon: '🌟', desc: `Friday (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)` },
-                { key: 'SAT', label: 'S', completed: false, icon: '•', desc: 'Saturday: Weekend rituals planned' },
-                { key: 'SUN', label: 'S', completed: false, icon: '•', desc: 'Sunday: Rest & Weekly Reflection' },
-              ].map((d) => {
-                const isSelected = selectedDay === d.key;
-                return (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => {
-                      playPopSound();
-                      setSelectedDay(d.key);
-                    }}
-                    className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
-                      d.isToday
-                        ? isSelected
-                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
-                          : 'bg-primary/90 text-on-primary shadow-sm'
-                        : isSelected
-                        ? 'bg-mint-subtle text-secondary ring-2 ring-secondary font-bold scale-105'
-                        : d.completed
-                        ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
-                        : 'bg-surface-container text-on-surface-variant opacity-75 hover:opacity-100'
-                    }`}
-                    title={d.desc}
-                  >
-                    <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
-                    {d.isToday ? (
-                      <span className="text-[13px] mt-1 font-bold">🌟</span>
-                    ) : d.completed ? (
-                      <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-                    ) : (
-                      <span className="font-body-sm text-body-sm mt-1">•</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Interactive Day Status Banner */}
-            <div className="p-2 rounded-xl bg-surface-container-low text-[11px] text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
-              <span className="flex items-center gap-1 font-medium">
-                <span>📅</span>
-                <span>
-                  {selectedDay === 'MON' && 'Monday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'TUE' && 'Tuesday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'WED' && 'Wednesday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'THU' && 'Thursday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'FRI' && `Friday (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`}
-                  {selectedDay === 'SAT' && 'Saturday: Light review & rest'}
-                  {selectedDay === 'SUN' && 'Sunday: Sanctuary planning & recharge'}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setCalendarBaseDate((prev) => addDays(prev, -7));
+                  }}
+                  className="w-7 h-7 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                  title="Previous Week"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                </button>
+                <span className="font-label-md text-label-md font-semibold text-on-surface">
+                  {weekRangeTitle}
                 </span>
-              </span>
-              <span className="text-primary font-bold text-[10px]">
-                {selectedDay === 'FRI' ? 'Active' : 'Logged'}
-              </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setCalendarBaseDate((prev) => addDays(prev, 7));
+                  }}
+                  className="w-7 h-7 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                  title="Next Week"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                </button>
+              </div>
+
+              {(calendarBaseDate !== TODAY || activeDateKey !== TODAY) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setCalendarBaseDate(TODAY);
+                    onSelectDate(TODAY);
+                  }}
+                  className="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary bg-lavender-subtle px-2.5 py-1 rounded-full font-bold cursor-pointer hover:bg-lavender-subtle/80 transition-colors shadow-xs"
+                  title="Jump to Today"
+                >
+                  <span>🌟</span> Jump to Today
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
+                  <span>★</span> Current Week
+                </span>
+              )}
             </div>
-          </div>
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+                {weekDays.map((d) => {
+                  return (
+                    <button
+                      key={d.dateKey}
+                      type="button"
+                      onClick={() => {
+                        playPopSound();
+                        onSelectDate(d.dateKey);
+                      }}
+                      className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 relative ${
+                        d.isSelected
+                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed z-10'
+                          : d.isToday
+                          ? 'bg-lavender-subtle text-primary border border-primary/30 font-bold'
+                          : d.totalCount > 0 && d.completedCount === d.totalCount
+                          ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
+                          : 'bg-surface-container text-on-surface-variant opacity-85 hover:opacity-100 hover:bg-surface-container-high'
+                      }`}
+                      title={`${d.dayShort}, ${d.dateKey}: ${d.completedCount}/${d.totalCount} completed`}
+                    >
+                      <span className="font-label-sm text-[11px] font-semibold opacity-90">{d.dayShort}</span>
+                      <span className={`text-[13px] font-bold mt-0.5 ${d.isSelected ? 'text-on-primary' : 'text-on-surface'}`}>
+                        {d.dayNum}
+                      </span>
+                      {d.isToday ? (
+                        <span className="text-[10px] mt-0.5">🌟</span>
+                      ) : d.totalCount > 0 ? (
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold mt-0.5 ${
+                          d.isSelected
+                            ? 'bg-white/20 text-on-primary'
+                            : d.completedCount === d.totalCount
+                            ? 'bg-secondary text-on-secondary'
+                            : 'bg-peach-subtle text-tertiary'
+                        }`}>
+                          {d.totalCount}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] opacity-40 mt-0.5">•</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Interactive Day Status Banner */}
+              <div className="p-2.5 rounded-xl bg-surface-container-low text-xs text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
+                <div className="flex items-center gap-1.5 font-medium truncate">
+                  <span>📅</span>
+                  <span className="truncate">
+                    {activeDateKey === TODAY ? (
+                      <span><strong>Today</strong> ({formatDisplayDate(TODAY)}) · {remainingPriorities > 0 ? `${remainingPriorities} tasks remaining` : 'All tasks completed 🎉'}</span>
+                    ) : isAfter(activeDateKey, TODAY) ? (
+                      <span><strong>Advance Date:</strong> {formatDisplayDate(activeDateKey)} (+{diffInDays(activeDateKey, TODAY)} {diffInDays(activeDateKey, TODAY) === 1 ? 'day' : 'days'} ahead) · {displayPriorities.length} scheduled</span>
+                    ) : (
+                      <span><strong>Past Date:</strong> {formatDisplayDate(activeDateKey)} ({diffInDays(TODAY, activeDateKey)} {diffInDays(TODAY, activeDateKey) === 1 ? 'day' : 'days'} ago) · {displayPriorities.length} logged</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className={`font-bold text-[10px] px-2 py-0.5 rounded-full ${
+                    activeDateKey === TODAY
+                      ? 'bg-primary text-on-primary'
+                      : isAfter(activeDateKey, TODAY)
+                      ? 'bg-mint-subtle text-secondary'
+                      : 'bg-surface-container-high text-on-surface-variant'
+                  }`}>
+                    {activeDateKey === TODAY ? 'Today' : isAfter(activeDateKey, TODAY) ? `+${diffInDays(activeDateKey, TODAY)}d Ahead` : 'Past Log'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Section 3: Habits Checklist Section */}
@@ -892,29 +1107,156 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           {/* Section 4: Quick Task Priorities Section */}
           <section className="space-y-space-md">
             <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Today's Priorities</span>
-                <span className="px-2 py-0.5 rounded-full bg-sunshine-subtle text-sunshine-accent font-label-sm text-label-sm font-bold">
-                  {remainingPriorities} Remaining
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
+                  {activeDateKey === TODAY 
+                    ? "Today's Priorities" 
+                    : isAfter(activeDateKey, TODAY) 
+                    ? "Advance Priorities" 
+                    : "Priorities Log"}
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-bold ${
+                  activeDateKey === TODAY
+                    ? 'bg-sunshine-subtle text-sunshine-accent'
+                    : isAfter(activeDateKey, TODAY)
+                    ? 'bg-mint-subtle text-secondary'
+                    : 'bg-surface-container-high text-on-surface-variant'
+                }`}>
+                  {activeDateKey === TODAY 
+                    ? `${remainingPriorities} Remaining` 
+                    : isAfter(activeDateKey, TODAY)
+                    ? `${remainingPriorities} Scheduled (${formatDisplayDate(activeDateKey)})`
+                    : `${remainingPriorities} Incomplete`}
                 </span>
               </div>
-              <button 
-                onClick={handleClearDone}
-                className="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors cursor-pointer"
+
+              <div className="flex items-center gap-2">
+                {displayPriorities.some(p => p.completed) && (
+                  <button 
+                    onClick={handleClearDone}
+                    className="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors cursor-pointer"
+                  >
+                    Clear Done
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    playPopSound();
+                    setAddMode('daily');
+                    setNewTaskDate(activeDateKey);
+                    setIsAddModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-xs font-bold hover:bg-primary-container active:scale-95 transition-all cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  <span>Set Priority</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Advance Scheduling Shortcuts Bar */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+              <span className="text-[11px] font-bold text-on-surface-variant whitespace-nowrap pl-1">
+                Quick Jump:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  onSelectDate(TODAY);
+                  setCalendarBaseDate(TODAY);
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
+                  activeDateKey === TODAY
+                    ? 'bg-primary text-on-primary border-primary shadow-xs'
+                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
+                }`}
               >
-                Clear Done
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  const tomorrow = addDays(TODAY, 1);
+                  onSelectDate(tomorrow);
+                  setCalendarBaseDate(tomorrow);
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
+                  activeDateKey === addDays(TODAY, 1)
+                    ? 'bg-primary text-on-primary border-primary shadow-xs'
+                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
+                }`}
+              >
+                Tomorrow (+1d)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  const in2Days = addDays(TODAY, 2);
+                  onSelectDate(in2Days);
+                  setCalendarBaseDate(in2Days);
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
+                  activeDateKey === addDays(TODAY, 2)
+                    ? 'bg-primary text-on-primary border-primary shadow-xs'
+                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
+                }`}
+              >
+                In 2 Days (+2d)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playPopSound();
+                  const nextWeek = addDays(TODAY, 7);
+                  onSelectDate(nextWeek);
+                  setCalendarBaseDate(nextWeek);
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
+                  activeDateKey === addDays(TODAY, 7)
+                    ? 'bg-primary text-on-primary border-primary shadow-xs'
+                    : 'bg-surface-card text-on-surface-variant border-border-subtle hover:bg-lavender-subtle hover:text-primary'
+                }`}
+              >
+                Next Week (+7d)
               </button>
             </div>
 
             {/* Task Cards Container */}
             <div className="space-y-2.5">
-              {prioritiesList.length === 0 && userDailyTodos.length === 0 && (
-                <div className="p-6 bg-surface-card rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-1">
-                  <p className="font-semibold text-on-surface">No priority tasks for today</p>
-                  <p>Tap + below to add what matters most today!</p>
+              {displayPriorities.length === 0 && (
+                <div className="p-6 bg-surface-card rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-2">
+                  <div className="text-2xl">🌱</div>
+                  <p className="font-semibold text-on-surface">
+                    {activeDateKey === TODAY 
+                      ? "No priority tasks set for today" 
+                      : isAfter(activeDateKey, TODAY)
+                      ? `No advance priorities scheduled for ${formatDisplayDate(activeDateKey)}`
+                      : `No priorities recorded for ${formatDisplayDate(activeDateKey)}`}
+                  </p>
+                  <p className="text-[11px]">
+                    {isAfter(activeDateKey, TODAY)
+                      ? "Plan ahead! Set high-impact priorities before the day arrives."
+                      : "Tap below to add what matters most!"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setAddMode('daily');
+                      setNewTaskDate(activeDateKey);
+                      setIsAddModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-xs hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>+ Set Priority for {activeDateKey === TODAY ? 'Today' : formatDisplayDate(activeDateKey)}</span>
+                  </button>
                 </div>
               )}
-              {prioritiesList.map((task) => (
+
+              {displayPriorities.map((task) => (
                 <div 
                   key={task.id}
                   className={`task-card flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle ${
@@ -924,7 +1266,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   }`}
                 >
                   <button 
-                    onClick={() => handleTogglePriority(task.id)}
+                    onClick={() => handleTogglePriority(task.id, task.isExternalTodo)}
                     className={`task-checkbox mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center active:scale-95 shrink-0 transition-colors cursor-pointer ${
                       task.completed 
                         ? 'bg-secondary text-on-secondary' 
@@ -944,6 +1286,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       }`}>
                         {task.priority === 'high' ? '🌸 High Priority' : task.priority === 'medium' ? '💜 Medium Priority' : '🌿 Gentle Priority'}
                       </span>
+                      {task.date && task.date !== TODAY && (
+                        <span className="font-label-sm text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/10 text-primary flex items-center gap-1">
+                          <span>📅</span> {formatDisplayDate(task.date)}
+                        </span>
+                      )}
                       <span className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
                         <span className="material-symbols-outlined text-[13px]">schedule</span> {task.time}
                       </span>
@@ -968,10 +1315,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       <span className="material-symbols-outlined text-[18px]">more_vert</span>
                     </button>
                     {activePriorityMenuId === task.id && (
-                      <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[130px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                      <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
                         <button
                           onClick={() => {
-                            handleTogglePriority(task.id);
+                            handleTogglePriority(task.id, task.isExternalTodo);
                             setActivePriorityMenuId(null);
                           }}
                           className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer"
@@ -979,10 +1326,33 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                           <span className="material-symbols-outlined text-[15px]">{task.completed ? 'undo' : 'check'}</span>
                           <span>{task.completed ? 'Mark Undone' : 'Mark Done'}</span>
                         </button>
+                        {!task.isExternalTodo && (
+                          <>
+                            <button
+                              onClick={() => {
+                                handlePostponePriority(task.id, 1);
+                                setActivePriorityMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer text-primary font-medium"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">event_repeat</span>
+                              <span>Postpone to Tomorrow</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                handlePostponePriority(task.id, 7);
+                                setActivePriorityMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer text-primary font-medium"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">next_plan</span>
+                              <span>Shift to Next Week (+7d)</span>
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => {
-                            setPrioritiesList((prev) => prev.filter((p) => p.id !== task.id));
-                            playPopSound();
+                            handleDeletePriority(task.id, task.isExternalTodo);
                             setActivePriorityMenuId(null);
                           }}
                           className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-peach-subtle text-tertiary flex items-center gap-1.5 cursor-pointer font-semibold"
@@ -993,66 +1363,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
-
-              {/* Dynamic user todos */}
-              {userDailyTodos.map((todo) => (
-                <div 
-                  key={todo.id}
-                  className={`task-card flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle ${
-                    todo.completed 
-                      ? 'bg-surface-container-low opacity-75' 
-                      : 'bg-surface-card'
-                  }`}
-                >
-                  <button 
-                    onClick={() => {
-                      onToggleTodo(todo.id);
-                      if (!todo.completed) triggerCelebration();
-                      else playPopSound();
-                    }}
-                    className={`task-checkbox mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center active:scale-95 shrink-0 transition-colors cursor-pointer ${
-                      todo.completed 
-                        ? 'bg-secondary text-on-secondary' 
-                        : 'bg-surface-container text-transparent hover:text-outline-variant'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">done</span>
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${
-                        todo.priority === 'high' 
-                          ? 'bg-peach-subtle text-on-tertiary-fixed-variant'
-                          : todo.priority === 'low'
-                          ? 'bg-mint-subtle text-secondary'
-                          : 'bg-lavender-subtle text-primary'
-                      }`}>
-                        {todo.priority === 'high' ? '🌸 High Priority' : todo.priority === 'low' ? '🌿 Gentle Priority' : '💜 Medium Priority'}
-                      </span>
-                      <span className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[13px]">schedule</span> Today
-                      </span>
-                    </div>
-                    <p className={`task-title font-body-lg text-body-lg leading-snug ${
-                      todo.completed 
-                        ? 'line-through text-on-surface-variant' 
-                        : 'text-on-surface'
-                    }`}>
-                      {todo.text}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      onDeleteTodo(todo.id);
-                      playPopSound();
-                    }}
-                    className="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer"
-                    title="Delete task"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                  </button>
                 </div>
               ))}
             </div>
@@ -1567,7 +1877,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   addMode === 'daily' ? 'bg-surface-card text-primary shadow-xs' : 'text-on-surface-variant'
                 }`}
               >
-                Today's Priority
+                Priority / Advance
               </button>
               <button
                 onClick={() => setAddMode('routine')}
@@ -1653,15 +1963,87 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               )}
 
               {addMode === 'daily' && (
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1">Scheduled Time</label>
-                  <input
-                    type="text"
-                    value={newTaskTime}
-                    onChange={(e) => setNewTaskTime(e.target.value)}
-                    placeholder="e.g., 4:00 PM, Today, Evening"
-                    className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
-                  />
+                <div className="space-y-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-on-surface-variant">
+                        Scheduled Date
+                      </label>
+                      <span className="text-[11px] font-semibold text-primary">
+                        {newTaskDate === TODAY 
+                          ? 'Today' 
+                          : isAfter(newTaskDate, TODAY) 
+                          ? `Advance (+${diffInDays(newTaskDate, TODAY)}d)` 
+                          : formatDisplayDate(newTaskDate)}
+                      </span>
+                    </div>
+                    
+                    {/* Quick Date Pills */}
+                    <div className="grid grid-cols-4 gap-1.5 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewTaskDate(TODAY)}
+                        className={`py-1.5 px-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                          newTaskDate === TODAY
+                            ? 'bg-primary text-on-primary border-primary shadow-xs'
+                            : 'bg-surface-container border-border-subtle text-on-surface-variant hover:bg-surface-container-high'
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewTaskDate(addDays(TODAY, 1))}
+                        className={`py-1.5 px-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                          newTaskDate === addDays(TODAY, 1)
+                            ? 'bg-primary text-on-primary border-primary shadow-xs'
+                            : 'bg-surface-container border-border-subtle text-on-surface-variant hover:bg-surface-container-high'
+                        }`}
+                      >
+                        Tomorrow
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewTaskDate(addDays(TODAY, 2))}
+                        className={`py-1.5 px-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                          newTaskDate === addDays(TODAY, 2)
+                            ? 'bg-primary text-on-primary border-primary shadow-xs'
+                            : 'bg-surface-container border-border-subtle text-on-surface-variant hover:bg-surface-container-high'
+                        }`}
+                      >
+                        +2 Days
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewTaskDate(addDays(TODAY, 7))}
+                        className={`py-1.5 px-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                          newTaskDate === addDays(TODAY, 7)
+                            ? 'bg-primary text-on-primary border-primary shadow-xs'
+                            : 'bg-surface-container border-border-subtle text-on-surface-variant hover:bg-surface-container-high'
+                        }`}
+                      >
+                        +7 Days
+                      </button>
+                    </div>
+
+                    <input
+                      type="date"
+                      value={newTaskDate}
+                      onChange={(e) => setNewTaskDate(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest font-medium text-on-surface"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Scheduled Time / Note</label>
+                    <input
+                      type="text"
+                      value={newTaskTime}
+                      onChange={(e) => setNewTaskTime(e.target.value)}
+                      placeholder="e.g., 4:00 PM, Morning, High Energy"
+                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1735,7 +2117,13 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               onClick={handleCreateItem}
               className="w-full py-3 rounded-full bg-primary text-on-primary font-bold text-xs shadow-md shadow-primary/25 active:scale-95 transition-all mt-2 cursor-pointer"
             >
-              Add to Daily Journey ✨
+              {addMode === 'daily'
+                ? newTaskDate === TODAY
+                  ? "Add to Today's Priorities ✨"
+                  : `Schedule for ${formatDisplayDate(newTaskDate)} ✨`
+                : addMode === 'routine'
+                ? 'Save Daily Habit ✨'
+                : 'Create Goal Arc ✨'}
             </button>
           </div>
         </div>
