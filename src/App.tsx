@@ -164,7 +164,7 @@ export function App() {
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [financeCategories, setFinanceCategories] = useState<FinanceCategory[]>(DEFAULT_FINANCE_CATEGORIES);
-  const [financeCurrency, setFinanceCurrency] = useState<string>('₹');
+  const [financeCurrency, setFinanceCurrency] = useState<string>('$');
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
   const [defaultFinanceType, setDefaultFinanceType] = useState<TransactionType>('expense');
@@ -2243,6 +2243,35 @@ export function App() {
             setIsLocked(true);
           }}
         />
+      ) : workspaceView === 'finance' && !searchQuery.trim() ? (
+        <FinanceDashboard
+          transactions={transactions}
+          categories={financeCategories}
+          currency={financeCurrency}
+          onChangeCurrency={handleChangeFinanceCurrency}
+          onOpenAddModal={(type, cat) => {
+            setEditingTransaction(null);
+            setDefaultFinanceType(type || 'expense');
+            setDefaultFinanceCategory(cat);
+            setIsFinanceModalOpen(true);
+          }}
+          onEditTransaction={(tx) => {
+            setEditingTransaction(tx);
+            setIsFinanceModalOpen(true);
+          }}
+          onDeleteTransaction={handleDeleteFinanceTransaction}
+          onSaveCategory={handleSaveFinanceCategory}
+          onDeleteCategory={handleDeleteFinanceCategory}
+          onQuickAdd={handleSaveFinanceTransaction}
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
+        />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
           
@@ -2555,7 +2584,7 @@ export function App() {
             )}
 
             {/* 4. FINANCE & EXPENSES SECTION: Minimal Mibu Tracker */}
-            {workspaceView === 'finance' && (
+            {workspaceView === 'both' && (
               <div className="pt-2">
                 <FinanceDashboard
                   transactions={transactions}

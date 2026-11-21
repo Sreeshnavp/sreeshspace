@@ -38,12 +38,28 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator && !window.location.host.includes('localhost:5173')) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch((err) => {
-            console.log('SW registration note:', err);
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if ('serviceWorker' in navigator) {
+        if (isLocalhost) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister();
+            }
           });
-        });
+          if ('caches' in window) {
+            caches.keys().then((names) => {
+              for (const name of names) {
+                caches.delete(name);
+              }
+            });
+          }
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch((err) => {
+              console.log('SW registration note:', err);
+            });
+          });
+        }
       }
     </script>
   </body>
