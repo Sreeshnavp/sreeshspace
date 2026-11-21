@@ -48,17 +48,13 @@ interface ExpenseCategoryDef {
   name: string;
   emoji: string;
   icon: string;
+  cap?: number;
   bg: string;
   iconColor: string;
   barColor: string;
 }
 
-const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [
-  { id: 'cat-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
-  { id: 'cat-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
-  { id: 'cat-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
-  { id: 'cat-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
-];
+const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [];
 
 const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [];
 
@@ -158,7 +154,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     } catch {}
   };
 
-  // 2. DYNAMIC EXPENSE CATEGORIES LIST (NO CAP SYSTEM)
+  // 2. DYNAMIC EXPENSE CATEGORIES LIST (WITH CAP SYSTEM)
   const [categoriesList, setCategoriesList] = useState<ExpenseCategoryDef[]>(() => {
     try {
       const saved = localStorage.getItem(CATEGORIES_KEY) || localStorage.getItem('sreesh-allowances-list-v2');
@@ -171,6 +167,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             name: c.name,
             emoji: c.emoji || '✨',
             icon: c.icon || 'category',
+            cap: Number(c.cap) > 0 ? Number(c.cap) : 500,
             bg: c.bg || 'bg-lavender-subtle/80',
             iconColor: c.iconColor || 'text-primary/15',
             barColor: c.barColor || 'bg-primary',
@@ -230,16 +227,32 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [statementSearch, setStatementSearch] = useState('');
 
-  // Quick Log form state
+  // Quick Log form state (ONLY user created categories)
   const [logType, setLogType] = useState<'expense' | 'income' | 'goal'>('expense');
-  const [logCategory, setLogCategory] = useState('Food & Cafe');
+  const [logCategory, setLogCategory] = useState<string>(() => {
+    return categoriesList[0]?.name || '';
+  });
   const [rawDigits, setRawDigits] = useState('0');
   const [logNote, setLogNote] = useState('');
 
-  // Add Category form state (no cap)
+  // Keep logCategory synchronized to available categories
+  useEffect(() => {
+    if (categoriesList.length > 0) {
+      if (!logCategory || !categoriesList.some((c) => c.name === logCategory)) {
+        setLogCategory(categoriesList[0].name);
+      }
+    } else {
+      setLogCategory('');
+    }
+  }, [categoriesList, logCategory]);
+
+  // Add Category form state (WITH CAP)
   const [newCatName, setNewCatName] = useState('');
   const [newCatEmoji, setNewCatEmoji] = useState('✨');
+  const [newCatCap, setNewCatCap] = useState('500');
   const [isAddingNewCat, setIsAddingNewCat] = useState(false);
+  const [editingCapId, setEditingCapId] = useState<string | null>(null);
+  const [editingCapValue, setEditingCapValue] = useState('');
 
   // New goal form state (Actual date input)
   const [newGoalTitle, setNewGoalTitle] = useState('');
@@ -310,14 +323,25 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const intAmt = parseInt(rawDigits || '0', 10);
     if (intAmt <= 0) return;
 
+    if (categoriesList.length === 0) {
+      alert('Please create a category first before adding an expense or income!');
+      setIsManageCategoriesModalOpen(true);
+      setIsAddingNewCat(true);
+      return;
+    }
+
+    const chosenCat = categoriesList.find((c) => c.name === logCategory) || categoriesList[0];
+    const catName = chosenCat?.name || logCategory || 'General';
+    const catIcon = chosenCat?.emoji || '✨';
+
     const newTx: FinanceTransaction = {
       id: 'tx-' + Date.now(),
       type: logType === 'income' ? 'income' : 'expense',
       amount: intAmt,
-      category: logCategory,
-      categoryIcon: logCategory.includes('Food') ? '☕' : logCategory.includes('Tech') ? '💻' : logCategory.includes('Shopping') ? '🛍️' : logCategory.includes('Knowledge') ? '📚' : '✨',
-      note: logNote.trim() || logCategory,
-      merchant: logCategory,
+      category: catName,
+      categoryIcon: catIcon,
+      note: logNote.trim() || catName,
+      merchant: catName,
       date: TODAY,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -416,7 +440,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     saveGoalsList(next);
   };
 
-  // Handle Category Management (NO CAP)
+  // Handle Category Management (WITH CAP)
   const handleDeleteCategory = (id: string) => {
     playPopSound();
     const next = categoriesList.filter((a) => a.id !== id);
@@ -426,21 +450,45 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     }
   };
 
+  const handleUpdateCap = (id: string, newCap: number) => {
+    if (newCap <= 0) return;
+    const next = categoriesList.map((c) => (c.id === id ? { ...c, cap: newCap } : c));
+    saveCategoriesList(next);
+    if (selectedCategoryForSpendView && selectedCategoryForSpendView.id === id) {
+      setSelectedCategoryForSpendView({ ...selectedCategoryForSpendView, cap: newCap });
+    }
+    setEditingCapId(null);
+    triggerCelebration();
+  };
+
   const handleAddNewCategory = () => {
     if (!newCatName.trim()) return;
+    const capNum = parseInt(newCatCap.replace(/[^0-9]/g, ''), 10) || 500;
+    const colorThemes = [
+      { bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent', icon: 'local_cafe' },
+      { bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent', icon: 'laptop_mac' },
+      { bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container', icon: 'shopping_bag' },
+      { bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary', icon: 'menu_book' },
+      { bg: 'bg-mint-subtle/80', iconColor: 'text-secondary/15', barColor: 'bg-secondary', icon: 'eco' },
+    ];
+    const theme = colorThemes[categoriesList.length % colorThemes.length];
+
     const newCat: ExpenseCategoryDef = {
       id: 'cat-' + Date.now(),
       key: newCatName.toLowerCase().replace(/\s+/g, '-'),
       name: newCatName.trim(),
       emoji: newCatEmoji.trim() || '✨',
-      icon: 'category',
-      bg: 'bg-lavender-subtle/80',
-      iconColor: 'text-primary/15',
-      barColor: 'bg-primary',
+      icon: theme.icon,
+      cap: capNum,
+      bg: theme.bg,
+      iconColor: theme.iconColor,
+      barColor: theme.barColor,
     };
     const next = [...categoriesList, newCat];
     saveCategoriesList(next);
+    setLogCategory(newCat.name);
     setNewCatName('');
+    setNewCatCap('500');
     setIsAddingNewCat(false);
     triggerCelebration();
   };
@@ -1137,14 +1185,33 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Dynamic Category Cards Grid (NO CAP SYSTEM - EXACT SAME DESIGN) */}
+            {/* Dynamic Category Cards Grid (WITH CAP SYSTEM) */}
             <div className="grid grid-cols-2 gap-space-sm">
+              {categoriesList.length === 0 && (
+                <div className="col-span-2 p-6 rounded-3xl bg-surface-card border border-dashed border-border-subtle text-center space-y-2">
+                  <div className="text-2xl">🌱</div>
+                  <p className="font-semibold text-xs text-on-surface">No expense categories yet</p>
+                  <p className="text-[11px] text-on-surface-variant">Create your first custom category with monthly cap!</p>
+                  <button
+                    onClick={() => {
+                      playPopSound();
+                      setIsManageCategoriesModalOpen(true);
+                      setIsAddingNewCat(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs cursor-pointer shadow-xs"
+                  >
+                    <span>+ Add Category</span>
+                  </button>
+                </div>
+              )}
               {categoriesList.map((c) => {
                 const catSpent = localTransactions
                   .filter((tx) => (tx.type as string) !== 'income' && matchesCategory(tx, c))
                   .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
-                const catPct = totalSpent > 0 ? Math.min(100, Math.round((catSpent / totalSpent) * 100)) : 0;
+                const capVal = c.cap || 500;
+                const pct = capVal > 0 ? Math.min(100, Math.round((catSpent / capVal) * 100)) : 0;
+                const isOverCap = capVal > 0 && catSpent > capVal;
 
                 return (
                   <div 
@@ -1166,19 +1233,29 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
                         <span className="text-[18px]">{c.emoji}</span>
                       </div>
-                      <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">
-                        {catPct}%
+                      <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${
+                        isOverCap
+                          ? 'bg-peach-subtle text-tertiary'
+                          : 'bg-surface-card/80 text-on-surface'
+                      }`}>
+                        {pct}%
                       </span>
                     </div>
                     <div>
                       <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
+                      <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
                         <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
                           {currency}{Math.round(catSpent).toLocaleString('en-IN')}
                         </span>
+                        <span className="font-body-sm text-body-sm text-on-surface-variant font-medium">
+                          / {currency}{Math.round(capVal).toLocaleString('en-IN')}
+                        </span>
                       </div>
                       <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                        <div className={`h-full rounded-full ${c.barColor || 'bg-primary'}`} style={{ width: `${catPct}%` }}></div>
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${isOverCap ? 'bg-tertiary' : c.barColor || 'bg-primary'}`} 
+                          style={{ width: `${pct}%` }}
+                        ></div>
                       </div>
                     </div>
                   </div>
@@ -1355,7 +1432,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 8. FULL EXPENSE BREAKDOWN MODAL (NO CAP)                 */}
+      {/* 8. FULL EXPENSE BREAKDOWN MODAL (WITH CAP)               */}
       {/* ======================================================== */}
       {selectedCategoryForSpendView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1381,21 +1458,55 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Metrics Row (NO CAP) */}
-            <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-center">
-              <div>
-                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Total Spent</span>
-                <span className="text-base font-bold text-tertiary">
-                  {currency}{Math.round(selectedCategorySpentTotal).toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div>
-                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Share of Expenses</span>
-                <span className="text-base font-bold text-primary">
-                  {totalSpent > 0 ? Math.round((selectedCategorySpentTotal / totalSpent) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+            {/* Metrics Row (WITH CAP) */}
+            {(() => {
+              const capVal = selectedCategoryForSpendView.cap || 500;
+              const capPct = Math.round((selectedCategorySpentTotal / capVal) * 100);
+              const isOver = selectedCategorySpentTotal > capVal;
+              return (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-center">
+                    <div>
+                      <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Total Spent</span>
+                      <span className="text-sm font-bold text-tertiary">
+                        {currency}{Math.round(selectedCategorySpentTotal).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Monthly Cap</span>
+                      <span className="text-sm font-bold text-on-surface">
+                        {currency}{Math.round(capVal).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Cap Used</span>
+                      <span className={`text-sm font-bold ${isOver ? 'text-tertiary' : 'text-primary'}`}>
+                        {capPct}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cap Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-on-surface-variant">
+                      <span>Monthly Budget Status</span>
+                      <span className={isOver ? 'text-tertiary font-bold' : 'text-secondary font-bold'}>
+                        {isOver 
+                          ? `Over Cap by ${currency}${Math.round(selectedCategorySpentTotal - capVal).toLocaleString('en-IN')}!`
+                          : `${currency}${Math.round(capVal - selectedCategorySpentTotal).toLocaleString('en-IN')} remaining`
+                        }
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${isOver ? 'bg-tertiary' : 'bg-primary'}`}
+                        style={{ width: `${Math.min(100, capPct)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Quick Actions Row */}
             <div className="flex items-center gap-2">
@@ -1470,7 +1581,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 9. MANAGE CATEGORIES MODAL (NO CAP)                      */}
+      {/* 9. MANAGE CATEGORIES MODAL (WITH CAP)                    */}
       {/* ======================================================== */}
       {isManageCategoriesModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1479,7 +1590,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-xl">🌿</span>
                 <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
-                  Manage Categories
+                  Manage Categories & Caps
                 </h3>
               </div>
               <button 
@@ -1492,30 +1603,80 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
             {/* Existing Categories List */}
             <div className="space-y-2">
-              {categoriesList.map((c) => (
-                <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{c.emoji}</span>
-                    <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteCategory(c.id)}
-                    className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
-                    title="Delete category"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
+              {categoriesList.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
+                  No categories created yet. Click "+ Add New Category" below to create one!
                 </div>
-              ))}
+              ) : (
+                categoriesList.map((c) => (
+                  <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">{c.emoji}</span>
+                        <div>
+                          <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
+                          <span className="text-[11px] text-on-surface-variant">
+                            Cap: <strong className="text-on-surface">{currency}{c.cap || 500}</strong> / mo
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            if (editingCapId === c.id) {
+                              setEditingCapId(null);
+                            } else {
+                              setEditingCapId(c.id);
+                              setEditingCapValue(String(c.cap || 500));
+                            }
+                          }}
+                          className="px-2 py-1 rounded-lg bg-surface-card hover:bg-lavender-subtle text-primary text-[11px] font-bold border border-border-subtle transition-colors cursor-pointer"
+                          title="Edit category monthly cap"
+                        >
+                          {editingCapId === c.id ? 'Close' : 'Edit Cap'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(c.id)}
+                          className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                          title="Delete category"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline Cap Editor */}
+                    {editingCapId === c.id && (
+                      <div className="pt-2 border-t border-border-subtle flex items-center gap-2">
+                        <span className="text-[11px] font-semibold text-on-surface-variant">Monthly Cap: {currency}</span>
+                        <input
+                          type="number"
+                          value={editingCapValue}
+                          onChange={(e) => setEditingCapValue(e.target.value)}
+                          className="w-24 px-2 py-1 rounded-xl bg-surface-card border border-primary text-xs font-bold text-on-surface"
+                          autoFocus
+                          placeholder="500"
+                        />
+                        <button
+                          onClick={() => handleUpdateCap(c.id, Number(editingCapValue) || 500)}
+                          className="px-3 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Add New Category Section */}
             {isAddingNewCat ? (
-              <div className="p-3 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2">
-                <span className="font-bold text-xs text-primary block">+ New Category</span>
+              <div className="p-3.5 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2.5">
+                <span className="font-bold text-xs text-primary block">+ New Category with Cap</span>
                 <input 
                   type="text"
-                  placeholder="Category Name (e.g. Travel, Gym, Gifts)"
+                  placeholder="Category Name (e.g. Travel, Gym, Dining)"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
                   className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
@@ -1523,15 +1684,27 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 />
                 <input 
                   type="text"
-                  placeholder="Emoji Icon (e.g. ✈️, 🏋️)"
+                  placeholder="Emoji Icon (e.g. ✈️, 🏋️, 🍔)"
                   value={newCatEmoji}
                   onChange={(e) => setNewCatEmoji(e.target.value)}
                   className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
                 />
+                <div>
+                  <label className="block text-[10px] font-semibold text-on-surface-variant uppercase mb-1">
+                    Monthly Cap ({currency})
+                  </label>
+                  <input 
+                    type="number"
+                    placeholder="Monthly Cap (e.g. 500)"
+                    value={newCatCap}
+                    onChange={(e) => setNewCatCap(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                  />
+                </div>
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={handleAddNewCategory}
-                    className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs"
+                    className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs active:scale-95 cursor-pointer"
                   >
                     Add Category
                   </button>
@@ -1614,31 +1787,59 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Category Selector Dropdown */}
+            {/* Category Selector Dropdown (ONLY USER CREATED CATEGORIES) */}
             <div className="space-y-1.5">
-              <label className="block font-label-sm text-label-sm text-on-surface-variant font-semibold">
-                Select Category
-              </label>
-              <div className="relative">
-                <select 
-                  value={logCategory}
-                  onChange={(e) => setLogCategory(e.target.value)}
-                  className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
+              <div className="flex items-center justify-between">
+                <label className="block font-label-sm text-label-sm text-on-surface-variant font-semibold">
+                  Select Category
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsManageCategoriesModalOpen(true);
+                    setIsAddingNewCat(true);
+                  }}
+                  className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-0.5"
                 >
-                  {categoriesList.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.emoji} {cat.name}
-                    </option>
-                  ))}
-                  <option value="Transport">🚕 Transport</option>
-                  <option value="Living & Bills">🏠 Living &amp; Bills</option>
-                  <option value="Freelance">💰 Freelance / Income</option>
-                  <option value="Other">✨ Other</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-[20px]">expand_more</span>
-                </div>
+                  <span className="material-symbols-outlined text-[13px]">add</span>
+                  <span>New Category</span>
+                </button>
               </div>
+
+              {categoriesList.length === 0 ? (
+                <div className="p-3 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle flex items-center justify-between">
+                  <span className="text-xs text-on-surface-variant font-medium">No categories created yet</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setIsManageCategoriesModalOpen(true);
+                      setIsAddingNewCat(true);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs"
+                  >
+                    + Create One
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <select 
+                    value={logCategory}
+                    onChange={(e) => setLogCategory(e.target.value)}
+                    className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
+                  >
+                    {categoriesList.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.emoji} {cat.name} (Cap: {currency}{cat.cap || 500})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Display & Presets Area */}
