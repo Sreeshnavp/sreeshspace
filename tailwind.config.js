@@ -140,6 +140,17 @@ export default {
         'on-error': '#ffffff',
         'error-container': '#ffdad6',
         'on-error-container': '#93000a',
+        vault: {
+          pink: '#FDECEF',
+          lavender: '#EAE6FD',
+          butter: '#FEF7DB',
+          mint: '#E4F4EC',
+          accent: '#B32675',
+          dark: '#252033',
+          subtle: '#6A6577',
+          pillBg: '#FFF7ED',
+          cream: '#FAF8F5'
+        },
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', '"Public Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
@@ -188,9 +199,11 @@ export default {
       },
       boxShadow: {
         '2xs': '0 1px 2px rgba(28, 25, 23, 0.04)',
-        'soft': '0 2px 8px -1px rgba(28, 25, 23, 0.06), 0 1px 3px -1px rgba(28, 25, 23, 0.04)',
+        'soft': '0 8px 30px rgba(0, 0, 0, 0.04)',
         'soft-hover': '0 8px 24px -4px rgba(28, 25, 23, 0.10), 0 3px 8px -2px rgba(28, 25, 23, 0.04)',
         'raised': '0 10px 30px -5px rgba(28, 25, 23, 0.12), 0 4px 10px -2px rgba(28, 25, 23, 0.06)',
+        'pill': '0 2px 10px rgba(179, 38, 117, 0.12)',
+        'floating': '0 10px 25px -3px rgba(179, 38, 117, 0.4), 0 4px 6px -4px rgba(179, 38, 117, 0.2)',
         'tactile': '3px 3px 0 rgb(var(--text-main))',
         'tactile-yellow': '3px 3px 0 rgb(var(--accent))',
         'tactile-hover': '5px 5px 0 rgb(var(--text-main))',

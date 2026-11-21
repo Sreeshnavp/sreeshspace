@@ -2272,6 +2272,27 @@ export function App() {
             setIsLocked(true);
           }}
         />
+      ) : workspaceView === 'reels' && !searchQuery.trim() ? (
+        <ReelsArea
+          reels={reels}
+          categories={reelCategories}
+          onSaveReel={handleSaveReel}
+          onDeleteReel={handleDeleteReel}
+          onToggleFavoriteReel={handleToggleFavoriteReel}
+          onReorderReels={handleReorderReels}
+          onSaveCategory={handleSaveReelCategory}
+          onDeleteCategory={handleDeleteReelCategory}
+          onReorderCategories={handleReorderReelCategories}
+          onMoveReelCategory={handleMoveReelCategory}
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
+        />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
           
@@ -2566,7 +2587,7 @@ export function App() {
             )}
 
             {/* 3. INSTAGRAM REELS VAULT SECTION: Saved Reels & Fullscreen Swiper Sequence */}
-            {workspaceView === 'reels' && (
+            {workspaceView === 'both' && (
               <div className="pt-2">
                 <ReelsArea
                   reels={reels}

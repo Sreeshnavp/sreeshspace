@@ -41,12 +41,10 @@ export const PREINSTALLED_REEL_CATEGORY_IDS = new Set([
 export const PREINSTALLED_REEL_CATEGORY_NAMES = new Set([
   'fitness & gym',
   'recipes',
-  'coding & tech',
   'aesthetic & vibe',
   'travel & trips',
   'travel',
   'fitness',
-  'coding',
   'aesthetic',
 ]);
 
