@@ -26,38 +26,38 @@ export interface FinanceDashboardProps {
 }
 
 const FINANCE_TX_KEY = 'orbit_finance_transactions_v1';
-const ALLOWANCES_KEY = 'sreesh-allowances-list-v2';
+const CATEGORIES_KEY = 'sreesh-finance-categories-v2';
 const GOALS_KEY = 'sreesh-goals-list-v2';
 
 interface FinancialGoalDef {
   id: string;
   title: string;
   emoji: string;
-  tag: string;
-  tagColor: string;
+  targetDate?: string;
+  tag?: string;
+  tagColor?: string;
   subtitle: string;
   current: number;
   target: number;
   gradient: string;
 }
 
-interface AllowanceCategoryDef {
+interface ExpenseCategoryDef {
   id: string;
   key: string;
   name: string;
   emoji: string;
   icon: string;
-  cap: number;
   bg: string;
   iconColor: string;
   barColor: string;
 }
 
-const DEFAULT_CATEGORIES: AllowanceCategoryDef[] = [
-  { id: 'allw-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', cap: 500, bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
-  { id: 'allw-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', cap: 150, bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
-  { id: 'allw-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', cap: 400, bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
-  { id: 'allw-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', cap: 100, bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
+const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [
+  { id: 'cat-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
+  { id: 'cat-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
+  { id: 'cat-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
+  { id: 'cat-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
 ];
 
 const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [
@@ -138,6 +138,36 @@ export function matchesCategory(tx: FinanceTransaction, cat: { name: string; key
   return false;
 }
 
+/**
+ * Calculates remaining days from today until target date.
+ */
+export function calculateDaysRemaining(targetDateStr?: string): { days: number; label: string; isPast: boolean } {
+  if (!targetDateStr) {
+    return { days: 0, label: 'No deadline', isPast: false };
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(targetDateStr);
+  target.setHours(0, 0, 0, 0);
+
+  if (isNaN(target.getTime())) {
+    return { days: 0, label: targetDateStr, isPast: false };
+  }
+
+  const diffMs = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return { days: 0, label: 'Due today! 🎯', isPast: false };
+  } else if (diffDays === 1) {
+    return { days: 1, label: '1 day left', isPast: false };
+  } else if (diffDays > 1) {
+    return { days: diffDays, label: `${diffDays} days left`, isPast: false };
+  } else {
+    return { days: diffDays, label: `Expired ${Math.abs(diffDays)}d ago`, isPast: true };
+  }
+}
+
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions = [],
   currency = '₹',
@@ -189,26 +219,37 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     } catch {}
   };
 
-  // 2. DYNAMIC CATEGORY ALLOWANCES LIST
-  const [allowancesList, setAllowancesList] = useState<AllowanceCategoryDef[]>(() => {
+  // 2. DYNAMIC EXPENSE CATEGORIES LIST (NO CAP SYSTEM)
+  const [categoriesList, setCategoriesList] = useState<ExpenseCategoryDef[]>(() => {
     try {
-      const saved = localStorage.getItem(ALLOWANCES_KEY);
+      const saved = localStorage.getItem(CATEGORIES_KEY) || localStorage.getItem('sreesh-allowances-list-v2');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c) => ({
+            id: c.id || 'cat-' + Math.random(),
+            key: c.key || c.name.toLowerCase().replace(/\s+/g, '-'),
+            name: c.name,
+            emoji: c.emoji || '✨',
+            icon: c.icon || 'category',
+            bg: c.bg || 'bg-lavender-subtle/80',
+            iconColor: c.iconColor || 'text-primary/15',
+            barColor: c.barColor || 'bg-primary',
+          }));
+        }
       }
     } catch {}
     return DEFAULT_CATEGORIES;
   });
 
-  const saveAllowancesList = (next: AllowanceCategoryDef[]) => {
-    setAllowancesList(next);
+  const saveCategoriesList = (next: ExpenseCategoryDef[]) => {
+    setCategoriesList(next);
     try {
-      localStorage.setItem(ALLOWANCES_KEY, JSON.stringify(next));
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
     } catch {}
   };
 
-  // 3. FINANCIAL GOALS STATE
+  // 3. FINANCIAL GOALS STATE WITH ACTUAL DATE AND REMAINING CALCULATION
   const [goalsList, setGoalsList] = useState<FinancialGoalDef[]>(() => {
     try {
       const saved = localStorage.getItem(GOALS_KEY);
@@ -222,8 +263,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         id: 'macbook',
         title: 'M3 MacBook Air Fund',
         emoji: '💻',
-        tag: 'Auto-Save',
-        tagColor: 'bg-sky-subtle text-sky-accent',
+        targetDate: '2026-12-31',
         subtitle: '+₹150 auto-saved every Fri · Midnight starlight',
         current: 1050,
         target: 1400,
@@ -233,8 +273,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         id: 'kyoto',
         title: 'Kyoto Autumn Trip',
         emoji: '🍁',
-        tag: 'Target Nov',
-        tagColor: 'bg-peach-subtle text-tertiary',
+        targetDate: '2026-11-30',
         subtitle: '₹600 of ₹1,200 saved',
         current: 600,
         target: 1200,
@@ -264,8 +303,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [activeGoalForDeposit, setActiveGoalForDeposit] = useState<FinancialGoalDef | null>(null);
   const [depositAmountInput, setDepositAmountInput] = useState('50');
 
-  const [isEditCapsModalOpen, setIsEditCapsModalOpen] = useState(false);
-  const [selectedCategoryForSpendView, setSelectedCategoryForSpendView] = useState<AllowanceCategoryDef | null>(null);
+  // Deletion Confirmation State (REQUIRED FOR LOG DELETION)
+  const [transactionToDelete, setTransactionToDelete] = useState<FinanceTransaction | null>(null);
+
+  const [isManageCategoriesModalOpen, setIsManageCategoriesModalOpen] = useState(false);
+  const [selectedCategoryForSpendView, setSelectedCategoryForSpendView] = useState<ExpenseCategoryDef | null>(null);
   const [isFullStatementOpen, setIsFullStatementOpen] = useState(false);
   const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [statementSearch, setStatementSearch] = useState('');
@@ -276,27 +318,24 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [rawDigits, setRawDigits] = useState('0');
   const [logNote, setLogNote] = useState('');
 
-  // Add / Edit Category & Cap states
-  const [editingCapId, setEditingCapId] = useState<string | null>(null);
-  const [editingCapValue, setEditingCapValue] = useState('');
-  const [newAllowanceName, setNewAllowanceName] = useState('');
-  const [newAllowanceEmoji, setNewAllowanceEmoji] = useState('✨');
-  const [newAllowanceCap, setNewAllowanceCap] = useState('250');
-  const [isAddingNewAllowance, setIsAddingNewAllowance] = useState(false);
+  // Add Category form state (no cap)
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('✨');
+  const [isAddingNewCat, setIsAddingNewCat] = useState(false);
 
-  // New goal form state
+  // New goal form state (Actual date input)
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalEmoji, setNewGoalEmoji] = useState('🎯');
   const [newGoalTarget, setNewGoalTarget] = useState('1000');
-  const [newGoalDeadline, setNewGoalDeadline] = useState('Target Nov 2026');
+  const [newGoalTargetDate, setNewGoalTargetDate] = useState('2026-12-31');
 
   // Recent logs tab filter
   const [recentLogsFilter, setRecentLogsFilter] = useState<'all' | 'expense' | 'income'>('all');
 
   // ========================================================
-  // CORE DYNAMIC TOTALS & BALANCES (100% computed from live data)
+  // CORE DYNAMIC TOTALS & BALANCES (NO MONTHLY CAP)
   // ========================================================
-  const { totalInflow, totalSpent, netBalance, safePercent, monthlyCap } = useMemo(() => {
+  const { totalInflow, totalSpent, netBalance, netCashFlow } = useMemo(() => {
     let inflow = 0;
     let spent = 0;
 
@@ -309,20 +348,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       }
     });
 
-    const capSum = allowancesList.reduce((sum, c) => sum + (Number(c.cap) || 0), 0) || 2100;
-    // Base starting reserve (e.g. initial bank deposits)
     const startingReserve = 3000;
     const net = startingReserve + inflow - spent;
-    const safe = capSum > 0 ? Math.min(100, Math.max(0, Math.round((spent / capSum) * 100))) : 0;
+    const cashFlow = inflow - spent;
 
     return {
       totalInflow: Math.round(inflow),
       totalSpent: Math.round(spent),
       netBalance: Math.round(net),
-      safePercent: safe,
-      monthlyCap: capSum,
+      netCashFlow: Math.round(cashFlow),
     };
-  }, [localTransactions, allowancesList]);
+  }, [localTransactions]);
 
   // Keypad formatted amount
   const displayAmount = useMemo(() => {
@@ -390,14 +426,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     setIsQuickLogOpen(false);
   };
 
-  // Delete a transaction
-  const handleDeleteTransactionRecord = (id: string) => {
+  // Confirmed Delete a transaction
+  const handleConfirmDeleteTransaction = () => {
+    if (!transactionToDelete) return;
     playPopSound();
+    const id = transactionToDelete.id;
     const next = localTransactions.filter((tx) => tx.id !== id);
     saveTransactionsState(next);
     if (onDeleteTransaction) {
       onDeleteTransaction(id);
     }
+    setTransactionToDelete(null);
   };
 
   // Handle Goal Deposit
@@ -425,11 +464,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     setActiveGoalForDeposit(null);
   };
 
-  // Handle Add New Goal
+  // Handle Add New Goal (Calculates remaining days from targetDate)
   const handleCreateNewGoal = () => {
     const title = newGoalTitle.trim();
     const target = parseFloat(newGoalTarget);
     if (!title || !(target > 0)) return;
+
+    const formattedTarget = newGoalTargetDate || '2026-12-31';
 
     const next = [
       ...goalsList,
@@ -437,9 +478,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         id: 'goal-' + Date.now(),
         title,
         emoji: newGoalEmoji || '🎯',
-        tag: newGoalDeadline.trim() || 'Active',
-        tagColor: 'bg-lavender-subtle text-primary',
-        subtitle: `₹0 of ₹${target.toLocaleString('en-IN')} saved · ${newGoalDeadline.trim()}`,
+        targetDate: formattedTarget,
+        subtitle: `₹0 of ₹${target.toLocaleString('en-IN')} saved · Target: ${formattedTarget}`,
         current: 0,
         target,
         gradient: 'from-primary to-primary-container',
@@ -458,45 +498,32 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     saveGoalsList(next);
   };
 
-  // Handle Category Allowances Management
-  const handleDeleteAllowance = (id: string) => {
+  // Handle Category Management (NO CAP)
+  const handleDeleteCategory = (id: string) => {
     playPopSound();
-    const next = allowancesList.filter((a) => a.id !== id);
-    saveAllowancesList(next);
+    const next = categoriesList.filter((a) => a.id !== id);
+    saveCategoriesList(next);
     if (selectedCategoryForSpendView?.id === id) {
       setSelectedCategoryForSpendView(null);
     }
   };
 
-  const handleUpdateCap = (id: string, newCap: number) => {
-    if (newCap <= 0) return;
-    const next = allowancesList.map((c) => (c.id === id ? { ...c, cap: newCap } : c));
-    saveAllowancesList(next);
-    if (selectedCategoryForSpendView && selectedCategoryForSpendView.id === id) {
-      setSelectedCategoryForSpendView({ ...selectedCategoryForSpendView, cap: newCap });
-    }
-    setEditingCapId(null);
-    triggerCelebration();
-  };
-
-  const handleAddNewAllowance = () => {
-    if (!newAllowanceName.trim()) return;
-    const capNum = parseInt(newAllowanceCap.replace(/[^0-9]/g, ''), 10) || 100;
-    const newAllw: AllowanceCategoryDef = {
-      id: 'allw-' + Date.now(),
-      key: newAllowanceName.toLowerCase().replace(/\s+/g, '-'),
-      name: newAllowanceName.trim(),
-      emoji: newAllowanceEmoji.trim() || '✨',
+  const handleAddNewCategory = () => {
+    if (!newCatName.trim()) return;
+    const newCat: ExpenseCategoryDef = {
+      id: 'cat-' + Date.now(),
+      key: newCatName.toLowerCase().replace(/\s+/g, '-'),
+      name: newCatName.trim(),
+      emoji: newCatEmoji.trim() || '✨',
       icon: 'category',
-      cap: capNum,
       bg: 'bg-lavender-subtle/80',
       iconColor: 'text-primary/15',
       barColor: 'bg-primary',
     };
-    const next = [...allowancesList, newAllw];
-    saveAllowancesList(next);
-    setNewAllowanceName('');
-    setIsAddingNewAllowance(false);
+    const next = [...categoriesList, newCat];
+    saveCategoriesList(next);
+    setNewCatName('');
+    setIsAddingNewCat(false);
     triggerCelebration();
   };
 
@@ -504,11 +531,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   // ANALYTICS & INSIGHTS: DYNAMIC PACE & CATEGORY BREAKDOWN
   // ========================================================
   const analyticsData = useMemo(() => {
-    // 1. Filter transactions by timeframe
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-    const todayStr = now.toISOString().split('T')[0];
 
     const filtered = localTransactions.filter((tx) => {
       if (!tx.date) return true;
@@ -518,7 +543,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       if (timeframe === 'ytd') {
         return tx.date.startsWith(`${currentYear}`);
       }
-      // 'week': last 7 days or current ISO week
+      // 'week'
       const txTime = new Date(tx.date).getTime();
       const weekAgo = now.getTime() - 7 * 86400000;
       return txTime >= weekAgo;
@@ -527,12 +552,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const expensesOnly = filtered.filter((tx) => (tx.type as string) !== 'income');
     const totalExpPeriod = expensesOnly.reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
 
-    // 2. Spending Pace (Days of the week: Mon - Sun)
+    // Days of the week: Mon - Sun
     const daysLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const currentDayIdx = (now.getDay() + 6) % 7; // 0 for Mon, 6 for Sun
+    const currentDayIdx = (now.getDay() + 6) % 7;
 
     const weeklyData = daysLabel.map((day, idx) => {
-      // Find transactions that match this day of week
       const dayTxs = filtered.filter((tx) => {
         if (!tx.date) return false;
         const d = new Date(tx.date);
@@ -558,10 +582,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
     const maxPaceVal = Math.max(10, ...weeklyData.map((d) => Math.max(d.spent, d.inflow)));
 
-    // 3. Category Breakdown (Donut Chart & Legend)
+    // Category Breakdown (Donut & Legends)
     const categoryTotals: Record<string, { name: string; emoji: string; amount: number; color: string }> = {};
 
-    allowancesList.forEach((cat) => {
+    categoriesList.forEach((cat) => {
       categoryTotals[cat.name] = {
         name: cat.name,
         emoji: cat.emoji,
@@ -573,7 +597,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     expensesOnly.forEach((tx) => {
       const amt = Number(tx.amount) || 0;
       let matched = false;
-      for (const cat of allowancesList) {
+      for (const cat of categoriesList) {
         if (matchesCategory(tx, cat)) {
           categoryTotals[cat.name].amount += amt;
           matched = true;
@@ -623,7 +647,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       };
     });
 
-    // Top Category & Insight Note
     const topCategory = categoriesArray[0];
     const avgDaily = Math.round(totalExpPeriod / 7);
 
@@ -636,7 +659,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       topCategory,
       avgDaily,
     };
-  }, [localTransactions, allowancesList, timeframe]);
+  }, [localTransactions, categoriesList, timeframe]);
 
   // Selected Category's expenses for Full Breakdown Modal
   const categoryExpensesForModal = useMemo(() => {
@@ -679,7 +702,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </div>
               <div className="flex items-center gap-space-xs mt-space-xs">
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-peach-subtle/80 text-on-tertiary-fixed-variant font-label-sm text-label-sm shadow-[0_1px_4px_rgba(220,44,79,0.08)]">
-                  <span>✨ {safePercent <= 80 ? 'In Budget' : 'Watch Spending'}</span>
+                  <span>✨ Live Finance Flow</span>
                 </div>
               </div>
             </div>
@@ -717,7 +740,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       <main className="flex flex-col relative w-full pt-20 pb-36 bg-canvas-bg min-h-screen">
         <div className="flex flex-col w-full px-margin-mobile space-y-space-lg max-w-lg mx-auto">
           
-          {/* Primary Balance & Monthly Health Card */}
+          {/* Primary Balance & Cash Flow Card (NO MONTHLY CAP) */}
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-lavender-subtle via-surface-card to-sky-subtle p-space-xl shadow-[0_8px_24px_-4px_rgba(139,92,246,0.12)] border border-border-subtle mt-2">
             <span 
               className="material-symbols-outlined absolute -bottom-6 -right-4 text-[130px] text-primary/10 select-none pointer-events-none" 
@@ -752,7 +775,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   {showBalance ? `${currency}${netBalance.toLocaleString('en-IN')}` : '••••••••'}
                 </h1>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Updated just now · Live transactions sync
+                  Live synchronized · Direct transaction ledger
                 </p>
               </div>
 
@@ -783,24 +806,14 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Monthly Limit Sparkle Progress Bar */}
-              <div className="space-y-space-xs pt-space-xs">
-                <div className="flex justify-between items-center text-on-surface-variant">
-                  <span className="font-label-md text-label-md flex items-center gap-1 font-semibold">
-                    <span>✨</span> Monthly Safety Guard
-                  </span>
-                  <span className="font-label-md text-label-md text-primary font-bold">{Math.max(0, 100 - safePercent)}% safe</span>
-                </div>
-                <div className="h-3 w-full rounded-full bg-surface-card/80 p-0.5 overflow-hidden shadow-inner">
-                  <div 
-                    className="h-full rounded-full bg-gradient-to-r from-primary via-primary-container to-secondary-container transition-all duration-700 ease-out" 
-                    style={{ width: `${Math.min(100, safePercent)}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
-                  <span>Spent {currency}{totalSpent.toLocaleString('en-IN')}</span>
-                  <span>Cap: {currency}{monthlyCap.toLocaleString('en-IN')}</span>
-                </div>
+              {/* Cash Flow Balance Row (NO CAP) */}
+              <div className="pt-space-xs flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm border-t border-border-subtle/50 mt-1">
+                <span className="flex items-center gap-1 font-semibold text-xs">
+                  <span>✨</span> Net Cash Flow
+                </span>
+                <span className={`font-bold font-mono text-xs ${netCashFlow >= 0 ? 'text-secondary' : 'text-primary'}`}>
+                  {netCashFlow >= 0 ? '+' : '-'}{currency}{Math.abs(netCashFlow).toLocaleString('en-IN')} this period
+                </span>
               </div>
             </div>
           </div>
@@ -1090,7 +1103,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           )}
 
           {/* ======================================================== */}
-          {/* 4. FINANCIAL GOALS & SAVINGS TARGETS SYSTEM              */}
+          {/* 4. FINANCIAL GOALS & TARGETS (WITH DYNAMIC DAYS REMAINING)*/}
           {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
@@ -1115,6 +1128,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <div className="space-y-space-sm">
               {goalsList.map((goal) => {
                 const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+                const { label: daysLeftLabel, isPast } = calculateDaysRemaining(goal.targetDate);
+                const formattedTargetDate = goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
                 return (
                   <div 
                     key={goal.id}
@@ -1128,11 +1144,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                         <div className="ml-2.5">
                           <div className="flex items-center gap-1.5">
                             <h3 className="font-label-lg text-label-lg text-on-surface font-bold">{goal.title}</h3>
-                            <span className={`px-2 py-0.5 rounded-full font-label-sm text-[10px] font-bold ${goal.tagColor}`}>
-                              {goal.tag}
+                            <span className={`px-2 py-0.5 rounded-full font-label-sm text-[10px] font-bold ${
+                              isPast ? 'bg-peach-subtle text-tertiary' : 'bg-sky-subtle text-sky-accent'
+                            }`}>
+                              ⏳ {daysLeftLabel}
                             </span>
                           </div>
-                          <p className="font-body-sm text-[12px] text-on-surface-variant">{goal.subtitle}</p>
+                          <p className="font-body-sm text-[12px] text-on-surface-variant">
+                            {goal.subtitle || (formattedTargetDate ? `Target: ${formattedTargetDate}` : '')}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -1173,7 +1193,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           </div>
 
           {/* ======================================================== */}
-          {/* 5. CATEGORY-WISE EXPENSE BREAKDOWN (Exact requested design) */}
+          {/* 5. CATEGORY-WISE EXPENSE BREAKDOWN (NO CAP SYSTEM)       */}
           {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm">
             <div className="flex items-center justify-between">
@@ -1184,24 +1204,23 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <button 
                 onClick={() => {
                   playPopSound();
-                  setIsEditCapsModalOpen(true);
+                  setIsManageCategoriesModalOpen(true);
                 }}
                 className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer font-bold"
               >
-                <span>Edit Caps</span>
+                <span>Manage Categories</span>
                 <span className="material-symbols-outlined text-[14px]">chevron_right</span>
               </button>
             </div>
 
-            {/* Dynamic Category Cards Grid with Live Spent Amounts */}
+            {/* Dynamic Category Cards Grid (NO CAP SYSTEM - EXACT SAME DESIGN) */}
             <div className="grid grid-cols-2 gap-space-sm">
-              {allowancesList.map((c) => {
-                // Compute live spent for this category from actual transactions
+              {categoriesList.map((c) => {
                 const catSpent = localTransactions
                   .filter((tx) => (tx.type as string) !== 'income' && matchesCategory(tx, c))
                   .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
-                const pct = c.cap > 0 ? Math.min(100, Math.round((catSpent / c.cap) * 100)) : 0;
+                const catPct = totalSpent > 0 ? Math.min(100, Math.round((catSpent / totalSpent) * 100)) : 0;
 
                 return (
                   <div 
@@ -1223,16 +1242,19 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
                         <span className="text-[18px]">{c.emoji}</span>
                       </div>
-                      <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">{pct}%</span>
+                      <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">
+                        {catPct}%
+                      </span>
                     </div>
                     <div>
                       <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
                       <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}{Math.round(catSpent).toLocaleString('en-IN')}</span>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}{Math.round(c.cap).toLocaleString('en-IN')}</span>
+                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
+                          {currency}{Math.round(catSpent).toLocaleString('en-IN')}
+                        </span>
                       </div>
                       <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                        <div className={`h-full rounded-full ${c.barColor || 'bg-primary'}`} style={{ width: `${pct}%` }}></div>
+                        <div className={`h-full rounded-full ${c.barColor || 'bg-primary'}`} style={{ width: `${catPct}%` }}></div>
                       </div>
                     </div>
                   </div>
@@ -1242,7 +1264,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           </div>
 
           {/* ======================================================== */}
-          {/* 6. RECENT LOGS WITH FILTER & CALCULATED TOTALS           */}
+          {/* 6. RECENT LOGS WITH DELETE CONFIRMATION & TOTALS        */}
           {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
@@ -1348,7 +1370,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteTransactionRecord(tx.id);
+                                setTransactionToDelete(tx);
                               }}
                               className="w-7 h-7 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors active:scale-95 cursor-pointer ml-1"
                               title="Delete transaction"
@@ -1409,7 +1431,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 8. FULL EXPENSE BREAKDOWN MODAL (FOR A CATEGORY)         */}
+      {/* 8. FULL EXPENSE BREAKDOWN MODAL (NO CAP)                 */}
       {/* ======================================================== */}
       {selectedCategoryForSpendView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1424,7 +1446,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
                     {selectedCategoryForSpendView.name}
                   </h3>
-                  <p className="text-xs text-on-surface-variant">Full Category Expense Breakdown</p>
+                  <p className="text-xs text-on-surface-variant">Category Expense Breakdown</p>
                 </div>
               </div>
               <button 
@@ -1435,24 +1457,18 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Metrics Row */}
-            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-center">
+            {/* Metrics Row (NO CAP) */}
+            <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-center">
               <div>
-                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Spent</span>
-                <span className="text-sm font-bold text-tertiary">
+                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Total Spent</span>
+                <span className="text-base font-bold text-tertiary">
                   {currency}{Math.round(selectedCategorySpentTotal).toLocaleString('en-IN')}
                 </span>
               </div>
               <div>
-                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Monthly Cap</span>
-                <span className="text-sm font-bold text-on-surface">
-                  {currency}{Math.round(selectedCategoryForSpendView.cap).toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div>
-                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Remaining</span>
-                <span className="text-sm font-bold text-secondary">
-                  {currency}{Math.max(0, Math.round(selectedCategoryForSpendView.cap - selectedCategorySpentTotal)).toLocaleString('en-IN')}
+                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Share of Expenses</span>
+                <span className="text-base font-bold text-primary">
+                  {totalSpent > 0 ? Math.round((selectedCategorySpentTotal / totalSpent) * 100) : 0}%
                 </span>
               </div>
             </div>
@@ -1472,23 +1488,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
               <button
                 onClick={() => {
-                  setEditingCapId(selectedCategoryForSpendView.id);
-                  setEditingCapValue(String(selectedCategoryForSpendView.cap));
-                  setIsEditCapsModalOpen(true);
-                }}
-                className="py-2 px-3 rounded-xl bg-lavender-subtle text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all cursor-pointer"
-              >
-                Edit Cap
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm(`Delete ${selectedCategoryForSpendView.name} category?`)) {
-                    handleDeleteAllowance(selectedCategoryForSpendView.id);
+                  if (confirm(`Delete "${selectedCategoryForSpendView.name}" category?`)) {
+                    handleDeleteCategory(selectedCategoryForSpendView.id);
                   }
                 }}
-                className="py-2 px-3 rounded-xl bg-peach-subtle text-tertiary font-bold text-xs hover:bg-tertiary hover:text-white transition-all cursor-pointer"
+                className="py-2 px-3.5 rounded-xl bg-peach-subtle text-tertiary font-bold text-xs hover:bg-tertiary hover:text-white transition-all cursor-pointer"
               >
-                Delete
+                Delete Category
               </button>
             </div>
 
@@ -1517,8 +1523,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                         -{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
                       </span>
                       <button
-                        onClick={() => handleDeleteTransactionRecord(tx.id)}
-                        className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors"
+                        onClick={() => setTransactionToDelete(tx)}
+                        className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
                         title="Delete this expense"
                       >
                         <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -1540,20 +1546,20 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 9. EDIT CAPS & CATEGORIES MODAL                          */}
+      {/* 9. MANAGE CATEGORIES MODAL (NO CAP)                      */}
       {/* ======================================================== */}
-      {isEditCapsModalOpen && (
+      {isManageCategoriesModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🌿</span>
                 <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
-                  Manage Categories &amp; Caps
+                  Manage Categories
                 </h3>
               </div>
               <button 
-                onClick={() => setIsEditCapsModalOpen(false)}
+                onClick={() => setIsManageCategoriesModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
               >
                 ✕
@@ -1562,101 +1568,52 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
             {/* Existing Categories List */}
             <div className="space-y-2">
-              {allowancesList.map((c) => (
+              {categoriesList.map((c) => (
                 <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{c.emoji}</span>
-                    <div>
-                      <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
-                      {editingCapId === c.id ? (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-xs font-bold text-primary">{currency}</span>
-                          <input 
-                            type="number"
-                            value={editingCapValue}
-                            onChange={(e) => setEditingCapValue(e.target.value)}
-                            className="w-20 px-2 py-0.5 rounded-lg bg-surface-card border border-primary text-xs font-bold text-on-surface focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleUpdateCap(c.id, Number(editingCapValue))}
-                            className="px-2 py-0.5 rounded-lg bg-primary text-on-primary font-bold text-xs"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingCapId(null)}
-                            className="text-xs text-on-surface-variant"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-on-surface-variant">Cap: {currency}{c.cap}</p>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">{c.emoji}</span>
+                    <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
                   </div>
-                  {editingCapId !== c.id && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingCapId(c.id);
-                          setEditingCapValue(String(c.cap));
-                        }}
-                        className="px-2 py-1 rounded-lg bg-lavender-subtle text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAllowance(c.id)}
-                        className="w-7 h-7 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
-                        title="Delete category"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">delete</span>
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleDeleteCategory(c.id)}
+                    className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                    title="Delete category"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
                 </div>
               ))}
             </div>
 
             {/* Add New Category Section */}
-            {isAddingNewAllowance ? (
+            {isAddingNewCat ? (
               <div className="p-3 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2">
-                <span className="font-bold text-xs text-primary block">+ Add New Category</span>
+                <span className="font-bold text-xs text-primary block">+ New Category</span>
                 <input 
                   type="text"
-                  placeholder="Category Name (e.g. Travel, Gym)"
-                  value={newAllowanceName}
-                  onChange={(e) => setNewAllowanceName(e.target.value)}
+                  placeholder="Category Name (e.g. Travel, Gym, Gifts)"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                  autoFocus
+                />
+                <input 
+                  type="text"
+                  placeholder="Emoji Icon (e.g. ✈️, 🏋️)"
+                  value={newCatEmoji}
+                  onChange={(e) => setNewCatEmoji(e.target.value)}
                   className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
                 />
-                <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    placeholder="Emoji (e.g. ✈️)"
-                    value={newAllowanceEmoji}
-                    onChange={(e) => setNewAllowanceEmoji(e.target.value)}
-                    className="w-20 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs text-center"
-                  />
-                  <input 
-                    type="number"
-                    placeholder="Monthly Cap (₹)"
-                    value={newAllowanceCap}
-                    onChange={(e) => setNewAllowanceCap(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
-                  />
-                </div>
                 <div className="flex gap-2 pt-1">
                   <button
-                    onClick={handleAddNewAllowance}
+                    onClick={handleAddNewCategory}
                     className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs"
                   >
                     Add Category
                   </button>
                   <button
-                    onClick={() => setIsAddingNewAllowance(false)}
-                    className="px-3 py-1.5 rounded-xl bg-surface-container text-xs"
+                    onClick={() => setIsAddingNewCat(false)}
+                    className="px-3 py-1.5 rounded-xl bg-surface-container text-xs cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1664,7 +1621,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </div>
             ) : (
               <button
-                onClick={() => setIsAddingNewAllowance(true)}
+                onClick={() => setIsAddingNewCat(true)}
                 className="w-full py-2.5 rounded-2xl border border-dashed border-primary text-primary font-bold text-xs hover:bg-lavender-subtle transition-all cursor-pointer"
               >
                 + Add New Category
@@ -1672,7 +1629,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             )}
 
             <button 
-              onClick={() => setIsEditCapsModalOpen(false)}
+              onClick={() => setIsManageCategoriesModalOpen(false)}
               className="w-full py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-sm hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
             >
               Done
@@ -1744,7 +1701,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   onChange={(e) => setLogCategory(e.target.value)}
                   className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
                 >
-                  {allowancesList.map((cat) => (
+                  {categoriesList.map((cat) => (
                     <option key={cat.id} value={cat.name}>
                       {cat.emoji} {cat.name}
                     </option>
@@ -1922,7 +1879,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 12. NEW GOAL TARGET MODAL                                */}
+      {/* 12. NEW GOAL TARGET MODAL (DATE PICKER & TIME REMAINING) */}
       {/* ======================================================== */}
       {isAddGoalModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1969,14 +1926,19 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">Target Deadline / Date Limit</label>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Target Date</label>
                 <input 
-                  type="text"
-                  placeholder="e.g. Target Nov 2026, In 45 days, 31 Dec 2026"
-                  value={newGoalDeadline}
-                  onChange={(e) => setNewGoalDeadline(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-2xl bg-canvas-bg border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  type="date"
+                  min={TODAY}
+                  value={newGoalTargetDate}
+                  onChange={(e) => setNewGoalTargetDate(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-2xl bg-canvas-bg border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
                 />
+                {newGoalTargetDate && (
+                  <p className="text-[11px] text-primary font-bold mt-1">
+                    ⏳ {calculateDaysRemaining(newGoalTargetDate).label}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2009,7 +1971,55 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 13. FULL STATEMENT MODAL                                 */}
+      {/* 13. DELETE LOG CONFIRMATION MODAL                        */}
+      {/* ======================================================== */}
+      {transactionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-peach-subtle text-tertiary flex items-center justify-center text-2xl flex-shrink-0">
+                🗑️
+              </div>
+              <div>
+                <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
+                  Delete Transaction Log?
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Are you sure you want to remove this record?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-xs flex justify-between items-center">
+              <div className="min-w-0 pr-2">
+                <span className="font-bold text-on-surface block truncate">{transactionToDelete.note || transactionToDelete.category}</span>
+                <span className="text-on-surface-variant">{transactionToDelete.category} · {transactionToDelete.date}</span>
+              </div>
+              <span className={`font-bold font-mono text-sm shrink-0 ${transactionToDelete.type === 'income' ? 'text-secondary' : 'text-primary'}`}>
+                {transactionToDelete.type === 'income' ? '+' : '-'}{currency}{Math.round(transactionToDelete.amount).toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setTransactionToDelete(null)}
+                className="flex-1 py-2.5 rounded-full bg-surface-container text-on-surface font-bold text-xs hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteTransaction}
+                className="flex-1 py-2.5 rounded-full bg-tertiary text-white font-bold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+              >
+                Delete Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 14. FULL STATEMENT MODAL                                 */}
       {/* ======================================================== */}
       {isFullStatementOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -2080,8 +2090,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                           {isInc ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
                         </span>
                         <button
-                          onClick={() => handleDeleteTransactionRecord(tx.id)}
-                          className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant"
+                          onClick={() => setTransactionToDelete(tx)}
+                          className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant cursor-pointer"
                           title="Delete"
                         >
                           <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -2103,7 +2113,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 14. NOTIFICATIONS MODAL                                  */}
+      {/* 15. NOTIFICATIONS MODAL                                  */}
       {/* ======================================================== */}
       {isNotificationOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -2125,11 +2135,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
               <div className="p-3 rounded-2xl bg-mint-subtle/70 flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-secondary">✨ Safety Guard Active</span>
+                  <span className="font-bold text-xs text-secondary">✨ Cash Flow Positive</span>
                   <span className="text-[10px] text-on-surface-variant">Live</span>
                 </div>
                 <p className="text-xs text-on-surface-variant">
-                  {safePercent <= 80 ? 'Your spending is comfortably within budget.' : 'Spending is approaching your monthly allowance cap.'}
+                  Your inflow and spending are dynamically tracked without restrictive caps.
                 </p>
               </div>
               <div className="p-3 rounded-2xl bg-sunshine-subtle/70 flex flex-col gap-1">
