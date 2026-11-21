@@ -2293,6 +2293,26 @@ export function App() {
             setIsLocked(true);
           }}
         />
+      ) : workspaceView === 'notes' && !searchQuery.trim() ? (
+        <NotesAndSketchpadArea
+          notes={notes}
+          sketches={sketches}
+          onAddNote={handleAddNote}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onReorderNotes={handleReorderNotes}
+          onSaveSketch={handleSaveSketch}
+          onDeleteSketch={handleDeleteSketch}
+          onOpenAttachment={(att) => setActiveAttachment(att)}
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
+        />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
           
@@ -2631,7 +2651,7 @@ export function App() {
             )}
 
             {/* 4. NOTES & SKETCHPAD SECTION: Cute Creative Studio */}
-            {workspaceView === 'notes' && (
+            {workspaceView === 'both' && (
               <div className="pt-2">
                 <NotesAndSketchpadArea
                   notes={notes}

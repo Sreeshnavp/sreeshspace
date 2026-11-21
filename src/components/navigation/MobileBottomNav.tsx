@@ -34,7 +34,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { view: 'notebook', label: 'Habits', icon: 'spa', count: tasksCount },
     { view: 'finance', label: 'Finances', icon: 'account_balance_wallet', count: financeCount },
     { view: 'reels', label: 'Reels', icon: 'movie', count: reelsCount },
-    { view: 'notes', label: 'Notes', icon: 'palette', count: notesCount },
+    { view: 'notes', label: 'Notes', icon: 'edit_note', count: notesCount },
   ];
 
   return (

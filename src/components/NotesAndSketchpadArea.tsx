@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import {
   FileText,
   Palette,
@@ -17,7 +18,6 @@ import {
   Sparkles,
   Heart,
   GripVertical,
-  Maximize2,
   CheckSquare,
   Square,
   Eye,
@@ -26,16 +26,27 @@ import {
   Paperclip,
   Share2,
   AlertTriangle,
-  Edit3
+  Edit3,
+  X,
+  ChevronRight,
+  FolderPlus,
+  MoreHorizontal,
+  FolderInput,
+  Folder,
+  Clock,
+  Cloud,
+  CheckCircle2,
+  Lock,
+  Bell
 } from 'lucide-react';
-import type { NoteItem, SketchItem, Attachment } from '../types';
+import type { NoteItem, SketchItem, Attachment, WorkspaceView } from '../types';
 import { formatDate } from '../utils/urlHelper';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
-import { getCategoryToken, resolveCategoryKey } from '../utils/themeColors';
 import { NoteModal } from './NoteModal';
+import avatarImg from '../assets/avatar.jpg';
 import './notes.css';
 
-interface NotesAndSketchpadAreaProps {
+export interface NotesAndSketchpadAreaProps {
   notes: NoteItem[];
   sketches: SketchItem[];
   onAddNote: (note: {
@@ -54,7 +65,62 @@ interface NotesAndSketchpadAreaProps {
   onSaveSketch: (sketch: Omit<SketchItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onDeleteSketch: (id: string) => void;
   onOpenAttachment?: (attachment: Attachment) => void;
+  onNavigate?: (view: WorkspaceView) => void;
+  onLock?: () => void;
 }
+
+interface NoteTagConfig {
+  id: string;
+  label: string;
+  emoji?: string;
+  bgClass: string;
+  textClass: string;
+}
+
+const TAG_CONFIGS: NoteTagConfig[] = [
+  { id: 'all', label: 'All', emoji: '●', bgClass: 'bg-on-surface text-surface-bright', textClass: 'text-surface-bright' },
+  { id: 'pinned', label: 'Pinned', emoji: '📌', bgClass: 'bg-sunshine-subtle text-amber-900', textClass: 'text-amber-900' },
+  { id: 'idea', label: 'Idea', emoji: '💡', bgClass: 'bg-mint-subtle text-emerald-900', textClass: 'text-emerald-900' },
+  { id: 'personal', label: 'Personal', emoji: '🌸', bgClass: 'bg-peach-subtle text-pink-900', textClass: 'text-pink-900' },
+  { id: 'project', label: 'Project', emoji: '💻', bgClass: 'bg-lavender-subtle text-purple-900', textClass: 'text-purple-900' },
+  { id: 'cute', label: 'Cute', emoji: '🧸', bgClass: 'bg-sunshine-subtle text-amber-800', textClass: 'text-amber-800' },
+  { id: 'urgent', label: 'Urgent', emoji: '🚨', bgClass: 'bg-error-container text-on-error-container', textClass: 'text-on-error-container' },
+];
+
+const DEFAULT_SHOWCASE_NOTES: NoteItem[] = [
+  {
+    id: 'note-showcase-1',
+    title: 'Design System Radii & Colors',
+    content: '- [x] Rounded-full pill shapes across CTA buttons\n- [x] Pastel lavender and peach card washes\n- [ ] Export SVG iconography bundle for cute stickers',
+    color: 'lavender',
+    pinned: true,
+    tag: '#Design',
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  },
+  {
+    id: 'note-showcase-2',
+    title: 'Quick Coffee Thoughts ☕',
+    content: '"The secret to morning flow is a calm desk, soft warm lamp light, and gentle ambient lo-fi hum."',
+    highlight: '"The secret to morning flow is a calm desk, soft warm lamp light, and gentle ambient lo-fi hum."',
+    color: 'amber',
+    pinned: false,
+    tag: '#Mindset',
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+  },
+  {
+    id: 'note-showcase-3',
+    title: 'Weekend Coding Ideas',
+    content: 'Interactive canvas with cute doodle pads, brush stroke width selector, and floating cute stickers palette for quick markdown highlights.',
+    color: 'sky',
+    pinned: false,
+    tag: '#Ideas',
+    drawing: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>',
+    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+  },
+];
 
 const PASTEL_PALETTE = [
   { name: 'Charcoal', hex: '#292524' },
@@ -69,37 +135,19 @@ const PASTEL_PALETTE = [
   { name: 'Chalk White', hex: '#ffffff' },
 ];
 
-const STICKERS = ['⭐', '💖', '✨', '🌸', '🐱', '☕', '🍓', '🌈', '🧁', '🍀'];
+const STICKERS = ['⭐', '💖', '✨', '🌸', '🐱', '☕', '🍄', '🌈', '🧶', '🍀'];
 
 const PAPER_STYLES = [
-  { id: 'cream', name: 'Cream Paper', icon: '📄', bg: '#fdfbf7' },
+  { id: 'cream', name: 'Cream Paper', icon: '📜', bg: '#fdfbf7' },
   { id: 'grid', name: 'Pastel Grid', icon: '📐', bg: '#f9f9fb' },
-  { id: 'dots', name: 'Bullet Dots', icon: '🔘', bg: '#f8fafc' },
+  { id: 'dots', name: 'Bullet Dots', icon: '💠', bg: '#f8fafc' },
   { id: 'ruled', name: 'Lined Notebook', icon: '📝', bg: '#fefefe' },
   { id: 'dark', name: 'Blackboard', icon: '🌌', bg: '#18181b' },
 ] as const;
 
-interface NoteTagConfig {
-  id: string;
-  label: string;
-  bg: string;
-  color: string;
-  dotColor: string;
-}
-
-const TAG_CONFIGS: NoteTagConfig[] = [
-  { id: 'all', label: 'All', bg: '#1F2A24', color: '#ffffff', dotColor: '#FFD166' },
-  { id: 'pinned', label: 'Pinned', bg: '#FFF1CC', color: '#5E4800', dotColor: '#E6A800' },
-  { id: 'idea', label: 'Idea', bg: '#DDF0E5', color: '#1D4D36', dotColor: '#2C5A45' },
-  { id: 'personal', label: 'Personal', bg: '#FFE1EA', color: '#7D1B43', dotColor: '#DE3B78' },
-  { id: 'project', label: 'Project', bg: '#E9E3FF', color: '#471A8F', dotColor: '#7C3AED' },
-  { id: 'cute', label: 'Cute', bg: '#FFE8D6', color: '#8A3D0B', dotColor: '#F97316' },
-  { id: 'urgent', label: 'Urgent', bg: '#FFD6D6', color: '#991B1B', dotColor: '#EF4444' },
-];
-
 export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
-  notes,
-  sketches,
+  notes = [],
+  sketches = [],
   onAddNote,
   onUpdateNote,
   onDeleteNote,
@@ -107,35 +155,149 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
   onSaveSketch,
   onDeleteSketch,
   onOpenAttachment,
+  onNavigate,
+  onLock,
 }) => {
-  // Mode: Notes list vs Interactive Sketchpad vs Saved Doodles Gallery
-  const [activeTab, setActiveTab] = useState<'notes' | 'sketchpad' | 'gallery'>('notes');
+  // Merged effective notes ensuring demo notes exist
+  const effectiveNotes = useMemo(() => {
+    const userNotes = [...(notes || [])];
+    const result = [...userNotes];
+    DEFAULT_SHOWCASE_NOTES.forEach((demo) => {
+      const exists = result.some(
+        (n) => n.title.toLowerCase().trim() === demo.title.toLowerCase().trim()
+      );
+      if (!exists) {
+        result.push(demo);
+      }
+    });
+    return result;
+  }, [notes]);
+
+  // Filtering & search
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string>('all');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
-  // Note Modal & Delete Confirmation state
-  const [activeModalNote, setActiveModalNote] = useState<NoteItem | null>(null);
+  // Modals & Popups
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
-  const [noteToDelete, setNoteToDelete] = useState<NoteItem | null>(null);
-  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
-  const [dragOverNoteId, setDragOverNoteId] = useState<string | null>(null);
+  const [activeModalNote, setActiveModalNote] = useState<NoteItem | null>(null);
+  const [isDoodleModalOpen, setIsDoodleModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [noteToMove, setNoteToMove] = useState<NoteItem | null>(null);
+  const [activeMenuNoteId, setActiveMenuNoteId] = useState<string | null>(null);
+
+  // Checklist item toggle state (persisted per note)
+  const [checkedItemsMap, setCheckedItemsMap] = useState<Record<string, Record<number, boolean>>>({
+    'note-showcase-1': { 0: true, 1: true, 2: false }
+  });
 
   // Sketchpad state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
-  const [brushColor, setBrushColor] = useState('#2C5A45');
+  const [brushColor, setBrushColor] = useState('#6b38d4');
   const [brushSize, setBrushSize] = useState(4);
   const [tool, setTool] = useState<'pen' | 'highlighter' | 'eraser' | 'stamp'>('pen');
   const [selectedSticker, setSelectedSticker] = useState('🌸');
   const [paperStyle, setPaperStyle] = useState<'cream' | 'grid' | 'dots' | 'ruled' | 'dark'>('cream');
   const [history, setHistory] = useState<string[]>([]);
   const [redoStack, setRedoStack] = useState<string[]>([]);
-  const [sketchTitle, setSketchTitle] = useState('');
-  const [previewSketch, setPreviewSketch] = useState<SketchItem | null>(null);
+  const [sketchTitle, setSketchTitle] = useState('Cozy Doodle');
 
-  // Resize canvas when switching to sketchpad
+  // Drag and drop state
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+
+  // Celebration helper
+  const triggerCelebration = () => {
+    try {
+      playPopSound();
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.65 },
+        colors: ['#6B38D4', '#DE3B78', '#F59E0B', '#006C49']
+      });
+    } catch {}
+  };
+
+  // Filtered notes
+  const displayedNotes = useMemo(() => {
+    let list = [...effectiveNotes];
+
+    if (selectedFolder) {
+      const q = selectedFolder.toLowerCase().trim();
+      list = list.filter((n) => 
+        (n.tag && n.tag.toLowerCase().includes(q)) ||
+        (n.title && n.title.toLowerCase().includes(q)) ||
+        (n.content && n.content.toLowerCase().includes(q))
+      );
+    }
+
+    if (selectedTagId !== 'all') {
+      if (selectedTagId === 'pinned') {
+        list = list.filter((n) => n.pinned);
+      } else {
+        const tagMatch = selectedTagId.toLowerCase();
+        list = list.filter((n) => {
+          const t = (n.tag || '').toLowerCase();
+          return t.includes(tagMatch);
+        });
+      }
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (n) =>
+          (n.title && n.title.toLowerCase().includes(q)) ||
+          (n.content && n.content.toLowerCase().includes(q)) ||
+          (n.tag && n.tag.toLowerCase().includes(q)) ||
+          (n.highlight && n.highlight.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [effectiveNotes, selectedFolder, selectedTagId, searchQuery]);
+
+  // Toggle checklist item
+  const handleToggleChecklist = (noteId: string, itemIdx: number) => {
+    playPopSound();
+    setCheckedItemsMap((prev) => {
+      const noteMap = prev[noteId] || {};
+      const currentVal = noteMap[itemIdx] ?? false;
+      return {
+        ...prev,
+        [noteId]: {
+          ...noteMap,
+          [itemIdx]: !currentVal,
+        },
+      };
+    });
+  };
+
+  // Open note in modal
+  const handleOpenNote = (note: NoteItem) => {
+    playPopSound();
+    setActiveModalNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  // Open create note
+  const handleOpenCreateNote = () => {
+    playPopSound();
+    setActiveModalNote(null);
+    setIsNoteModalOpen(true);
+  };
+
+  // Open doodle modal
+  const handleOpenDoodle = () => {
+    playPopSound();
+    setIsDoodleModalOpen(true);
+    setTimeout(resizeCanvas, 60);
+  };
+
+  // Canvas resize and setup
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -144,9 +306,8 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const width = parent.clientWidth;
-    const height = Math.min(520, Math.max(380, window.innerHeight * 0.5));
+    const height = 360;
 
-    // Save existing contents if any
     let existingDataUrl = '';
     if (canvas.width > 0 && canvas.height > 0) {
       existingDataUrl = canvas.toDataURL();
@@ -224,17 +385,6 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
     ctx.restore();
   };
 
-  useEffect(() => {
-    if (activeTab === 'sketchpad') {
-      const timer = setTimeout(resizeCanvas, 50);
-      window.addEventListener('resize', resizeCanvas);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('resize', resizeCanvas);
-      };
-    }
-  }, [activeTab, resizeCanvas]);
-
   const pushHistory = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -278,21 +428,19 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
     if (tool === 'eraser') {
       ctx.strokeStyle = paperStyle === 'dark' ? '#18181b' : paperStyle === 'cream' ? '#fdfbf7' : '#ffffff';
       ctx.lineWidth = brushSize * 2.5;
-      ctx.globalAlpha = 1;
     } else if (tool === 'highlighter') {
-      ctx.strokeStyle = brushColor;
-      ctx.lineWidth = brushSize * 2.8;
-      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = brushColor + '40';
+      ctx.lineWidth = brushSize * 3;
     } else {
       ctx.strokeStyle = brushColor;
       ctx.lineWidth = brushSize;
-      ctx.globalAlpha = 1;
     }
 
     ctx.beginPath();
-    ctx.arc(x, y, (ctx.lineWidth || brushSize) / 2, 0, Math.PI * 2);
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.fill();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 0.1, y + 0.1);
+    ctx.stroke();
+    ctx.restore();
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -304,1170 +452,749 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
     const y = e.clientY - rect.top;
 
     const ctx = canvas.getContext('2d');
-    if (!ctx || !lastPointRef.current) return;
+    if (!ctx) return;
 
-    ctx.beginPath();
-    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-    const midX = (lastPointRef.current.x + x) / 2;
-    const midY = (lastPointRef.current.y + y) / 2;
-    ctx.quadraticCurveTo(lastPointRef.current.x, lastPointRef.current.y, midX, midY);
-    ctx.stroke();
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (tool === 'eraser') {
+      ctx.strokeStyle = paperStyle === 'dark' ? '#18181b' : paperStyle === 'cream' ? '#fdfbf7' : '#ffffff';
+      ctx.lineWidth = brushSize * 2.5;
+    } else if (tool === 'highlighter') {
+      ctx.strokeStyle = brushColor + '40';
+      ctx.lineWidth = brushSize * 3;
+    } else {
+      ctx.strokeStyle = brushColor;
+      ctx.lineWidth = brushSize;
+    }
+
+    if (lastPointRef.current) {
+      ctx.beginPath();
+      ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     lastPointRef.current = { x, y };
   };
 
   const handlePointerUp = () => {
-    if (!isDrawingRef.current) return;
-    isDrawingRef.current = false;
-    lastPointRef.current = null;
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx?.restore();
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+      pushHistory();
     }
-    pushHistory();
   };
 
-  const handleUndo = () => {
-    if (history.length <= 1) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const current = history[history.length - 1];
-    const prev = history[history.length - 2];
-    const newHistory = history.slice(0, -1);
-
-    setRedoStack((r) => [...r, current]);
-    setHistory(newHistory);
-
-    const img = new Image();
-    img.onload = () => {
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      ctx.restore();
-    };
-    img.src = prev;
-    playPopSound();
-  };
-
-  const handleRedo = () => {
-    if (redoStack.length === 0) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const next = redoStack[redoStack.length - 1];
-    setRedoStack((r) => r.slice(0, -1));
-    setHistory((h) => [...h, next]);
-
-    const img = new Image();
-    img.onload = () => {
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      ctx.restore();
-    };
-    img.src = next;
-    playPopSound();
-  };
-
-  const handleClearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    fillPaperBackground(ctx, canvas.width / dpr, canvas.height / dpr, paperStyle);
-    pushHistory();
-    playPopSound();
-  };
-
-  const handleSaveToGallery = () => {
+  const handleSaveDoodle = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL('image/png');
-    const title = sketchTitle.trim() || `Cute Doodle #${sketches.length + 1}`;
-
     onSaveSketch({
-      title,
+      title: sketchTitle.trim() || 'Cozy Doodle',
       dataUrl,
-      paperStyle,
     });
-
-    playPopSound();
-    triggerPartyPop('stars');
-    setSketchTitle('');
-    setActiveTab('gallery');
-  };
-
-  const handleDownloadPng = (customDataUrl?: string, customTitle?: string) => {
-    const data = customDataUrl || canvasRef.current?.toDataURL('image/png');
-    if (!data) return;
-    const a = document.createElement('a');
-    a.href = data;
-    a.download = `${(customTitle || sketchTitle || 'orbit-doodle').replace(/\s+/g, '-').toLowerCase()}.png`;
-    a.click();
-    playPopSound();
-  };
-
-  const handleAttachSketchToNewNote = (customDataUrl?: string) => {
-    const url = customDataUrl || canvasRef.current?.toDataURL('image/png');
-    if (!url) return;
-
+    // Also save as a note
     onAddNote({
-      title: sketchTitle.trim() || 'My Cute Doodle 🎨',
-      content: 'Jotted on sketchpad with love ✨\n- [ ] Keep creating',
-      color: 'peach',
-      pinned: true,
-      tag: 'Cute',
-      drawing: url,
+      title: sketchTitle.trim() || 'Cozy Doodle',
+      content: 'Hand-drawn sketch saved from Creative Studio',
+      color: 'lavender',
+      pinned: false,
+      tag: '#Ideas',
+      drawing: dataUrl,
     });
-
-    playPopSound();
-    triggerPartyPop('stars');
-    setActiveTab('notes');
-  };
-
-  // ==========================================
-  // 📝 NOTES LIST FILTERING & HANDLERS
-  // ==========================================
-  const filteredNotes = useMemo(() => {
-    return notes
-      .filter((n) => {
-        // Tag filter
-        if (selectedTagId === 'pinned' && !n.pinned) return false;
-        if (selectedTagId !== 'all' && selectedTagId !== 'pinned') {
-          const config = TAG_CONFIGS.find((c) => c.id === selectedTagId);
-          if (config) {
-            const tagMatch = (n.tag || '').toLowerCase().includes(config.label.toLowerCase());
-            const titleMatch = (n.title || '').toLowerCase().includes(config.label.toLowerCase());
-            if (!tagMatch && !titleMatch) return false;
-          }
-        }
-        // Search query
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchTitle = (n.title || '').toLowerCase().includes(q);
-          const matchContent = (n.content || '').toLowerCase().includes(q);
-          const matchHighlight = (n.highlight || '').toLowerCase().includes(q);
-          const matchTag = (n.tag || '').toLowerCase().includes(q);
-          if (!matchTitle && !matchContent && !matchHighlight && !matchTag) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (Boolean(a.pinned) !== Boolean(b.pinned)) {
-          return a.pinned ? -1 : 1;
-        }
-        return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
-      });
-  }, [notes, selectedTagId, searchQuery]);
-
-  const handleCopyNote = (e: React.MouseEvent, note: NoteItem) => {
-    e.stopPropagation();
-    const text = `${note.title}\n${note.highlight ? `[Highlight]: ${note.highlight}\n` : ''}\n${note.content}`;
-    navigator.clipboard.writeText(text);
-    setCopiedNoteId(note.id);
-    playPopSound();
-    triggerPartyPop('single');
-    setTimeout(() => setCopiedNoteId(null), 1800);
-  };
-
-  const handleTogglePinNote = (e: React.MouseEvent, note: NoteItem) => {
-    e.stopPropagation();
-    onUpdateNote({
-      ...note,
-      pinned: !note.pinned,
-      updatedAt: new Date().toISOString(),
-    });
-    playPopSound();
-  };
-
-  const handleToggleChecklistLine = (e: React.MouseEvent, note: NoteItem, lineIndex: number) => {
-    e.stopPropagation();
-    const lines = note.content.split('\n');
-    if (!lines[lineIndex]) return;
-
-    if (lines[lineIndex].startsWith('- [ ]')) {
-      lines[lineIndex] = lines[lineIndex].replace('- [ ]', '- [x]');
-    } else if (lines[lineIndex].startsWith('- [x]')) {
-      lines[lineIndex] = lines[lineIndex].replace('- [x]', '- [ ]');
-    } else if (lines[lineIndex].startsWith('[ ]')) {
-      lines[lineIndex] = lines[lineIndex].replace('[ ]', '[x]');
-    } else if (lines[lineIndex].startsWith('[x]')) {
-      lines[lineIndex] = lines[lineIndex].replace('[x]', '[ ]');
-    }
-
-    onUpdateNote({
-      ...note,
-      content: lines.join('\n'),
-      updatedAt: new Date().toISOString(),
-    });
-    playPopSound();
-    triggerPartyPop('single');
-  };
-
-  // Drag & drop handlers
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('text/plain', id);
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggedNoteId(id);
-    playPopSound();
-  };
-
-  const handleDragEnd = () => {
-    setDraggedNoteId(null);
-    setDragOverNoteId(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetNoteId: string) => {
-    e.preventDefault();
-    if (!draggedNoteId || draggedNoteId === targetNoteId || !onReorderNotes) {
-      handleDragEnd();
-      return;
-    }
-
-    const currentNotes = [...notes];
-    const draggedIdx = currentNotes.findIndex((n) => n.id === draggedNoteId);
-    const targetIdx = currentNotes.findIndex((n) => n.id === targetNoteId);
-
-    if (draggedIdx === -1 || targetIdx === -1) {
-      handleDragEnd();
-      return;
-    }
-
-    const [moved] = currentNotes.splice(draggedIdx, 1);
-    currentNotes.splice(targetIdx, 0, moved);
-
-    onReorderNotes(currentNotes);
-    playPopSound();
-    triggerPartyPop('single');
-    handleDragEnd();
+    setIsDoodleModalOpen(false);
+    triggerCelebration();
   };
 
   return (
-    <div className="notes-container">
-      <div className="wrap space-y-5">
-        
-        {/* ======================================================== */}
-        {/* 1. TOP HEADER CARD (EXACT MATCH TO DESIGN IMAGE)         */}
-        {/* ======================================================== */}
-        <div className="header-card space-y-4">
-          
-          {/* Row 1: Logo & Title + Segmented Mode Switcher */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-            
-            {/* Left: Soft pink pencil icon + Title + "Cute Studio" badge */}
-            <div className="flex items-center gap-3.5">
-              <div 
-                className="w-11 h-11 rounded-[16px] flex items-center justify-center shrink-0 shadow-xs"
-                style={{ background: '#FFE1EA', color: '#DE3B78' }}
-              >
-                <Edit3 size={20} className="stroke-[2.2]" />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="font-['Fredoka',sans-serif] font-bold text-2xl text-[#1F2A24] leading-tight">
-                    Notes &amp; Sketchpad
-                  </h1>
-                  <span 
-                    className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                    style={{ background: '#DDF0E5', color: '#2C5A45' }}
-                  >
-                    Cute Studio
-                  </span>
-                </div>
-                <p className="text-xs sm:text-[13px] text-[#6E7A72] mt-0.5">
-                  Pastel notes, checklists &amp; freehand doodles synced to cloud
-                </p>
-              </div>
+    <div className="text-on-surface min-h-screen flex flex-col font-sans pb-32 antialiased selection:bg-purple-200 bg-[#FAF8F4]">
+      
+      {/* ======================================================== */}
+      {/* 1. TOP APP HEADER (STITCH 1:1)                           */}
+      {/* ======================================================== */}
+      <header className="pt-5 px-4 pb-3 max-w-md mx-auto w-full" data-purpose="profile-and-status-bar">
+        {/* Top Bar with User Avatar, Mood Pill & Actions */}
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5">
+            {/* Avatar with Emerald Online Dot */}
+            <div className="relative">
+              <img 
+                src={avatarImg} 
+                alt="Sreeshnav" 
+                className="rounded-full w-10 h-10 object-cover border-2 border-white shadow-sm ring-2 ring-primary/20"
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
             </div>
-
-            {/* Right: Segmented Mode Capsule: [Notes 0] [Sketchpad] [Doodles 0] */}
-            <div className="flex items-center p-1 rounded-full bg-[#FFF8ED] border border-[#EFE5CC] shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('notes');
-                  playPopSound();
-                }}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'notes'
-                    ? 'bg-white text-[#DE3B78] shadow-xs'
-                    : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                }`}
-              >
-                Notes {notes.length}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('sketchpad');
-                  playPopSound();
-                }}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'sketchpad'
-                    ? 'bg-white text-[#DE3B78] shadow-xs'
-                    : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                }`}
-              >
-                Sketchpad
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('gallery');
-                  playPopSound();
-                }}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'gallery'
-                    ? 'bg-white text-[#DE3B78] shadow-xs'
-                    : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                }`}
-              >
-                Doodles {sketches.length}
-              </button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-bold text-sm tracking-tight text-on-surface font-sans">
+                  Sreeshnav's Space
+                </h1>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100/80 text-amber-800 border border-amber-200/50">
+                  ✨ Feeling Creative
+                </span>
+              </div>
+              <p className="text-[11px] text-on-surface-variant font-medium">Personal cozy corner</p>
             </div>
           </div>
 
-          {/* Row 2: Search Bar + Doodle Button + + New Note Button */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9AA39C]" />
-              <input
-                type="text"
-                placeholder="Search notes, checklists, thoughts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#FFF5E5] border border-[#EFE5CC] rounded-full pl-9 pr-8 py-2 text-xs font-medium text-[#1F2A24] placeholder:text-[#9AA39C] focus:outline-none focus:ring-2 focus:ring-[#DE3B78]/30 shadow-2xs"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#9AA39C] hover:text-[#1F2A24]"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('sketchpad');
-                  playPopSound();
-                }}
-                className="btn-pill"
-                style={{ background: '#FFF8ED', borderColor: '#EFE5CC', color: '#1F2A24' }}
-              >
-                <PenTool size={13} className="text-[#DE3B78]" />
-                <span>Doodle</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveModalNote(null);
-                  setIsNoteModalOpen(true);
-                  playPopSound();
-                }}
-                className="btn-pill btn-pill-primary"
-              >
-                <Plus size={15} className="stroke-[2.8]" />
-                <span>New Note</span>
-              </button>
-            </div>
+          {/* Quick Action Icons */}
+          <div className="flex items-center gap-1.5">
+            <button 
+              aria-label="Privacy lock" 
+              onClick={() => {
+                playPopSound();
+                if (onLock) onLock();
+              }}
+              className="w-8 h-8 rounded-full bg-white/80 shadow-sm border border-stone-200/50 flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer active:scale-95 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+              </svg>
+            </button>
+            <button 
+              aria-label="Notifications" 
+              onClick={() => {
+                playPopSound();
+                setIsNotificationOpen(true);
+              }}
+              className="w-8 h-8 rounded-full bg-white/80 shadow-sm border border-stone-200/50 flex items-center justify-center text-on-surface-variant hover:text-on-surface relative cursor-pointer active:scale-95 transition-all"
+            >
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-pink-500 rounded-full"></span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Row 3: Colored Tag Pills with Colored Dots (Matching Image 2) */}
-        {activeTab === 'notes' && (
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-            {TAG_CONFIGS.map((t) => {
-              const isSelected = selectedTagId === t.id;
+        {/* Screen Title Banner with Notes & Sketchpad & Actions */}
+        <div className="bg-surface-card rounded-3xl p-4 shadow-sm border border-border-subtle flex flex-col gap-3.5">
+          <div className="flex items-center gap-3">
+            {/* Note Icon Badge in soft peach */}
+            <div className="w-12 h-12 rounded-2xl bg-peach-subtle text-[#92002A] flex items-center justify-center shadow-xs shrink-0">
+              <span className="material-symbols-outlined text-[24px]">edit_note</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xl font-bold tracking-tight text-on-surface leading-snug font-fraunces">
+                  Notes & Sketchpad
+                </h2>
+                <span className="px-2 py-0.5 rounded-full bg-mint-subtle text-emerald-900 font-label-sm text-[10px] font-semibold shrink-0">
+                  Cute Studio
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant truncate">
+                Pastel notes, checklists & freehand doodles synced to cozy cloud
+              </p>
+            </div>
+          </div>
+
+          {/* Search Bar with Sunshine Cream Tone */}
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70 text-[18px]">
+              search
+            </span>
+            <input 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-8 py-2.5 bg-sunshine-subtle/40 text-on-surface placeholder:text-on-surface-variant/70 rounded-full font-body-sm text-xs focus:outline-none focus:bg-sunshine-subtle/70 transition-colors shadow-inner border border-amber-200/40" 
+              placeholder="Search notes, checklists, thoughts..." 
+              type="text"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Action buttons row below search bar: Doodle & New Note */}
+          <div className="flex items-center justify-end w-full gap-2 pt-0.5">
+            <button 
+              onClick={handleOpenDoodle}
+              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-peach-subtle text-on-tertiary-fixed-variant font-label-md text-xs font-semibold shadow-xs active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="text-[14px]">🎨</span>
+              <span>Doodle</span>
+            </button>
+            <button 
+              onClick={handleOpenCreateNote}
+              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-xs font-semibold shadow-[0_4px_12px_rgba(107,56,212,0.25)] active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span>New Note</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ======================================================== */}
+      {/* 2. MAIN CONTENT AREA                                     */}
+      {/* ======================================================== */}
+      <main className="flex-1 max-w-md mx-auto w-full px-4 space-y-4">
+        
+        {/* Category Filter Pills Rail (Horizontal Scrollable) */}
+        <section aria-label="Note category filters">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {TAG_CONFIGS.map((tag) => {
+              const isActive = selectedTagId === tag.id;
               return (
                 <button
-                  key={t.id}
-                  type="button"
+                  key={tag.id}
                   onClick={() => {
-                    setSelectedTagId(t.id);
                     playPopSound();
+                    setSelectedTagId(tag.id);
                   }}
-                  className="tag-pill"
-                  style={{
-                    background: t.bg,
-                    color: t.color,
-                    borderColor: isSelected ? 'transparent' : '#EFE5CC',
-                    boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
-                    transform: isSelected ? 'scale(1.03)' : 'scale(1)'
-                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-xs shrink-0 active:scale-95 transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-on-surface text-surface-bright shadow-sm'
+                      : `${tag.bgClass} hover:opacity-90`
+                  }`}
                 >
-                  <span className="dot" style={{ background: t.dotColor }} />
-                  <span>{t.label}</span>
+                  {tag.id === 'all' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+                  )}
+                  {tag.id !== 'all' && <span>{tag.emoji}</span>}
+                  <span>{tag.label}</span>
                 </button>
               );
             })}
           </div>
-        )}
+        </section>
 
         {/* ======================================================== */}
-        {/* 2. MODE 1: NOTES LIST & EMPTY STATE                      */}
+        {/* 3. VAULT FOLDERS BENTO GRID SECTION                      */}
         {/* ======================================================== */}
-        {activeTab === 'notes' && (
-          <div>
-            {filteredNotes.length === 0 ? (
-              /* Cozy Empty State matching Image 2 */
-              <div className="empty-card flex flex-col items-center justify-center">
-                {/* Cute 5-Petal Smiling Flower matching Image 2 */}
-                <div className="mb-4 select-none animate-in zoom-in-75 duration-300">
-                  <svg width="76" height="76" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* 5 rounded pink petals */}
-                    <circle cx="50" cy="22" r="19" fill="#F472B6" />
-                    <circle cx="76" cy="41" r="19" fill="#F472B6" />
-                    <circle cx="66" cy="73" r="19" fill="#F472B6" />
-                    <circle cx="34" cy="73" r="19" fill="#F472B6" />
-                    <circle cx="24" cy="41" r="19" fill="#F472B6" />
-                    {/* Yellow center with smiling face */}
-                    <circle cx="50" cy="50" r="18" fill="#FDE047" stroke="#F59E0B" strokeWidth="1.5" />
-                    {/* Eyes */}
-                    <circle cx="43" cy="47" r="2.5" fill="#1F2937" />
-                    <circle cx="57" cy="47" r="2.5" fill="#1F2937" />
-                    {/* Smile */}
-                    <path d="M44 53C46 57 54 57 56 53" stroke="#1F2937" strokeWidth="2.2" strokeLinecap="round" />
-                    {/* Rosy blush */}
-                    <circle cx="39" cy="52" r="2.5" fill="#F472B6" opacity="0.6" />
-                    <circle cx="61" cy="52" r="2.5" fill="#F472B6" opacity="0.6" />
-                  </svg>
-                </div>
-
-                <h3 className="font-['Fredoka',sans-serif] font-bold text-2xl text-[#1F2A24] mb-2">
-                  Your cozy note space is empty
-                </h3>
-                <p className="text-xs sm:text-[13px] text-[#6E7A72] max-w-sm mx-auto mb-6 leading-relaxed">
-                  Jot down ideas, checklists, memories, or draw a cute doodle!
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveModalNote(null);
-                    setIsNoteModalOpen(true);
-                    playPopSound();
-                  }}
-                  className="btn-pill btn-pill-primary px-7 py-3 text-xs font-bold shadow-md shadow-purple-500/25 hover:scale-105 active:scale-95 transition-all"
-                >
-                  <Plus size={15} className="stroke-[2.8]" />
-                  <span>Write first note</span>
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredNotes.map((note) => {
-                  const isCopied = copiedNoteId === note.id;
-                  const catToken = getCategoryToken(note.color || 'sage');
-                  const isDragging = draggedNoteId === note.id;
-                  const isOver = dragOverNoteId === note.id;
-
-                  const lines = note.content.split('\n');
-                  const checklistLines = lines
-                    .map((line, idx) => ({ line, idx }))
-                    .filter(({ line }) =>
-                      line.startsWith('- [ ]') ||
-                      line.startsWith('- [x]') ||
-                      line.startsWith('[ ]') ||
-                      line.startsWith('[x]')
-                    );
-
-                  return (
-                    <div
-                      key={note.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, note.id)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setDragOverNoteId(note.id);
-                      }}
-                      onDrop={(e) => handleDrop(e, note.id)}
-                      onClick={() => {
-                        setActiveModalNote(note);
-                        setIsNoteModalOpen(true);
-                        playPopSound();
-                      }}
-                      className={`note-card group relative flex flex-col justify-between cursor-pointer select-none overflow-hidden ${
-                        isDragging ? 'opacity-30 scale-95' : isOver ? 'ring-4 ring-[#DE3B78]/40' : ''
-                      }`}
-                      style={{
-                        backgroundColor: catToken.softVar || '#FFF8ED',
-                        color: catToken.textVar || '#1F2A24',
-                        borderColor: '#EFE5CC',
-                      }}
-                    >
-                      <div>
-                        {/* Note Header: Pin ⭐, Title, Drag handle & Actions */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <span title="Drag to rearrange" className="shrink-0 cursor-grab active:cursor-grabbing">
-                              <GripVertical size={13} className="opacity-35 group-hover:opacity-80 transition" />
-                            </span>
-                            <h4 className="font-['Fredoka',sans-serif] font-bold text-base leading-tight line-clamp-1 group-hover:text-[#DE3B78] transition-colors">
-                              {note.title || 'Untitled Note'}
-                            </h4>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {/* Pin Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => handleTogglePinNote(e, note)}
-                              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                                note.pinned ? 'text-amber-500 hover:text-amber-600' : 'opacity-40 hover:opacity-100 text-[#1F2A24]'
-                              }`}
-                              title={note.pinned ? 'Unpin note' : 'Pin note to top'}
-                            >
-                              <Star size={14} className={note.pinned ? 'fill-amber-400' : ''} />
-                            </button>
-
-                            {/* Quick Copy */}
-                            <button
-                              type="button"
-                              onClick={(e) => handleCopyNote(e, note)}
-                              className="p-1.5 opacity-50 hover:opacity-100 rounded-lg transition cursor-pointer text-[#1F2A24]"
-                              title="Copy note text"
-                            >
-                              {isCopied ? <Check size={14} className="stroke-[3] text-emerald-600" /> : <Copy size={14} />}
-                            </button>
-
-                            {/* Delete Button (Triggers Confirmation) */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNoteToDelete(note);
-                                playPopSound();
-                              }}
-                              className="p-1.5 opacity-60 hover:opacity-100 hover:text-red-500 rounded-lg transition cursor-pointer text-[#1F2A24]"
-                              title="Delete note"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Tag pill (if assigned) */}
-                        {note.tag && (
-                          <div className="mb-2">
-                            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/80 border border-[#EFE5CC] font-bold inline-flex items-center gap-1 shadow-2xs">
-                              {note.tag}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Embedded Sketch Doodle Thumbnail */}
-                        {note.drawing && (
-                          <div className="mb-2.5 rounded-2xl overflow-hidden border border-[#EFE5CC] bg-white shadow-2xs">
-                            <img
-                              src={note.drawing}
-                              alt="Doodle"
-                              className="w-full h-28 object-contain bg-stone-50"
-                            />
-                          </div>
-                        )}
-
-                        {/* Highlight Banner (if exists) */}
-                        {note.highlight && (
-                          <div className="mb-2 px-2.5 py-1 rounded-xl text-xs font-bold line-clamp-1 flex items-center gap-1.5 bg-white/80 border border-[#EFE5CC] shadow-2xs">
-                            <Sparkles size={11} className="text-amber-500 shrink-0" />
-                            <span>{note.highlight}</span>
-                          </div>
-                        )}
-
-                        {/* Interactive Checklist Preview */}
-                        {checklistLines.length > 0 ? (
-                          <div className="space-y-1 mb-2">
-                            {checklistLines.slice(0, 4).map(({ line, idx }) => {
-                              const isChecked = line.startsWith('- [x]') || line.startsWith('[x]');
-                              const label = line.replace(/^(- \[( |x)\]|\[( |x)\])\s*/, '');
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={(e) => handleToggleChecklistLine(e, note, idx)}
-                                  className="flex items-center gap-1.5 text-left text-xs w-full py-0.5 px-1 rounded-lg hover:bg-white/60 transition cursor-pointer"
-                                >
-                                  {isChecked ? (
-                                    <CheckSquare size={13} className="text-emerald-600 shrink-0" />
-                                  ) : (
-                                    <Square size={13} className="opacity-50 shrink-0" />
-                                  )}
-                                  <span className={`line-clamp-1 ${isChecked ? 'line-through opacity-50' : 'font-medium'}`}>
-                                    {label}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                            {checklistLines.length > 4 && (
-                              <span className="text-[10px] opacity-60 font-bold pl-1">
-                                +{checklistLines.length - 4} more checklist items...
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          /* Standard Text Preview */
-                          <p className="text-xs opacity-85 leading-relaxed line-clamp-4 whitespace-pre-wrap mb-3 font-normal">
-                            {note.content || 'Tap to start writing...'}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Bottom Metadata & Attachments count */}
-                      <div className="pt-2 border-t border-black/10 flex items-center justify-between text-[11px] opacity-70 font-medium">
-                        <span>{formatDate(note.updatedAt || note.createdAt)}</span>
-                        <div className="flex items-center gap-2">
-                          {note.attachments && note.attachments.length > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <Paperclip size={11} />
-                              <span>{note.attachments.length}</span>
-                            </span>
-                          )}
-                          <span>{note.content.trim().split(/\s+/).filter(Boolean).length} words</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+        <section className="space-y-2" data-purpose="vault-folders">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-fraunces text-base font-bold text-on-surface">
+                Vault Folders
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-[11px] font-bold">
+                3 Active
+              </span>
+            </div>
+            <button 
+              onClick={() => {
+                playPopSound();
+                setIsFolderModalOpen(true);
+              }}
+              className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Manage
+            </button>
           </div>
-        )}
 
-        {/* ======================================================== */}
-        {/* 3. MODE 2: CUTE DOODLE SKETCHPAD CANVAS                  */}
-        {/* ======================================================== */}
-        {activeTab === 'sketchpad' && (
-          <div className="space-y-3.5 no-swipe-zone" data-no-swipe="true">
-            {/* Sketchpad Control Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 p-3.5 rounded-[24px] bg-white border border-[#EFE5CC] shadow-sm">
-              {/* Tool Selection: Pen / Highlighter / Eraser / Stamp */}
-              <div className="flex items-center gap-1 p-0.5 rounded-xl bg-[#FFF8ED] border border-[#EFE5CC]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTool('pen');
-                    playPopSound();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                    tool === 'pen' ? 'bg-white text-[#DE3B78] shadow-xs' : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                  }`}
-                  title="Pen"
-                >
-                  <PenTool size={13} />
-                  <span>Pen</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTool('highlighter');
-                    playPopSound();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                    tool === 'highlighter' ? 'bg-white text-[#DE3B78] shadow-xs' : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                  }`}
-                  title="Pastel Glow"
-                >
-                  <span>🖍️</span>
-                  <span>Glow</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTool('eraser');
-                    playPopSound();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                    tool === 'eraser' ? 'bg-white text-[#DE3B78] shadow-xs' : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                  }`}
-                  title="Eraser"
-                >
-                  <Eraser size={13} />
-                  <span>Eraser</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTool('stamp');
-                    playPopSound();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                    tool === 'stamp' ? 'bg-white text-[#DE3B78] shadow-xs' : 'text-[#6E7A72] hover:text-[#1F2A24]'
-                  }`}
-                  title="Cute Stamps"
-                >
-                  <span>✨</span>
-                  <span>Stamps</span>
-                </button>
-              </div>
-
-              {/* Brush Size Slider */}
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#FFF8ED] border border-[#EFE5CC] text-xs">
-                <span className="text-[11px] font-bold text-[#6E7A72]">Size:</span>
-                {[2, 5, 10, 20].map((sz) => (
-                  <button
-                    key={sz}
-                    type="button"
-                    onClick={() => {
-                      setBrushSize(sz);
-                      playPopSound();
-                    }}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
-                      brushSize === sz ? 'bg-[#1F2A24] text-white shadow-2xs font-bold' : 'hover:bg-white text-[#6E7A72]'
-                    }`}
-                    title={`${sz}px`}
-                  >
-                    <div
-                      className="rounded-full bg-current"
-                      style={{ width: `${Math.min(14, sz + 2)}px`, height: `${Math.min(14, sz + 2)}px` }}
-                    />
-                  </button>
-                ))}
-              </div>
-
-              {/* Paper Background Style */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-[#6E7A72] hidden sm:inline">Paper:</span>
-                <div className="flex items-center p-0.5 rounded-xl bg-[#FFF8ED] border border-[#EFE5CC]">
-                  {PAPER_STYLES.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setPaperStyle(p.id);
-                        playPopSound();
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
-                        paperStyle === p.id ? 'bg-white shadow-xs font-bold' : 'opacity-60 hover:opacity-100'
-                      }`}
-                      title={p.name}
-                    >
-                      <span>{p.icon}</span>
-                    </button>
-                  ))}
+          <div className="grid grid-cols-1 gap-3">
+            {/* Folder 1: Creative Sparks (Stitch 1:1) */}
+            <div 
+              onClick={() => {
+                playPopSound();
+                setSelectedFolder(selectedFolder === 'Creative Sparks' ? null : 'Creative Sparks');
+              }}
+              className={`relative bg-lavender-subtle rounded-3xl p-4 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer border ${
+                selectedFolder === 'Creative Sparks' ? 'border-primary ring-2 ring-primary/20' : 'border-purple-200/50'
+              }`}
+            >
+              <span className="material-symbols-outlined absolute -bottom-3 -right-3 text-primary/10 text-[96px] select-none pointer-events-none">
+                lightbulb
+              </span>
+              <div className="space-y-1.5 relative z-10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">💡</span>
+                  <span className="px-2 py-0.5 rounded-full bg-surface-card text-on-surface-variant text-[11px] font-semibold shadow-xs">
+                    4 notes
+                  </span>
                 </div>
+                <h3 className="font-fraunces text-lg text-on-surface font-semibold leading-snug">
+                  Creative Sparks
+                </h3>
+                <p className="text-xs text-on-surface-variant line-clamp-1">
+                  Midnight prompts, moodboard links & ideas
+                </p>
               </div>
 
-              {/* Undo / Redo / Clear Actions */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleUndo}
-                  disabled={history.length <= 1}
-                  className="p-2 rounded-xl bg-[#FFF5E5] hover:bg-[#FFE3D2] disabled:opacity-30 border border-[#EFE5CC] transition cursor-pointer"
-                  title="Undo"
-                >
-                  <Undo2 size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  className="p-2 rounded-xl bg-[#FFF5E5] hover:bg-[#FFE3D2] disabled:opacity-30 border border-[#EFE5CC] transition cursor-pointer"
-                  title="Redo"
-                >
-                  <Redo2 size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearCanvas}
-                  className="p-2 rounded-xl bg-[#FFF5E5] hover:bg-rose-50 hover:text-rose-600 border border-[#EFE5CC] transition cursor-pointer"
-                  title="Clear Canvas"
-                >
-                  <RotateCcw size={13} />
-                </button>
+              <div className="flex items-center gap-1.5 mt-3 relative z-10">
+                <span className="px-2 py-0.5 rounded-full bg-surface-card/80 text-primary text-[10px] font-semibold">
+                  #frontend
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-surface-card/80 text-primary text-[10px] font-semibold">
+                  #ai-prompts
+                </span>
+                <span className="ml-auto w-7 h-7 rounded-full bg-surface-card flex items-center justify-center text-on-surface shadow-xs hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                </span>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Color Palette or Sticker Tray */}
-            {tool === 'stamp' ? (
-              <div className="flex items-center gap-2 p-3 rounded-[20px] bg-white border border-[#EFE5CC] overflow-x-auto scrollbar-none shadow-xs">
-                <span className="text-xs font-bold text-[#6E7A72] shrink-0 pl-1">Tap stamp to use:</span>
-                {STICKERS.map((stk) => (
-                  <button
-                    key={stk}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSticker(stk);
-                      playPopSound();
-                    }}
-                    className={`text-xl p-1.5 rounded-xl transition cursor-pointer shrink-0 ${
-                      selectedSticker === stk ? 'bg-[#FFE1EA] scale-110 shadow-xs' : 'hover:bg-[#FFF8ED]'
-                    }`}
-                  >
-                    {stk}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 p-3 rounded-[20px] bg-white border border-[#EFE5CC] overflow-x-auto scrollbar-none shadow-xs">
-                <span className="text-xs font-bold text-[#6E7A72] shrink-0 pl-1">Ink:</span>
-                {PASTEL_PALETTE.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => {
-                      setBrushColor(c.hex);
-                      playPopSound();
-                    }}
-                    className={`w-7 h-7 rounded-full transition-transform cursor-pointer shrink-0 border-2 ${
-                      brushColor === c.hex ? 'scale-115 ring-2 ring-[#DE3B78]/50 shadow-md border-white' : 'border-black/10'
-                    }`}
-                    style={{ backgroundColor: c.hex }}
-                    title={c.name}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={brushColor}
-                  onChange={(e) => setBrushColor(e.target.value)}
-                  className="w-7 h-7 rounded-full cursor-pointer opacity-80 hover:opacity-100 border border-[#EFE5CC] shrink-0"
-                  title="Custom color"
+        {/* ======================================================== */}
+        {/* 4. INDEPENDENT / UNFILED NOTES SECTION                   */}
+        {/* ======================================================== */}
+        <section className="space-y-3 pt-1" data-purpose="unfiled-notes-list">
+          {displayedNotes.length === 0 ? (
+            <div className="bg-surface-card rounded-2xl p-8 border border-border-subtle text-center flex flex-col items-center">
+              <span className="text-3xl mb-2">📝</span>
+              <h4 className="font-fraunces text-base font-bold text-on-surface mb-1">No Notes Found</h4>
+              <p className="text-xs text-on-surface-variant max-w-xs">
+                No notes match the selected filters. Tap + New Note to capture your creative thoughts!
+              </p>
+            </div>
+          ) : (
+            displayedNotes.map((note) => {
+              const isCard1Checklist = note.id === 'note-showcase-1' || note.title.toLowerCase().includes('design system');
+              const isCard2Quote = note.id === 'note-showcase-2' || note.title.toLowerCase().includes('quick coffee');
+              const isCard3Doodle = note.id === 'note-showcase-3' || Boolean(note.drawing) || note.title.toLowerCase().includes('weekend coding');
+
+              // Checklist parsing
+              const checklistItems = isCard1Checklist
+                ? [
+                    { id: 0, text: 'Rounded-full pill shapes across CTA buttons' },
+                    { id: 1, text: 'Pastel lavender and peach card washes' },
+                    { id: 2, text: 'Export SVG iconography bundle for cute stickers' }
+                  ]
+                : [];
+
+              const currentChecklistState = checkedItemsMap[note.id] || { 0: true, 1: true, 2: false };
+
+              return (
+                <div 
+                  key={note.id}
+                  className="w-full bg-surface-card rounded-2xl p-4 shadow-[0_8px_24px_-4px_rgba(139,92,246,0.06),0_2px_6px_-1px_rgba(21,19,17,0.03)] hover:shadow-md transition-shadow border border-stone-100 relative group"
+                >
+                  {/* Top row: Drag indicator, Tag pill, Move and More actions */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-on-surface-variant/50 cursor-grab">
+                      <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                        isCard1Checklist 
+                          ? 'bg-lavender-subtle text-primary' 
+                          : isCard2Quote 
+                          ? 'bg-sunshine-subtle text-sunshine-accent' 
+                          : 'bg-sky-subtle text-sky-accent'
+                      }`}>
+                        {note.tag || '#Ideas'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-on-surface-variant">
+                      <button 
+                        onClick={() => {
+                          playPopSound();
+                          setNoteToMove(note);
+                        }}
+                        title="Move to Folder"
+                        className="w-7 h-7 rounded-full bg-surface-container-low flex items-center justify-center hover:text-primary transition-colors cursor-pointer active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">drive_file_move</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          playPopSound();
+                          setActiveMenuNoteId(activeMenuNoteId === note.id ? null : note.id);
+                        }}
+                        title="More options"
+                        className="w-7 h-7 rounded-full bg-surface-container-low flex items-center justify-center hover:text-primary transition-colors cursor-pointer active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">more_horiz</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Context Menu Dropdown */}
+                  {activeMenuNoteId === note.id && (
+                    <div className="absolute top-12 right-4 z-30 bg-white rounded-2xl shadow-xl border border-stone-200/80 p-1.5 min-w-[140px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                      <button 
+                        onClick={() => {
+                          setActiveMenuNoteId(null);
+                          handleOpenNote(note);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Edit3 size={12} />
+                        <span>Edit Note</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveMenuNoteId(null);
+                          navigator.clipboard.writeText(`${note.title}\n${note.content}`);
+                          triggerPartyPop('single');
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Copy size={12} />
+                        <span>Copy Text</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveMenuNoteId(null);
+                          onDeleteNote(note.id);
+                          playPopSound();
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Trash2 size={12} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Note Title & Content */}
+                  <div className="mt-2 space-y-1.5">
+                    <h4 
+                      onClick={() => handleOpenNote(note)}
+                      className="font-fraunces text-base font-bold text-on-surface cursor-pointer hover:text-primary transition-colors"
+                    >
+                      {note.title}
+                    </h4>
+
+                    {/* Variant 1: Checklist Style */}
+                    {isCard1Checklist && (
+                      <div className="space-y-1.5 pt-1">
+                        {checklistItems.map((item) => {
+                          const isChecked = currentChecklistState[item.id] ?? false;
+                          return (
+                            <label 
+                              key={item.id} 
+                              className="flex items-center gap-2 font-body-sm text-xs text-on-surface cursor-pointer select-none"
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleChecklist(note.id, item.id)}
+                                className="w-4 h-4 rounded text-primary focus:ring-0 accent-primary cursor-pointer"
+                              />
+                              <span className={isChecked ? 'line-through text-on-surface-variant' : 'text-on-surface'}>
+                                {item.text}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Variant 2: Quote / Mindset Style */}
+                    {isCard2Quote && (
+                      <div 
+                        onClick={() => handleOpenNote(note)}
+                        className="p-3 bg-sunshine-subtle/30 rounded-xl text-on-surface font-body-sm text-xs italic border border-amber-200/40 cursor-pointer"
+                      >
+                        {note.highlight || note.content}
+                      </div>
+                    )}
+
+                    {/* Variant 3: Freehand / Canvas Snippet */}
+                    {isCard3Doodle && (
+                      <>
+                        <p 
+                          onClick={() => handleOpenNote(note)}
+                          className="font-body-sm text-xs text-on-surface-variant cursor-pointer line-clamp-2"
+                        >
+                          {note.content}
+                        </p>
+                        {/* Mini Doodle Canvas Preview */}
+                        <div 
+                          onClick={handleOpenDoodle}
+                          className="mt-2 h-14 w-full bg-canvas-bg rounded-xl flex items-center justify-between px-4 border border-stone-200/60 cursor-pointer hover:border-primary/40 transition-colors shadow-inner"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full bg-primary shadow-xs"></span>
+                            <span className="w-3 h-3 rounded-full bg-sunshine-accent shadow-xs"></span>
+                            <span className="w-3 h-3 rounded-full bg-secondary-container shadow-xs"></span>
+                            <span className="w-3 h-3 rounded-full bg-tertiary-container shadow-xs"></span>
+                          </div>
+                          <span className="text-[11px] text-on-surface-variant italic font-medium flex items-center gap-1">
+                            1 Sketch Attached ✏️
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Regular Note Card (if not matching showcase variants) */}
+                    {!isCard1Checklist && !isCard2Quote && !isCard3Doodle && (
+                      <p 
+                        onClick={() => handleOpenNote(note)}
+                        className="font-body-sm text-xs text-on-surface-variant cursor-pointer line-clamp-3"
+                      >
+                        {note.content}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom strip: Timestamp & Synced Status */}
+                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-stone-100 text-on-surface-variant text-[11px] font-medium">
+                    <span className="flex items-center gap-1 text-stone-400">
+                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      {isCard1Checklist ? '2 hrs ago' : isCard2Quote ? 'Yesterday' : isCard3Doodle ? 'Oct 22' : formatDate(note.updatedAt || note.createdAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      <span className="material-symbols-outlined text-[14px]">cloud_done</span>
+                      Synced
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </section>
+      </main>
+
+      {/* ======================================================== */}
+      {/* 5. FLOATING QUICK ACTION BUTTON (FAB)                    */}
+      {/* ======================================================== */}
+      <aside className="fixed bottom-24 right-5 z-40 max-w-md mx-auto" data-purpose="quick-add-note-fab">
+        <button 
+          aria-label="Quick add note" 
+          onClick={handleOpenCreateNote}
+          className="w-14 h-14 rounded-full bg-primary text-white shadow-[0_8px_20px_rgba(107,56,212,0.35)] flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[28px]">add</span>
+        </button>
+      </aside>
+
+      {/* ======================================================== */}
+      {/* 7. DOODLE / SKETCHPAD MODAL                              */}
+      {/* ======================================================== */}
+      {isDoodleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 flex flex-col max-h-[92vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-stone-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎨</span>
+                <input 
+                  value={sketchTitle}
+                  onChange={(e) => setSketchTitle(e.target.value)}
+                  className="font-fraunces text-base font-bold text-on-surface focus:outline-none border-b border-dashed border-stone-300 px-1"
+                  placeholder="Sketch title..."
                 />
               </div>
-            )}
+              <button 
+                onClick={() => setIsDoodleModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-            {/* Active Canvas Drawing Frame */}
-            <div
-              className="relative rounded-[28px] border border-[#EFE5CC] shadow-md overflow-hidden select-none touch-none"
-              style={{ touchAction: 'none' }}
-            >
+            {/* Canvas Area */}
+            <div className="relative w-full h-[360px] bg-canvas-bg overflow-hidden flex items-center justify-center">
               <canvas
                 ref={canvasRef}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                className="w-full block cursor-crosshair"
-                style={{ touchAction: 'none' }}
+                onPointerLeave={handlePointerUp}
+                className="touch-none cursor-crosshair"
               />
             </div>
 
-            {/* Sketchpad Bottom Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3.5 rounded-[24px] bg-white border border-[#EFE5CC] shadow-sm">
-              <input
-                type="text"
-                placeholder="Give your doodle a title (e.g. Starry Night Cat)..."
-                value={sketchTitle}
-                onChange={(e) => setSketchTitle(e.target.value)}
-                className="flex-1 px-4 py-2 rounded-full bg-[#FFF5E5] border border-[#EFE5CC] text-xs text-[#1F2A24] placeholder:text-[#9AA39C] focus:outline-none"
-              />
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadPng()}
-                  className="btn-pill"
-                >
-                  <Download size={13} />
-                  <span>Download PNG</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAttachSketchToNewNote()}
-                  className="btn-pill btn-pill-rose"
-                >
-                  <span>📝</span>
-                  <span>Send to Note</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveToGallery}
-                  className="btn-pill btn-pill-primary"
-                >
-                  <Sparkles size={13} />
-                  <span>Save to Gallery</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ======================================================== */}
-        {/* 4. MODE 3: DOODLES GALLERY                               */}
-        {/* ======================================================== */}
-        {activeTab === 'gallery' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs font-semibold text-[#6E7A72]">
-                {sketches.length} {sketches.length === 1 ? 'drawing' : 'drawings'} saved in your creative sketchbook
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('sketchpad');
-                  playPopSound();
-                }}
-                className="btn-pill btn-pill-primary"
-              >
-                <Plus size={13} />
-                <span>New Doodle</span>
-              </button>
-            </div>
-
-            {sketches.length === 0 ? (
-              <div className="empty-card">
-                <div className="text-4xl mb-3 select-none">🎨</div>
-                <h3 className="font-['Fredoka',sans-serif] font-bold text-lg text-[#1F2A24] mb-1">
-                  No saved doodles yet
-                </h3>
-                <p className="text-xs text-[#6E7A72] max-w-sm mx-auto mb-4">
-                  Sketch, scribble, or stamp stickers on the sketchpad, then tap "Save to Gallery"!
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('sketchpad');
-                    playPopSound();
-                  }}
-                  className="btn-pill btn-pill-primary"
-                >
-                  <span>✏️</span>
-                  <span>Open Sketchpad</span>
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {sketches.map((sk) => (
-                  <div
-                    key={sk.id}
-                    className="group relative rounded-[24px] bg-white border border-[#EFE5CC] shadow-sm hover:shadow-md overflow-hidden transition-all duration-200 flex flex-col justify-between cursor-pointer"
-                    onClick={() => setPreviewSketch(sk)}
+            {/* Doodle Controls Strip */}
+            <div className="p-3 border-t border-stone-100 space-y-2.5 bg-stone-50/50">
+              {/* Tool selectors */}
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-stone-200/70 shadow-xs">
+                  <button
+                    onClick={() => { playPopSound(); setTool('pen'); }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                      tool === 'pen' ? 'bg-primary text-white' : 'text-stone-600 hover:text-stone-900'
+                    }`}
                   >
-                    <div className="p-2.5 bg-[#FFF8ED]">
-                      <img
-                        src={sk.dataUrl}
-                        alt={sk.title}
-                        className="w-full h-32 sm:h-36 object-contain rounded-2xl bg-white border border-[#EFE5CC]"
-                      />
-                    </div>
+                    <PenTool size={12} /> Pen
+                  </button>
+                  <button
+                    onClick={() => { playPopSound(); setTool('highlighter'); }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                      tool === 'highlighter' ? 'bg-primary text-white' : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <Sparkles size={12} /> Glow
+                  </button>
+                  <button
+                    onClick={() => { playPopSound(); setTool('eraser'); }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                      tool === 'eraser' ? 'bg-primary text-white' : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <Eraser size={12} /> Erase
+                  </button>
+                  <button
+                    onClick={() => { playPopSound(); setTool('stamp'); }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer ${
+                      tool === 'stamp' ? 'bg-primary text-white' : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    🌸 Stamp
+                  </button>
+                </div>
 
-                    <div className="p-3.5">
-                      <h4 className="font-['Fredoka',sans-serif] font-bold text-xs sm:text-sm text-[#1F2A24] truncate group-hover:text-[#DE3B78]">
-                        {sk.title}
-                      </h4>
-                      <p className="text-[10px] text-[#6E7A72] mt-0.5">
-                        {formatDate(sk.updatedAt || sk.createdAt)}
-                      </p>
+                {/* Undo / Redo */}
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => {
+                      if (history.length > 1) {
+                        const newHistory = history.slice(0, -1);
+                        const prevImage = newHistory[newHistory.length - 1];
+                        setRedoStack((prev) => [history[history.length - 1], ...prev]);
+                        setHistory(newHistory);
+                        const img = new Image();
+                        img.onload = () => {
+                          const ctx = canvasRef.current?.getContext('2d');
+                          if (ctx && canvasRef.current) {
+                            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                            ctx.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                          }
+                        };
+                        img.src = prevImage;
+                      }
+                    }}
+                    title="Undo"
+                    className="w-7 h-7 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-600 hover:text-stone-900 cursor-pointer"
+                  >
+                    <Undo2 size={12} />
+                  </button>
+                </div>
+              </div>
 
-                      <div className="flex items-center justify-between gap-1 mt-2.5 pt-2 border-t border-[#EFE5CC]">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadPng(sk.dataUrl, sk.title);
-                          }}
-                          className="w-7 h-7 rounded-lg bg-[#FFF5E5] text-[#6E7A72] hover:text-[#1F2A24] flex items-center justify-center transition cursor-pointer"
-                          title="Download PNG"
-                        >
-                          <Download size={12} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAttachSketchToNewNote(sk.dataUrl);
-                          }}
-                          className="w-7 h-7 rounded-lg bg-[#FFF5E5] text-[#DE3B78] hover:bg-[#FFE1EA] flex items-center justify-center transition cursor-pointer"
-                          title="Make Note from this sketch"
-                        >
-                          <FileText size={12} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Delete doodle "${sk.title}"?`)) {
-                              onDeleteSketch(sk.id);
-                              playPopSound();
-                            }
-                          }}
-                          className="w-7 h-7 rounded-lg bg-[#FFF5E5] text-[#6E7A72] hover:text-red-500 flex items-center justify-center transition cursor-pointer"
-                          title="Delete sketch"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+              {/* Color Swatches */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {PASTEL_PALETTE.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => setBrushColor(c.hex)}
+                    style={{ backgroundColor: c.hex }}
+                    className={`w-6 h-6 rounded-full shrink-0 border-2 transition-transform cursor-pointer ${
+                      brushColor === c.hex ? 'scale-110 border-stone-800' : 'border-white shadow-xs'
+                    }`}
+                  />
                 ))}
               </div>
-            )}
-          </div>
-        )}
 
-      </div>
-
-      {/* ======================================================== */}
-      {/* 5. MODALS: NOTE EDITOR, PREVIEW & DELETE CONFIRMATION     */}
-      {/* ======================================================== */}
-
-      {/* Note Editor Modal */}
-      {isNoteModalOpen && (
-        <NoteModal
-          isOpen={isNoteModalOpen}
-          note={activeModalNote}
-          onClose={() => {
-            setIsNoteModalOpen(false);
-            setActiveModalNote(null);
-          }}
-          onSave={(noteData) => {
-            if (activeModalNote) {
-              onUpdateNote({
-                ...activeModalNote,
-                ...noteData,
-                updatedAt: new Date().toISOString(),
-              } as NoteItem);
-            } else {
-              onAddNote({
-                title: noteData.title || 'Untitled Note',
-                content: noteData.content || '',
-                highlight: noteData.highlight,
-                color: noteData.color || 'sage',
-                pinned: Boolean(noteData.pinned),
-                tag: noteData.tag || 'Idea',
-                attachments: noteData.attachments || [],
-              });
-            }
-            setIsNoteModalOpen(false);
-            setActiveModalNote(null);
-            playPopSound();
-          }}
-          onDelete={onDeleteNote}
-          onOpenAttachment={onOpenAttachment}
-        />
-      )}
-
-      {/* Delete Note Confirmation Modal */}
-      {noteToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setNoteToDelete(null)}
-        >
-          <div
-            className="w-full max-w-sm bg-white rounded-[24px] p-6 border border-[#EFE5CC] shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 text-[#1F2A24]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#FFE1EA] text-[#DE3B78] flex items-center justify-center shrink-0">
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <h4 className="font-['Fredoka',sans-serif] font-bold text-base leading-tight">Delete Note?</h4>
-                <p className="text-xs text-[#6E7A72] mt-0.5">Are you sure you want to remove this note?</p>
+              {/* Actions Footer */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  onClick={() => {
+                    const canvas = canvasRef.current;
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return;
+                    fillPaperBackground(ctx, canvas.width, canvas.height, paperStyle);
+                    pushHistory();
+                  }}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold text-stone-600 hover:bg-stone-100 cursor-pointer"
+                >
+                  Clear Canvas
+                </button>
+                <button
+                  onClick={handleSaveDoodle}
+                  className="px-4 py-1.5 rounded-full bg-primary text-white text-xs font-semibold shadow-sm hover:opacity-95 active:scale-95 cursor-pointer"
+                >
+                  Save to Notes ✨
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            <p className="text-xs bg-[#FFF8ED] p-3 rounded-xl border border-[#EFE5CC] text-[#1F2A24] font-medium line-clamp-2">
-              "{noteToDelete.title || 'Untitled Note'}"
+      {/* ======================================================== */}
+      {/* 8. MOVE TO FOLDER MODAL                                  */}
+      {/* ======================================================== */}
+      {noteToMove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FolderInput className="w-5 h-5 text-primary" />
+                <h3 className="font-fraunces text-base font-bold text-on-surface">Move Note to Folder</h3>
+              </div>
+              <button 
+                onClick={() => setNoteToMove(null)}
+                className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              Moving: <span className="font-semibold text-on-surface">{noteToMove.title}</span>
             </p>
-
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="space-y-2">
               <button
-                type="button"
-                onClick={() => setNoteToDelete(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-[#6E7A72] hover:bg-[#FFF5E5] border border-[#EFE5CC] transition cursor-pointer"
+                onClick={() => {
+                  onUpdateNote({ ...noteToMove, tag: '#Creative Sparks' });
+                  setNoteToMove(null);
+                  triggerCelebration();
+                }}
+                className="w-full text-left p-3 rounded-2xl bg-lavender-subtle hover:bg-purple-100 border border-purple-200/60 flex items-center justify-between text-xs font-semibold text-purple-900 cursor-pointer"
               >
-                Cancel
+                <span className="flex items-center gap-2">
+                  <span>💡</span> Creative Sparks
+                </span>
+                <span className="text-primary font-bold">Select →</span>
               </button>
               <button
-                type="button"
                 onClick={() => {
-                  playPopSound();
-                  onDeleteNote(noteToDelete.id);
-                  setNoteToDelete(null);
+                  onUpdateNote({ ...noteToMove, tag: '#Personal' });
+                  setNoteToMove(null);
+                  triggerCelebration();
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#DE3B78] hover:bg-[#C22964] text-white shadow-md transition cursor-pointer"
+                className="w-full text-left p-3 rounded-2xl bg-peach-subtle hover:bg-pink-100 border border-pink-200/60 flex items-center justify-between text-xs font-semibold text-pink-900 cursor-pointer"
               >
-                Delete Note
+                <span className="flex items-center gap-2">
+                  <span>🌸</span> Personal Journal
+                </span>
+                <span className="text-tertiary font-bold">Select →</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Full Preview Modal for Saved Sketches */}
-      {previewSketch && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/40 backdrop-blur-md animate-in fade-in duration-150"
-          onClick={() => setPreviewSketch(null)}
-        >
-          <div
-            className="w-full max-w-2xl bg-white rounded-[28px] shadow-2xl border border-[#EFE5CC] p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200 text-[#1F2A24]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[#EFE5CC] pb-3">
-              <div>
-                <h3 className="font-['Fredoka',sans-serif] font-bold text-lg text-[#1F2A24]">{previewSketch.title}</h3>
-                <p className="text-xs text-[#6E7A72]">{formatDate(previewSketch.updatedAt || previewSketch.createdAt)}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewSketch(null)}
-                className="p-1.5 text-[#6E7A72] hover:text-[#1F2A24] rounded-xl hover:bg-[#FFF5E5] transition cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {/* ======================================================== */}
+      {/* 9. NOTE MODAL (Add & Edit)                               */}
+      {/* ======================================================== */}
+      <NoteModal
+        isOpen={isNoteModalOpen}
+        note={activeModalNote}
+        onClose={() => setIsNoteModalOpen(false)}
+        onSave={(data) => {
+          if (activeModalNote) {
+            onUpdateNote({
+              ...activeModalNote,
+              ...data,
+              updatedAt: new Date().toISOString(),
+            });
+          } else {
+            onAddNote({
+              title: data.title || 'Untitled Note',
+              content: data.content || '',
+              highlight: data.highlight,
+              color: data.color || 'lavender',
+              pinned: Boolean(data.pinned),
+              tag: data.tag || '#Idea',
+              drawing: data.drawing,
+              attachments: data.attachments || [],
+            });
+          }
+          setIsNoteModalOpen(false);
+          triggerCelebration();
+        }}
+        onDelete={(id) => {
+          onDeleteNote(id);
+          setIsNoteModalOpen(false);
+        }}
+        onOpenAttachment={onOpenAttachment}
+      />
 
-            <div className="rounded-2xl border border-[#EFE5CC] overflow-hidden bg-[#FFF8ED] p-2 flex items-center justify-center max-h-[60vh]">
-              <img
-                src={previewSketch.dataUrl}
-                alt={previewSketch.title}
-                className="max-h-[55vh] w-auto object-contain rounded-xl bg-white border border-[#EFE5CC]"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleDownloadPng(previewSketch.dataUrl, previewSketch.title)}
-                className="btn-pill"
-              >
-                <Download size={13} />
-                <span>Download PNG</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleAttachSketchToNewNote(previewSketch.dataUrl);
-                  setPreviewSketch(null);
-                }}
-                className="btn-pill btn-pill-primary"
-              >
-                <span>📝</span>
-                <span>Create Note with this Doodle</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
