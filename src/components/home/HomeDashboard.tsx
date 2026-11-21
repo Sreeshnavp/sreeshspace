@@ -47,6 +47,92 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [favoriteQuote, setFavoriteQuote] = useState(false);
   const [statusVibe, setStatusVibe] = useState('✨ Feeling Creative');
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isEditQuickLinksOpen, setIsEditQuickLinksOpen] = useState(false);
+  const [editingQuickLink, setEditingQuickLink] = useState<any | null>(null);
+  const [isAddingQuickLink, setIsAddingQuickLink] = useState(false);
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkIcon, setNewLinkIcon] = useState('language');
+
+  const [quickAccessLinks, setQuickAccessLinks] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-quick-access-links-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'ql-1', title: 'Google', url: 'https://google.com', icon: 'language', bgClass: 'bg-sky-subtle/50', colorClass: 'text-sky-accent' },
+      { id: 'ql-2', title: 'YouTube', url: 'https://youtube.com', icon: 'play_arrow', bgClass: 'bg-peach-subtle/50', colorClass: 'text-tertiary' },
+      { id: 'ql-3', title: 'GitHub', url: 'https://github.com', icon: 'pets', bgClass: 'bg-sunshine-subtle/50', colorClass: 'text-sunshine-accent' },
+      { id: 'ql-4', title: 'Instagram', url: 'https://instagram.com', icon: 'photo_camera', bgClass: 'bg-peach-subtle/40', colorClass: 'text-tertiary-container' },
+      { id: 'ql-5', title: 'LinkedIn', url: 'https://linkedin.com', icon: 'work', bgClass: 'bg-lavender-subtle/50', colorClass: 'text-primary' },
+      { id: 'ql-6', title: 'ChatGPT', url: 'https://chatgpt.com', icon: 'smart_toy', bgClass: 'bg-mint-subtle/50', colorClass: 'text-secondary' },
+    ];
+  });
+
+  const triggerCelebration = () => {
+    try {
+      playPopSound();
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#6B38D4', '#006C49', '#DE3B78', '#F59E0B', '#0284C7']
+      });
+    } catch {}
+  };
+
+  const handleDeleteQuickLink = (id: string) => {
+    playPopSound();
+    setQuickAccessLinks((prev) => {
+      const next = prev.filter((l) => l.id !== id);
+      try { localStorage.setItem('sreesh-quick-access-links-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleSaveQuickLink = () => {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
+    let cleanUrl = newLinkUrl.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+
+    if (editingQuickLink) {
+      setQuickAccessLinks((prev) => {
+        const next = prev.map((l) =>
+          l.id === editingQuickLink.id ? { ...l, title: newLinkTitle.trim(), url: cleanUrl, icon: newLinkIcon } : l
+        );
+        try { localStorage.setItem('sreesh-quick-access-links-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setEditingQuickLink(null);
+    } else {
+      const colors = [
+        { bgClass: 'bg-sky-subtle/50', colorClass: 'text-sky-accent' },
+        { bgClass: 'bg-peach-subtle/50', colorClass: 'text-tertiary' },
+        { bgClass: 'bg-lavender-subtle/50', colorClass: 'text-primary' },
+        { bgClass: 'bg-mint-subtle/50', colorClass: 'text-secondary' },
+      ];
+      const color = colors[quickAccessLinks.length % colors.length];
+      const newL = {
+        id: 'ql-' + Date.now(),
+        title: newLinkTitle.trim(),
+        url: cleanUrl,
+        icon: newLinkIcon || 'language',
+        ...color,
+      };
+      setQuickAccessLinks((prev) => {
+        const next = [...prev, newL];
+        try { localStorage.setItem('sreesh-quick-access-links-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+
+    setNewLinkTitle('');
+    setNewLinkUrl('');
+    setIsAddingQuickLink(false);
+    triggerCelebration();
+  };
   const [showVibeCard, setShowVibeCard] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -446,97 +532,49 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <span className="text-sunshine-accent text-[20px]">⭐</span>
                 <h2 className="font-headline-sm text-headline-sm text-on-surface">Quick Access</h2>
               </div>
-              <button 
-                onClick={() => {
-                  playPopSound();
-                  onNavigate('links');
-                }}
-                className="inline-flex items-center gap-1 text-primary font-label-sm text-label-sm hover:underline cursor-pointer"
-              >
-                <span>View All</span>
-                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => {
+                    playPopSound();
+                    setIsEditQuickLinksOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-primary font-label-sm text-label-sm hover:underline cursor-pointer font-semibold"
+                >
+                  <span className="material-symbols-outlined text-[14px]">edit</span>
+                  <span>Edit Links</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    playPopSound();
+                    onNavigate('links');
+                  }}
+                  className="inline-flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm hover:underline cursor-pointer"
+                >
+                  <span>View All</span>
+                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </button>
+              </div>
             </div>
             
-            {/* 3x2 Grid of Cute Rounded App Tiles */}
+            {/* Dynamic Grid of Cute Rounded App Tiles */}
             <div className="grid grid-cols-3 gap-space-sm pt-space-xs">
-              {/* Google */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-sky-subtle/50 hover:bg-sky-subtle active:scale-95 transition-all text-center" 
-                href="https://google.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-sky-accent">
-                  <span className="material-symbols-outlined text-[24px]">language</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">Google</span>
-              </a>
-
-              {/* YouTube */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-peach-subtle/50 hover:bg-peach-subtle active:scale-95 transition-all text-center" 
-                href="https://youtube.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-tertiary">
-                  <span className="material-symbols-outlined text-[24px]">play_arrow</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">YouTube</span>
-              </a>
-
-              {/* GitHub */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-sunshine-subtle/50 hover:bg-sunshine-subtle active:scale-95 transition-all text-center" 
-                href="https://github.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-sunshine-accent">
-                  <span className="material-symbols-outlined text-[24px]">pets</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">GitHub</span>
-              </a>
-
-              {/* Instagram */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-peach-subtle/40 hover:bg-peach-subtle active:scale-95 transition-all text-center" 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-tertiary-container">
-                  <span className="material-symbols-outlined text-[24px]">photo_camera</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">Instagram</span>
-              </a>
-
-              {/* LinkedIn */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-lavender-subtle/50 hover:bg-lavender-subtle active:scale-95 transition-all text-center" 
-                href="https://linkedin.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-primary">
-                  <span className="material-symbols-outlined text-[24px]">work</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">LinkedIn</span>
-              </a>
-
-              {/* ChatGPT */}
-              <a 
-                className="flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl bg-mint-subtle/50 hover:bg-mint-subtle active:scale-95 transition-all text-center" 
-                href="https://chatgpt.com" 
-                target="_blank" 
-                rel="noreferrer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm text-secondary">
-                  <span className="material-symbols-outlined text-[24px]">smart_toy</span>
-                </div>
-                <span className="font-label-md text-label-md text-on-surface truncate w-full">ChatGPT</span>
-              </a>
+              {quickAccessLinks.map((item) => (
+                <a
+                  key={item.id}
+                  className={`flex flex-col items-center justify-center gap-2 p-space-md rounded-2xl ${item.bgClass || 'bg-sky-subtle/50'} hover:opacity-90 active:scale-95 transition-all text-center group`}
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Open ${item.title} (${item.url})`}
+                >
+                  <div className={`w-11 h-11 rounded-2xl bg-surface-card flex items-center justify-center shadow-sm ${item.colorClass || 'text-primary'}`}>
+                    <span className="material-symbols-outlined text-[24px]">{item.icon || 'language'}</span>
+                  </div>
+                  <span className="font-label-md text-label-md text-on-surface truncate w-full font-semibold">
+                    {item.title}
+                  </span>
+                </a>
+              ))}
             </div>
           </section>
 
@@ -673,6 +711,159 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               className="w-full py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-sm hover:bg-primary-container active:scale-95 transition-all"
             >
               All Caught Up!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Quick Access Links Modal */}
+      {isEditQuickLinksOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⭐</span>
+                <h3 className="font-headline-sm text-base font-bold text-on-surface font-fraunces">Edit Quick Links</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsEditQuickLinksOpen(false);
+                  setIsAddingQuickLink(false);
+                  setEditingQuickLink(null);
+                }}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">Customize, add, or remove your favorite quick launcher bookmarks.</p>
+
+            {/* List of active links */}
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {quickAccessLinks.map((ql) => (
+                <div key={ql.id} className="p-2.5 rounded-2xl bg-surface-container border border-border-subtle flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-surface-card flex items-center justify-center text-primary shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-[16px]">{ql.icon}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-on-surface truncate block">{ql.title}</span>
+                      <span className="text-[10px] text-on-surface-variant truncate block">{ql.url}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingQuickLink(ql);
+                        setNewLinkTitle(ql.title);
+                        setNewLinkUrl(ql.url);
+                        setNewLinkIcon(ql.icon || 'language');
+                        setIsAddingQuickLink(true);
+                      }}
+                      className="p-1 text-on-surface-variant hover:text-primary rounded-lg text-xs font-bold"
+                      title="Edit link"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuickLink(ql.id)}
+                      className="p-1 text-on-surface-variant hover:text-tertiary rounded-lg text-xs font-bold"
+                      title="Delete link"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add / Edit Form */}
+            {isAddingQuickLink || editingQuickLink ? (
+              <div className="p-3 rounded-2xl bg-lavender-subtle/50 border border-primary/30 space-y-2 animate-fadeIn text-xs">
+                <h4 className="font-bold text-primary">
+                  {editingQuickLink ? 'Edit Quick Link' : 'Add New Quick Link'}
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Title (e.g. Notion)"
+                    value={newLinkTitle}
+                    onChange={(e) => setNewLinkTitle(e.target.value)}
+                    className="col-span-2 px-3 py-1.5 rounded-xl border border-border-subtle bg-white"
+                    autoFocus
+                  />
+                  <select
+                    value={newLinkIcon}
+                    onChange={(e) => setNewLinkIcon(e.target.value)}
+                    className="px-2 py-1.5 rounded-xl border border-border-subtle bg-white font-medium"
+                  >
+                    <option value="language">🌐 Web</option>
+                    <option value="play_arrow">▶ Play</option>
+                    <option value="pets">🐾 Code</option>
+                    <option value="photo_camera">📷 Camera</option>
+                    <option value="work">💼 Work</option>
+                    <option value="smart_toy">🤖 AI</option>
+                    <option value="bolt">⚡ Fast</option>
+                    <option value="star">⭐ Star</option>
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  placeholder="URL (e.g. notion.so or https://notion.so)"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-border-subtle bg-white"
+                />
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveQuickLink}
+                    className="flex-1 py-1.5 rounded-xl bg-primary text-white font-bold cursor-pointer shadow-xs"
+                  >
+                    {editingQuickLink ? 'Save Changes' : 'Add Link ✨'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingQuickLink(false);
+                      setEditingQuickLink(null);
+                      setNewLinkTitle('');
+                      setNewLinkUrl('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-on-surface-variant cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingQuickLink(null);
+                  setNewLinkTitle('');
+                  setNewLinkUrl('');
+                  setNewLinkIcon('language');
+                  setIsAddingQuickLink(true);
+                }}
+                className="w-full py-2.5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-xs hover:bg-lavender-subtle/50 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>+ Add Quick Link</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setIsEditQuickLinksOpen(false);
+                setIsAddingQuickLink(false);
+                setEditingQuickLink(null);
+              }}
+              className="w-full py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-md shadow-primary/20 hover:bg-primary-container cursor-pointer"
+            >
+              Done ✨
             </button>
           </div>
         </div>

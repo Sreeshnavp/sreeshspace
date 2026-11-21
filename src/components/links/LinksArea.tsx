@@ -466,6 +466,10 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                 return (
                   <div 
                     key={category.id || category.name}
+                    onClick={() => {
+                      playPopSound();
+                      onOpenFolder(category);
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       setDragOverCategory(category.name);
@@ -476,7 +480,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                       }
                     }}
                     onDrop={(e) => handleDropOnFolder(e, category.name)}
-                    className={`folder-dropzone bg-surface-card rounded-3xl p-4 shadow-[0_3px_14px_rgba(21,19,17,0.04)] border border-border-subtle flex flex-col gap-3 transition-all duration-200 relative overflow-hidden bg-gradient-to-br ${style.gradient} ${
+                    className={`folder-dropzone bg-surface-card rounded-3xl p-4 shadow-[0_3px_14px_rgba(21,19,17,0.04)] border border-border-subtle flex flex-col gap-3 transition-all duration-200 relative overflow-hidden bg-gradient-to-br ${style.gradient} cursor-pointer hover:shadow-md hover:border-primary/40 ${
                       isDragTarget ? `ring-2 ${style.accentRing} scale-[1.01] bg-lavender-subtle/40` : ''
                     }`}
                     data-folder={category.name}
@@ -503,8 +507,11 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                       </div>
 
                       <button 
-                        onClick={() => onEditCategory(category)}
-                        className="w-8 h-8 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors shadow-xs active:scale-95" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditCategory(category);
+                        }}
+                        className="w-8 h-8 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors shadow-xs active:scale-95 cursor-pointer" 
                         title="Edit folder"
                       >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -525,7 +532,8 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                               draggable
                               onDragStart={(e) => handleDragStart(e, link)}
                               onDragEnd={handleDragEnd}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 if (isOverflow) {
                                   onOpenFolder(category);
                                 } else {
@@ -550,7 +558,10 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                         return (
                           <div 
                             key={`empty-slot-${slotIdx}`}
-                            onClick={() => onOpenAddLinkModal(category.name)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenAddLinkModal(category.name);
+                            }}
                             className="slot-target flex items-center justify-center py-2.5 rounded-2xl border-2 border-dashed border-outline-variant/60 text-outline hover:text-primary hover:border-primary/60 cursor-pointer bg-canvas-bg/50 active:scale-95 transition-all"
                             title={`Add link to ${category.name}`}
                           >
@@ -565,7 +576,8 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                       <div className="relative flex items-center gap-1 text-outline">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             playPopSound();
                             setActiveReorderCatId(activeReorderCatId === category.id ? null : category.id);
                           }}
@@ -578,11 +590,15 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
 
                         {/* Reorder Popover */}
                         {activeReorderCatId === category.id && (
-                          <div className="absolute left-0 bottom-full mb-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 flex items-center gap-1 animate-in fade-in zoom-in-95">
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute left-0 bottom-full mb-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 flex items-center gap-1 animate-in fade-in zoom-in-95"
+                          >
                             <button
                               type="button"
                               disabled={idx === 0}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 playPopSound();
                                 if (onReorderCategory) onReorderCategory(idx, idx - 1);
                                 showToast(`Moved "${category.name}" up`);
@@ -597,7 +613,8 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                             <button
                               type="button"
                               disabled={idx === uniqueCategories.length - 1}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 playPopSound();
                                 if (onReorderCategory) onReorderCategory(idx, idx + 1);
                                 showToast(`Moved "${category.name}" down`);
@@ -613,7 +630,10 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                         )}
                       </div>
                       <button 
-                        onClick={() => onOpenFolder(category)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenFolder(category);
+                        }}
                         className="flex items-center gap-1 text-primary font-bold hover:underline py-1 cursor-pointer"
                       >
                         <span>Open</span>

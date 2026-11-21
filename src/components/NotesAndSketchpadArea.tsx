@@ -185,6 +185,62 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
   const [activeModalNote, setActiveModalNote] = useState<NoteItem | null>(null);
   const [isDoodleModalOpen, setIsDoodleModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [editingVaultFolder, setEditingVaultFolder] = useState<any | null>(null);
+  const [isAddingVaultFolder, setIsAddingVaultFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderEmoji, setNewFolderEmoji] = useState('💡');
+  const [newFolderDesc, setNewFolderDesc] = useState('');
+  const [vaultFolders, setVaultFolders] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-notes-vault-folders-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'vf-1', name: 'Creative Sparks', emoji: '💡', description: 'Midnight prompts, moodboard links & ideas', bg: 'bg-lavender-subtle', tags: ['#frontend', '#ai-prompts'] },
+      { id: 'vf-2', name: 'Daily Gratitude', emoji: '🌸', description: 'Morning reflections & peaceful mindset notes', bg: 'bg-peach-subtle', tags: ['#mindset', '#gratitude'] },
+      { id: 'vf-3', name: 'Project Dev Notes', emoji: '💻', description: 'Architecture, system tokens & component release notes', bg: 'bg-sky-subtle', tags: ['#frontend', '#ideas'] },
+    ];
+  });
+
+  const handleDeleteVaultFolder = (id: string) => {
+    playPopSound();
+    setVaultFolders((prev) => {
+      const next = prev.filter((f) => f.id !== id);
+      try { localStorage.setItem('sreesh-notes-vault-folders-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (selectedFolder) setSelectedFolder(null);
+  };
+
+  const handleSaveVaultFolder = () => {
+    if (!newFolderName.trim()) return;
+    if (editingVaultFolder) {
+      setVaultFolders((prev) => {
+        const next = prev.map((f) => (f.id === editingVaultFolder.id ? { ...f, name: newFolderName.trim(), emoji: newFolderEmoji.trim() || '💡', description: newFolderDesc.trim() || f.description } : f));
+        try { localStorage.setItem('sreesh-notes-vault-folders-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setEditingVaultFolder(null);
+    } else {
+      const newFolder = {
+        id: 'vf-' + Date.now(),
+        name: newFolderName.trim(),
+        emoji: newFolderEmoji.trim() || '💡',
+        description: newFolderDesc.trim() || 'Custom notes category',
+        bg: 'bg-lavender-subtle',
+        tags: ['#' + newFolderName.toLowerCase().replace(/\s+/g, '-')],
+      };
+      setVaultFolders((prev) => {
+        const next = [...prev, newFolder];
+        try { localStorage.setItem('sreesh-notes-vault-folders-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    setNewFolderName('');
+    setNewFolderDesc('');
+    setIsAddingVaultFolder(false);
+    triggerCelebration();
+  };
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [noteToMove, setNoteToMove] = useState<NoteItem | null>(null);
   const [activeMenuNoteId, setActiveMenuNoteId] = useState<string | null>(null);
@@ -696,45 +752,82 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
-              {/* Folder 1: Creative Sparks (Stitch 1:1) */}
-              <div 
-                onClick={() => {
-                  playPopSound();
-                  setSelectedFolder(selectedFolder === 'Creative Sparks' ? null : 'Creative Sparks');
-                }}
-                className={`relative bg-lavender-subtle rounded-lg p-space-md flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border ${
-                  selectedFolder === 'Creative Sparks' ? 'border-primary ring-2 ring-primary/20' : 'border-purple-200/50'
-                }`}
-              >
-                <span className="material-symbols-outlined absolute -bottom-3 -right-3 text-primary/10 text-[96px] select-none pointer-events-none">
-                  lightbulb
-                </span>
-                <div className="space-y-space-xs relative z-10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl">💡</span>
-                    <span className="px-2 py-0.5 rounded-full bg-surface-card text-on-surface-variant font-label-sm text-label-sm shadow-xs font-semibold">
-                      4 notes
-                    </span>
+              {vaultFolders.map((vf) => {
+                const isSelected = selectedFolder === vf.name;
+                const folderNotesCount = notes.filter((n) => 
+                  n.tag?.toLowerCase().includes(vf.name.toLowerCase()) || 
+                  vf.tags?.some((t: string) => n.tag?.toLowerCase().includes(t.toLowerCase()))
+                ).length;
+
+                return (
+                  <div 
+                    key={vf.id}
+                    onClick={() => {
+                      playPopSound();
+                      setSelectedFolder(isSelected ? null : vf.name);
+                    }}
+                    className={`relative ${vf.bg || 'bg-lavender-subtle'} rounded-2xl p-space-md flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer border ${
+                      isSelected ? 'border-primary ring-2 ring-primary/20 scale-[1.01]' : 'border-purple-200/50'
+                    }`}
+                  >
+                    <div className="space-y-space-xs relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xl">{vf.emoji}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full bg-surface-card text-on-surface-variant font-label-sm text-label-sm shadow-xs font-semibold">
+                            {folderNotesCount} notes
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playPopSound();
+                              setEditingVaultFolder(vf);
+                              setNewFolderName(vf.name);
+                              setNewFolderEmoji(vf.emoji);
+                              setNewFolderDesc(vf.description);
+                              setIsFolderModalOpen(true);
+                            }}
+                            className="w-6 h-6 rounded-full bg-surface-card/80 hover:bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors text-xs"
+                            title="Edit Category"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteVaultFolder(vf.id);
+                            }}
+                            className="w-6 h-6 rounded-full bg-surface-card/80 hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors text-xs"
+                            title="Delete Category"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold font-fraunces">
+                        {vf.name}
+                      </h3>
+                      <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-1">
+                        {vf.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-space-md relative z-10">
+                      {vf.tags?.map((t: string) => (
+                        <span key={t} className="px-2 py-0.5 rounded-full bg-surface-card/80 text-primary font-label-sm text-label-sm font-semibold">
+                          {t}
+                        </span>
+                      ))}
+                      <span className="ml-auto w-7 h-7 rounded-full bg-surface-card flex items-center justify-center text-on-surface shadow-xs hover:scale-105 transition-transform">
+                        <span className="material-symbols-outlined text-[16px]">
+                          {isSelected ? 'check' : 'chevron_right'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold font-fraunces">
-                    Creative Sparks
-                  </h3>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant line-clamp-1">
-                    Midnight prompts, moodboard links &amp; ideas
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 mt-space-md relative z-10">
-                  <span className="px-2 py-0.5 rounded-full bg-surface-card/80 text-primary font-label-sm text-label-sm font-semibold">
-                    #frontend
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-surface-card/80 text-primary font-label-sm text-label-sm font-semibold">
-                    #ai-prompts
-                  </span>
-                  <span className="ml-auto w-7 h-7 rounded-full bg-surface-card flex items-center justify-center text-on-surface shadow-xs hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                  </span>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1167,25 +1260,107 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
                 <X size={14} />
               </button>
             </div>
-            <div className="space-y-2">
-              <div className="p-3 rounded-2xl bg-lavender-subtle flex items-center justify-between text-xs font-semibold text-purple-900">
-                <span className="flex items-center gap-2">
-                  <span>💡</span> Creative Sparks
-                </span>
-                <span className="text-[10px] bg-white px-2 py-0.5 rounded-full text-primary font-bold">Active</span>
+            <div className="space-y-3">
+              {/* Existing Categories List */}
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {vaultFolders.map((f) => (
+                  <div key={f.id} className="p-3 rounded-2xl bg-surface-container flex items-center justify-between text-xs font-semibold text-on-surface border border-border-subtle">
+                    <span className="flex items-center gap-2 truncate">
+                      <span>{f.emoji}</span>
+                      <span className="truncate">{f.name}</span>
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingVaultFolder(f);
+                          setNewFolderName(f.name);
+                          setNewFolderEmoji(f.emoji);
+                          setNewFolderDesc(f.description);
+                          setIsAddingVaultFolder(true);
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-lavender-subtle hover:text-primary text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteVaultFolder(f.id)}
+                        className="px-2 py-1 rounded-xl bg-surface-card hover:bg-peach-subtle hover:text-tertiary text-[11px] font-bold transition-colors cursor-pointer text-tertiary"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="p-3 rounded-2xl bg-peach-subtle flex items-center justify-between text-xs font-semibold text-pink-900">
-                <span className="flex items-center gap-2">
-                  <span>🌸</span> Daily Gratitude &amp; Journal
-                </span>
-                <span className="text-[10px] bg-white px-2 py-0.5 rounded-full text-tertiary font-bold">Active</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-sky-subtle flex items-center justify-between text-xs font-semibold text-sky-900">
-                <span className="flex items-center gap-2">
-                  <span>💻</span> Project Dev Notes
-                </span>
-                <span className="text-[10px] bg-white px-2 py-0.5 rounded-full text-sky-700 font-bold">Active</span>
-              </div>
+
+              {/* Add / Edit Category Form */}
+              {isAddingVaultFolder || editingVaultFolder ? (
+                <div className="p-3 rounded-2xl bg-lavender-subtle/50 border border-primary/30 space-y-2 animate-fadeIn">
+                  <h4 className="text-xs font-bold text-primary">
+                    {editingVaultFolder ? 'Edit Category' : 'Create New Category'}
+                  </h4>
+                  <div className="grid grid-cols-4 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Folder Name"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      className="col-span-3 px-3 py-1.5 rounded-xl border border-border-subtle text-xs bg-white"
+                      autoFocus
+                    />
+                    <input
+                      type="text"
+                      placeholder="Emoji"
+                      value={newFolderEmoji}
+                      onChange={(e) => setNewFolderEmoji(e.target.value)}
+                      className="px-2 py-1.5 rounded-xl border border-border-subtle text-xs bg-white text-center font-bold"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Brief description..."
+                    value={newFolderDesc}
+                    onChange={(e) => setNewFolderDesc(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl border border-border-subtle text-xs bg-white"
+                  />
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveVaultFolder}
+                      className="flex-1 py-1.5 rounded-xl bg-primary text-white font-bold text-xs cursor-pointer shadow-xs"
+                    >
+                      {editingVaultFolder ? 'Save Changes' : 'Create Category ✨'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingVaultFolder(false);
+                        setEditingVaultFolder(null);
+                        setNewFolderName('');
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-on-surface-variant text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingVaultFolder(null);
+                    setNewFolderName('');
+                    setNewFolderDesc('');
+                    setIsAddingVaultFolder(true);
+                  }}
+                  className="w-full py-2.5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-xs hover:bg-lavender-subtle/50 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>+ New Vault Category</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

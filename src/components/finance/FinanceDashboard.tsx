@@ -91,12 +91,64 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [isFullStatementOpen, setIsFullStatementOpen] = useState(false);
   const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income' | 'goal'>('all');
   const [statementSearch, setStatementSearch] = useState('');
-  const [allowanceCaps, setAllowanceCaps] = useState({
-    food: 500,
-    tech: 150,
-    shopping: 400,
-    knowledge: 100,
+  const [allowancesList, setAllowancesList] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-allowances-list-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'allw-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', spent: 340, cap: 500, bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
+      { id: 'allw-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', spent: 120, cap: 150, bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
+      { id: 'allw-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', spent: 280, cap: 400, bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
+      { id: 'allw-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', spent: 60, cap: 100, bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
+    ];
   });
+
+  const handleDeleteGoal = (goalId: string) => {
+    playPopSound();
+    setGoalsList((prev) => {
+      const next = prev.filter((g) => g.id !== goalId);
+      try { localStorage.setItem('sreesh-goals-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleDeleteAllowance = (id: string) => {
+    playPopSound();
+    setAllowancesList((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      try { localStorage.setItem('sreesh-allowances-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (selectedCategoryForSpendView?.id === id) {
+      setSelectedCategoryForSpendView(null);
+    }
+  };
+
+  const handleAddNewAllowance = () => {
+    if (!newAllowanceName.trim()) return;
+    const capNum = parseInt(newAllowanceCap.replace(/[^0-9]/g, ''), 10) || 100;
+    const newAllw = {
+      id: 'allw-' + Date.now(),
+      key: newAllowanceName.toLowerCase().replace(/\s+/g, '-'),
+      name: newAllowanceName.trim(),
+      emoji: newAllowanceEmoji.trim() || '✨',
+      icon: 'category',
+      spent: 0,
+      cap: capNum,
+      bg: 'bg-lavender-subtle/80',
+      iconColor: 'text-primary/15',
+      barColor: 'bg-primary',
+    };
+    setAllowancesList((prev) => {
+      const next = [...prev, newAllw];
+      try { localStorage.setItem('sreesh-allowances-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setNewAllowanceName('');
+    setIsAddingNewAllowance(false);
+    triggerCelebration();
+  };
   const [depositAmountInput, setDepositAmountInput] = useState('50');
 
   // Quick Log form state
@@ -135,6 +187,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalEmoji, setNewGoalEmoji] = useState('🎯');
   const [newGoalTarget, setNewGoalTarget] = useState('1000');
+  const [newGoalDeadline, setNewGoalDeadline] = useState('Target Nov 2026');
+  const [recentLogsFilter, setRecentLogsFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [selectedCategoryForSpendView, setSelectedCategoryForSpendView] = useState<any | null>(null);
+  const [isAddingNewAllowance, setIsAddingNewAllowance] = useState(false);
+  const [newAllowanceName, setNewAllowanceName] = useState('');
+  const [newAllowanceEmoji, setNewAllowanceEmoji] = useState('✨');
+  const [newAllowanceCap, setNewAllowanceCap] = useState('250');
 
   // Default transactions matching Stitch
   const [recentLogs, setRecentLogs] = useState<DefaultTransactionDef[]>([
@@ -814,12 +873,21 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                           <p className="font-body-sm text-[12px] text-on-surface-variant">{goal.subtitle}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => handleOpenDepositModal(goal)}
-                        className="goal-deposit-btn px-3 py-1.5 rounded-xl bg-lavender-subtle text-primary font-label-sm text-label-sm font-bold hover:bg-primary hover:text-white transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">add</span>Deposit
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button 
+                          onClick={() => handleOpenDepositModal(goal)}
+                          className="goal-deposit-btn px-3 py-1.5 rounded-xl bg-lavender-subtle text-primary font-label-sm text-label-sm font-bold hover:bg-primary hover:text-white transition-all active:scale-95 flex items-center gap-1 cursor-pointer shadow-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">add</span>Deposit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGoal(goal.id)}
+                          className="w-8 h-8 rounded-xl bg-canvas-bg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer border border-border-subtle active:scale-95"
+                          title="Delete goal"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">delete</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1">
@@ -842,7 +910,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
           </div>
 
-          {/* Monthly Category Allowances */}
+          {/* Monthly Category Allowances (Click ANY category to see full spend breakdown) */}
           <div className="flex flex-col space-y-space-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -852,124 +920,58 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <button 
                 onClick={() => {
                   playPopSound();
-                  setIsQuickLogOpen(true);
+                  setIsEditCapsModalOpen(true);
                 }}
-                className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer"
+                className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer font-bold"
               >
                 <span>Edit Caps</span>
                 <span className="material-symbols-outlined text-[14px]">chevron_right</span>
               </button>
             </div>
 
-            {/* Category Cards Grid */}
+            {/* Dynamic Category Cards Grid */}
             <div className="grid grid-cols-2 gap-space-sm">
-              {/* Food & Cafe */}
-              <div className="relative overflow-hidden p-space-md rounded-3xl bg-sunshine-subtle/80 flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle">
-                <span 
-                  className="material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] text-sunshine-accent/15 select-none pointer-events-none" 
-                  style={{ fontVariationSettings: '"FILL" 1' }}
-                >
-                  local_cafe
-                </span>
-                <div className="flex items-center justify-between">
-                  <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
-                    <span className="text-[18px]">☕</span>
+              {allowancesList.map((c) => {
+                const pct = Math.min(100, Math.round((c.spent / c.cap) * 100));
+                return (
+                  <div 
+                    key={c.id || c.name}
+                    onClick={() => {
+                      playPopSound();
+                      setSelectedCategoryForSpendView(c);
+                    }}
+                    className={`relative overflow-hidden p-space-md rounded-3xl ${c.bg || 'bg-lavender-subtle/80'} flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle hover:shadow-md hover:border-primary/40 transition-all cursor-pointer active:scale-98`}
+                    title="Click to view all spending in this category"
+                  >
+                    <span 
+                      className={`material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] ${c.iconColor || 'text-primary/15'} select-none pointer-events-none`} 
+                      style={{ fontVariationSettings: '"FILL" 1' }}
+                    >
+                      {c.icon || 'category'}
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
+                        <span className="text-[18px]">{c.emoji}</span>
+                      </div>
+                      <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">{pct}%</span>
+                    </div>
+                    <div>
+                      <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}{c.spent}</span>
+                        <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}{c.cap}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
+                        <div className={`h-full rounded-full ${c.barColor || 'bg-primary'}`} style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">68%</span>
-                </div>
-                <div>
-                  <span className="font-label-md text-label-md text-on-surface block font-bold">Food &amp; Cafe</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}340</span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}500</span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-sunshine-accent" style={{ width: '68%' }}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tech & Subscriptions */}
-              <div className="relative overflow-hidden p-space-md rounded-3xl bg-sky-subtle/80 flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle">
-                <span 
-                  className="material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] text-sky-accent/15 select-none pointer-events-none" 
-                  style={{ fontVariationSettings: '"FILL" 1' }}
-                >
-                  laptop_mac
-                </span>
-                <div className="flex items-center justify-between">
-                  <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
-                    <span className="text-[18px]">💻</span>
-                  </div>
-                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">80%</span>
-                </div>
-                <div>
-                  <span className="font-label-md text-label-md text-on-surface block font-bold">Tech Subs</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}120</span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}150</span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-sky-accent" style={{ width: '80%' }}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Shopping & Fun */}
-              <div className="relative overflow-hidden p-space-md rounded-3xl bg-peach-subtle/80 flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle">
-                <span 
-                  className="material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] text-tertiary-container/15 select-none pointer-events-none" 
-                  style={{ fontVariationSettings: '"FILL" 1' }}
-                >
-                  shopping_bag
-                </span>
-                <div className="flex items-center justify-between">
-                  <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
-                    <span className="text-[18px]">🛍️</span>
-                  </div>
-                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">70%</span>
-                </div>
-                <div>
-                  <span className="font-label-md text-label-md text-on-surface block font-bold">Shopping</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}280</span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}400</span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-tertiary-container" style={{ width: '70%' }}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Books & Courses */}
-              <div className="relative overflow-hidden p-space-md rounded-3xl bg-lavender-subtle/80 flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle">
-                <span 
-                  className="material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] text-primary/15 select-none pointer-events-none" 
-                  style={{ fontVariationSettings: '"FILL" 1' }}
-                >
-                  auto_stories
-                </span>
-                <div className="flex items-center justify-between">
-                  <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
-                    <span className="text-[18px]">📚</span>
-                  </div>
-                  <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-card/80 text-on-surface font-bold">60%</span>
-                </div>
-                <div>
-                  <span className="font-label-md text-label-md text-on-surface block font-bold">Knowledge</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}60</span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}100</span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-primary" style={{ width: '60%' }}></div>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Recent Ledger / Transactions Section */}
+          {/* Recent Ledger / Transactions Section with Filter & Below Total */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -988,72 +990,129 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Transaction List Card Container */}
-            <div className="rounded-3xl bg-surface-card p-space-md shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] space-y-space-sm border border-border-subtle">
-              {recentLogs.map((tx) => (
-                <div 
-                  key={tx.id}
-                  className="flex items-center justify-between p-space-sm rounded-2xl hover:bg-canvas-bg transition-colors cursor-pointer border border-transparent hover:border-border-subtle"
+            {/* Filter Tabs: Both (All) vs Spent (Expense) vs Income */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-surface-container border border-border-subtle text-xs">
+              {[
+                { key: 'all', label: 'Both' },
+                { key: 'expense', label: 'Spent' },
+                { key: 'income', label: 'Income' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setRecentLogsFilter(tab.key as any);
+                  }}
+                  className={`flex-1 py-1.5 text-center rounded-xl font-bold transition-all cursor-pointer ${
+                    recentLogsFilter === tab.key
+                      ? 'bg-surface-card text-primary shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
                 >
-                  <div className="flex items-center gap-space-sm min-w-0">
-                    <div className={`w-11 h-11 rounded-2xl ${tx.iconBg} flex items-center justify-center ${tx.iconColor} flex-shrink-0 shadow-xs`}>
-                      <span className="material-symbols-outlined text-[22px]">{tx.icon}</span>
-                    </div>
-                    <div className="min-w-0 ml-1">
-                      <h3 className="font-label-lg text-label-lg text-on-surface truncate font-semibold">{tx.title}</h3>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant truncate">{tx.subtitle}</p>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0 pl-2">
-                    <span className={`font-label-lg text-label-lg block font-bold ${
-                      tx.type === 'income' ? 'text-secondary' : 'text-on-surface'
-                    }`}>
-                      {tx.type === 'income' ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
-                    </span>
-                    <span className={`font-label-sm text-label-sm px-1.5 py-0.5 rounded-full inline-block font-medium ${
-                      tx.type === 'income' 
-                        ? 'bg-mint-subtle text-on-secondary-fixed-variant' 
-                        : 'bg-canvas-bg text-on-surface-variant'
-                    }`}>
-                      {tx.method}
-                    </span>
-                  </div>
-                </div>
-              ))}
-
-              {/* Dynamic user transactions */}
-              {transactions.map((tx) => (
-                <div 
-                  key={tx.id}
-                  className="flex items-center justify-between p-space-sm rounded-2xl hover:bg-canvas-bg transition-colors cursor-pointer border border-transparent hover:border-border-subtle"
-                >
-                  <div className="flex items-center gap-space-sm min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-lavender-subtle flex items-center justify-center text-primary flex-shrink-0 shadow-xs text-lg">
-                      {tx.categoryIcon || '💸'}
-                    </div>
-                    <div className="min-w-0 ml-1">
-                      <h3 className="font-label-lg text-label-lg text-on-surface truncate font-semibold">
-                        {tx.note || tx.category}
-                      </h3>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                        {tx.category} · {tx.date}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0 pl-2">
-                    <span className={`font-label-lg text-label-lg block font-bold ${
-                      tx.type === 'income' ? 'text-secondary' : 'text-on-surface'
-                    }`}>
-                      {tx.type === 'income' ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
-                    </span>
-                    <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded-full bg-canvas-bg text-on-surface-variant inline-block font-medium">
-                      Live
-                    </span>
-                  </div>
-                </div>
+                  {tab.label}
+                </button>
               ))}
             </div>
+
+            {/* Filtered Transaction List Container */}
+            {(() => {
+              const allLogs = [
+                ...recentLogs,
+                ...transactions.map((tx) => ({
+                  id: tx.id,
+                  title: tx.note || tx.category,
+                  subtitle: `${tx.category} · ${tx.date}`,
+                  amount: tx.amount,
+                  time: tx.date,
+                  category: tx.category,
+                  type: tx.type,
+                  icon: 'payments',
+                  iconBg: 'bg-lavender-subtle',
+                  iconColor: 'text-primary',
+                  method: 'Live',
+                })),
+              ];
+
+              const filteredLogs = allLogs.filter((tx) => {
+                if (recentLogsFilter === 'expense') return (tx.type as string) !== 'income';
+                if (recentLogsFilter === 'income') return tx.type === 'income';
+                return true;
+              });
+
+              const totalSpent = filteredLogs
+                .filter((tx) => (tx.type as string) !== 'income')
+                .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+              const totalIncome = filteredLogs
+                .filter((tx) => tx.type === 'income')
+                .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+              const netTotal = totalIncome - totalSpent;
+
+              return (
+                <div className="rounded-3xl bg-surface-card p-space-md shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] space-y-space-sm border border-border-subtle">
+                  {filteredLogs.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-on-surface-variant">
+                      No logs found for this filter.
+                    </div>
+                  ) : (
+                    filteredLogs.map((tx) => (
+                      <div 
+                        key={tx.id}
+                        className="flex items-center justify-between p-space-sm rounded-2xl hover:bg-canvas-bg transition-colors cursor-pointer border border-transparent hover:border-border-subtle"
+                      >
+                        <div className="flex items-center gap-space-sm min-w-0">
+                          <div className={`w-11 h-11 rounded-2xl ${tx.iconBg} flex items-center justify-center ${tx.iconColor} flex-shrink-0 shadow-xs`}>
+                            <span className="material-symbols-outlined text-[22px]">{tx.icon}</span>
+                          </div>
+                          <div className="min-w-0 ml-1">
+                            <h3 className="font-label-lg text-label-lg text-on-surface truncate font-semibold">{tx.title}</h3>
+                            <p className="font-body-sm text-body-sm text-on-surface-variant truncate">{tx.subtitle}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 pl-2">
+                          <span className={`font-label-lg text-label-lg block font-bold ${
+                            tx.type === 'income' ? 'text-secondary' : 'text-on-surface'
+                          }`}>
+                            {tx.type === 'income' ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
+                          </span>
+                          <span className={`font-label-sm text-label-sm px-1.5 py-0.5 rounded-full inline-block font-medium ${
+                            tx.type === 'income' 
+                              ? 'bg-mint-subtle text-on-secondary-fixed-variant' 
+                              : 'bg-canvas-bg text-on-surface-variant'
+                          }`}>
+                            {tx.method}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Calculated Total Bar Below the List */}
+                  <div className="pt-3 border-t border-border-subtle flex items-center justify-between text-xs px-1">
+                    <span className="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">
+                      {recentLogsFilter === 'expense'
+                        ? 'Total Spent'
+                        : recentLogsFilter === 'income'
+                        ? 'Total Income'
+                        : 'Net Summary'}
+                    </span>
+                    <span className={`font-headline-sm text-sm font-bold font-mono ${
+                      recentLogsFilter === 'income' || (recentLogsFilter === 'all' && netTotal >= 0)
+                        ? 'text-secondary'
+                        : 'text-primary'
+                    }`}>
+                      {recentLogsFilter === 'expense' && `-${currency}${Math.round(totalSpent).toLocaleString('en-IN')}`}
+                      {recentLogsFilter === 'income' && `+${currency}${Math.round(totalIncome).toLocaleString('en-IN')}`}
+                      {recentLogsFilter === 'all' && `${netTotal >= 0 ? '+' : '-'}${currency}${Math.round(Math.abs(netTotal)).toLocaleString('en-IN')}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
+
 
         </div>
       </main>
@@ -1365,6 +1424,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   min="1"
                   value={newGoalTarget}
                   onChange={(e) => setNewGoalTarget(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="w-full px-3.5 py-2 rounded-2xl bg-canvas-bg border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Target Deadline / Date Limit</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. Target Nov 2026, In 45 days, 31 Dec 2026"
+                  value={newGoalDeadline}
+                  onChange={(e) => setNewGoalDeadline(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-2xl bg-canvas-bg border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>

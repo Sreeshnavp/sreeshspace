@@ -118,7 +118,61 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>('FRI');
   const [activePriorityMenuId, setActivePriorityMenuId] = useState<string | null>(null);
-  const [addMode, setAddMode] = useState<'daily' | 'routine'>('daily');
+  const [addMode, setAddMode] = useState<'daily' | 'routine' | 'goal'>('daily');
+  const [newRoutineDetail, setNewRoutineDetail] = useState('');
+  const [newRoutineEmoji, setNewRoutineEmoji] = useState('✨');
+  const [newRoutineColor, setNewRoutineColor] = useState<'mint' | 'lavender' | 'sky' | 'peach'>('mint');
+  const [newTaskTime, setNewTaskTime] = useState('4:00 PM');
+  const [newGoalTimeline, setNewGoalTimeline] = useState('30 days left');
+  const [newGoalMilestones, setNewGoalMilestones] = useState('');
+  const [editingHabit, setEditingHabit] = useState<HabitItemDef | null>(null);
+  const [editingGoalArc, setEditingGoalArc] = useState<GoalArcDef | null>(null);
+  const [isPerkModalOpen, setIsPerkModalOpen] = useState(false);
+  const [editingPerk, setEditingPerk] = useState<any | null>(null);
+  const [perkTitle, setPerkTitle] = useState('');
+  const [perkCost, setPerkCost] = useState('300');
+  const [perkDesc, setPerkDesc] = useState('');
+  const [perkEmoji, setPerkEmoji] = useState('🎁');
+  const [perkColor, setPerkColor] = useState<'lavender' | 'mint' | 'peach'>('lavender');
+
+  const [bazaarPerks, setBazaarPerks] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-bazaar-perks-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'perk-sunset',
+        title: 'Sunset Lo-Fi Theme',
+        detail: 'Atmospheric palette',
+        cost: 500,
+        emoji: '🎨',
+        bgClass: 'bg-lavender-subtle/70',
+        accentColor: 'text-primary',
+        unlocked: false,
+      },
+      {
+        id: 'perk-matcha',
+        title: 'Matcha Latte Break',
+        detail: 'Guilt-free offline treat',
+        cost: 300,
+        emoji: '🍵',
+        bgClass: 'bg-mint-subtle/70',
+        accentColor: 'text-secondary',
+        claimedToday: true,
+      },
+      {
+        id: 'perk-game',
+        title: '1 Hr Game Break',
+        detail: 'Rest & recharge block',
+        cost: 250,
+        emoji: '🎮',
+        bgClass: 'bg-peach-subtle/70',
+        accentColor: 'text-tertiary',
+        unlocked: false,
+      },
+    ];
+  });
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
 
@@ -374,6 +428,79 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Redeem bazaar perk
   const handleRedeemPerk = (perkId: string, cost: number) => {
+    const perk = bazaarPerks.find((p) => p.id === perkId);
+    if (!perk || perk.unlocked || perk.claimedToday) return;
+    if (glowPoints < cost) {
+      alert("Not enough Glow Points yet! Complete more habits to earn points ✨");
+      return;
+    }
+    const nextPoints = glowPoints - cost;
+    setGlowPoints(nextPoints);
+    setBazaarPerks((prev) => {
+      const next = prev.map((p) => (p.id === perkId ? { ...p, unlocked: true } : p));
+      try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    triggerCelebration();
+    try {
+      localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, nextPoints.toString());
+    } catch {}
+  };
+
+  const handleDeletePerk = (id: string) => {
+    playPopSound();
+    setBazaarPerks((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleSavePerk = () => {
+    if (!perkTitle.trim()) return;
+    const costNum = parseInt(perkCost.replace(/[^0-9]/g, ''), 10) || 100;
+    const colorClasses = {
+      lavender: { bgClass: 'bg-lavender-subtle/70', accentColor: 'text-primary' },
+      mint: { bgClass: 'bg-mint-subtle/70', accentColor: 'text-secondary' },
+      peach: { bgClass: 'bg-peach-subtle/70', accentColor: 'text-tertiary' },
+    };
+    const c = colorClasses[perkColor] || colorClasses.lavender;
+
+    if (editingPerk) {
+      setBazaarPerks((prev) => {
+        const next = prev.map((p) =>
+          p.id === editingPerk.id
+            ? { ...p, title: perkTitle.trim(), detail: perkDesc.trim() || p.detail, cost: costNum, emoji: perkEmoji.trim() || '🎁', ...c }
+            : p
+        );
+        try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setEditingPerk(null);
+    } else {
+      const newP = {
+        id: 'perk-' + Date.now(),
+        title: perkTitle.trim(),
+        detail: perkDesc.trim() || 'Custom sanctuary reward',
+        cost: costNum,
+        emoji: perkEmoji.trim() || '🎁',
+        ...c,
+        unlocked: false,
+      };
+      setBazaarPerks((prev) => {
+        const next = [...prev, newP];
+        try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+
+    setPerkTitle('');
+    setPerkDesc('');
+    setIsPerkModalOpen(false);
+    triggerCelebration();
+  };
+
+  const _oldHandleRedeem = (perkId: string, cost: number) => {
     if (unlockedPerks[perkId]) return;
     if (glowPoints < cost) {
       alert("Not enough Glow Points yet! Complete more habits to earn points ✨");
@@ -397,58 +524,202 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     playPopSound();
   };
 
+  // Delete habit routine
+  const handleDeleteHabit = (id: string) => {
+    playPopSound();
+    setHabitsList((prev) => {
+      const next = prev.filter((h) => h.id !== id);
+      try { localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Delete goal arc
+  const handleDeleteGoalArc = (id: string) => {
+    playPopSound();
+    setGoalArcs((prev) => {
+      const next = prev.filter((g) => g.id !== id);
+      try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   // Add new habit or task
   const handleCreateItem = () => {
     const text = newTaskInput.trim();
     if (!text) return;
 
     if (addMode === 'routine') {
-      if (onSaveRoutine) {
-        onSaveRoutine({
-          id: 'routine-' + Date.now(),
-          text,
-          priority: newTaskPriority,
-          frequency: 'daily',
-          startDate: TODAY,
-          createdAt: new Date().toISOString(),
-        });
-      }
-      // Also add to local habitsList
-      setHabitsList((prev) => [
-        ...prev,
-        {
-          id: 'h-' + Date.now(),
-          title: text,
-          detail: 'Daily intentional ritual',
-          emoji: '✨',
-          badge: '✨ Pending',
-          badgeBg: 'bg-surface-card text-tertiary',
+      const colorConfigs = {
+        mint: {
+          bgClass: 'bg-mint-subtle/80 text-on-secondary-container',
+          watermark: 'water_drop',
+          watermarkColor: 'text-secondary/10',
+          iconBg: 'bg-surface-card',
+          iconColor: 'text-secondary',
+          btnBgDone: 'bg-secondary text-on-secondary',
+        },
+        lavender: {
           bgClass: 'bg-lavender-subtle/80 text-on-primary-fixed',
-          watermark: 'auto_awesome',
+          watermark: 'menu_book',
           watermarkColor: 'text-primary/10',
           iconBg: 'bg-surface-card',
           iconColor: 'text-primary',
           btnBgDone: 'bg-primary text-on-primary',
-          completed: false,
         },
-      ]);
+        sky: {
+          bgClass: 'bg-sky-subtle/80 text-on-surface',
+          watermark: 'terminal',
+          watermarkColor: 'text-sky-accent/10',
+          iconBg: 'bg-surface-card',
+          iconColor: 'text-sky-accent',
+          btnBgDone: 'bg-sky-accent text-on-primary',
+        },
+        peach: {
+          bgClass: 'bg-peach-subtle/90 text-on-tertiary-fixed-variant',
+          watermark: 'self_improvement',
+          watermarkColor: 'text-tertiary/10',
+          iconBg: 'bg-surface-card',
+          iconColor: 'text-tertiary',
+          btnBgDone: 'bg-tertiary text-on-primary',
+        },
+      };
+      const theme = colorConfigs[newRoutineColor] || colorConfigs.mint;
+
+      if (editingHabit) {
+        setHabitsList((prev) => {
+          const next = prev.map((h) =>
+            h.id === editingHabit.id
+              ? {
+                  ...h,
+                  title: text,
+                  detail: newRoutineDetail.trim() || h.detail,
+                  emoji: newRoutineEmoji || h.emoji,
+                  bgClass: theme.bgClass,
+                  watermark: theme.watermark,
+                  watermarkColor: theme.watermarkColor,
+                  iconColor: theme.iconColor,
+                  btnBgDone: theme.btnBgDone,
+                }
+              : h
+          );
+          try { localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        setEditingHabit(null);
+      } else {
+        const newHabit: HabitItemDef = {
+          id: 'h-' + Date.now(),
+          title: text,
+          detail: newRoutineDetail.trim() || 'Daily intentional habit',
+          emoji: newRoutineEmoji || '✨',
+          badge: '✨ Pending',
+          badgeBg: 'bg-surface-card text-tertiary',
+          bgClass: theme.bgClass,
+          watermark: theme.watermark,
+          watermarkColor: theme.watermarkColor,
+          iconBg: theme.iconBg,
+          iconColor: theme.iconColor,
+          btnBgDone: theme.btnBgDone,
+          completed: false,
+        };
+
+        setHabitsList((prev) => {
+          const next = [...prev, newHabit];
+          try { localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next)); } catch {}
+          return next;
+        });
+
+        if (onSaveRoutine) {
+          onSaveRoutine({
+            id: 'routine-' + Date.now(),
+            text,
+            priority: newTaskPriority,
+            frequency: 'daily',
+            startDate: TODAY,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+    } else if (addMode === 'goal') {
+      const milestonesList = newGoalMilestones
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean);
+
+      const subtasks = milestonesList.length > 0
+        ? milestonesList.map((m, i) => ({ id: 'st-' + Date.now() + '-' + i, text: m, completed: false }))
+        : (editingGoalArc?.subtasks || [
+            { id: 'st-' + Date.now() + '-1', text: 'Define roadmap & milestone 1', completed: false },
+            { id: 'st-' + Date.now() + '-2', text: 'Execute core build phase', completed: false },
+          ]);
+
+      if (editingGoalArc) {
+        setGoalArcs((prev) => {
+          const next = prev.map((g) =>
+            g.id === editingGoalArc.id
+              ? {
+                  ...g,
+                  title: text,
+                  emoji: newRoutineEmoji || g.emoji,
+                  daysLeft: newGoalTimeline.trim() || g.daysLeft,
+                  subtasks,
+                  priorityText: newTaskPriority === 'high' ? '🌸 High Priority' : newTaskPriority === 'medium' ? '💜 Medium Priority' : '🌿 Gentle Priority',
+                  priorityClass: newTaskPriority === 'high' ? 'bg-peach-subtle text-on-tertiary-fixed-variant' : newTaskPriority === 'medium' ? 'bg-lavender-subtle text-primary' : 'bg-mint-subtle text-secondary',
+                }
+              : g
+          );
+          try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        setEditingGoalArc(null);
+      } else {
+        const newGoal: GoalArcDef = {
+          id: 'g-' + Date.now(),
+          title: text,
+          emoji: newRoutineEmoji || '🎯',
+          priorityText: newTaskPriority === 'high' ? '🌸 High Priority' : newTaskPriority === 'medium' ? '💜 Medium Priority' : '🌿 Gentle Priority',
+          priorityClass: newTaskPriority === 'high' ? 'bg-peach-subtle text-on-tertiary-fixed-variant' : newTaskPriority === 'medium' ? 'bg-lavender-subtle text-primary' : 'bg-mint-subtle text-secondary',
+          progressPercent: 0,
+          progressLabel: `0% completed (0/${subtasks.length} Milestones)`,
+          daysLeft: newGoalTimeline.trim() || '30 days left',
+          barColor: newTaskPriority === 'high' ? 'bg-tertiary' : 'bg-secondary',
+          subtasks,
+        };
+
+        setGoalArcs((prev) => {
+          const next = [...prev, newGoal];
+          try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
     } else {
-      onAddTodo(text, 'daily', newTaskPriority, selectedDate || TODAY);
-      setPrioritiesList((prev) => [
-        ...prev,
-        {
-          id: 'p-' + Date.now(),
-          priority: newTaskPriority === 'high' ? 'high' : newTaskPriority === 'low' ? 'gentle' : 'medium',
-          time: 'Today',
-          text,
-          completed: false,
-        },
-      ]);
+      // Daily task
+      const newP: PriorityTaskDef = {
+        id: 'p-' + Date.now(),
+        priority: newTaskPriority === 'low' ? 'gentle' : newTaskPriority,
+        time: newTaskTime.trim() || 'Today',
+        text,
+        completed: false,
+      };
+
+      setPrioritiesList((prev) => {
+        const next = [...prev, newP];
+        try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
+      if (onAddTodo) {
+        onAddTodo(text, 'daily', newTaskPriority, selectedDate || TODAY, ['priority']);
+      }
     }
 
     setNewTaskInput('');
+    setNewRoutineDetail('');
+    setNewGoalMilestones('');
     setIsAddModalOpen(false);
     triggerCelebration();
+    return;
   };
 
   return (
@@ -709,19 +980,43 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       </div>
                     </div>
                     
-                    <button 
-                      onClick={() => handleToggleHabit(habit.id)}
-                      className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
-                        habit.completed 
-                          ? habit.btnBgDone 
-                          : 'bg-surface-card text-tertiary border border-border-subtle'
-                      }`}
-                      title={habit.completed ? 'Completed' : 'Mark complete'}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        {habit.completed ? 'check' : 'radio_button_unchecked'}
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button 
+                        onClick={() => handleToggleHabit(habit.id)}
+                        className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
+                          habit.completed 
+                            ? habit.btnBgDone 
+                            : 'bg-surface-card text-tertiary border border-border-subtle'
+                        }`}
+                        title={habit.completed ? 'Completed' : 'Mark complete'}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">
+                          {habit.completed ? 'check' : 'radio_button_unchecked'}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          playPopSound();
+                          setEditingHabit(habit);
+                          setAddMode('routine');
+                          setNewTaskInput(habit.title);
+                          setNewRoutineDetail(habit.detail);
+                          setNewRoutineEmoji(habit.emoji);
+                          setIsAddModalOpen(true);
+                        }}
+                        className="w-8 h-8 rounded-2xl bg-surface-card/60 hover:bg-lavender-subtle hover:text-primary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer shadow-xs active:scale-95"
+                        title="Edit habit"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteHabit(habit.id)}
+                        className="w-8 h-8 rounded-2xl bg-surface-card/60 hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer shadow-xs active:scale-95"
+                        title="Delete routine"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -900,16 +1195,32 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   {goalArcs.length} Active Arcs
                 </span>
               </div>
-              <button 
-    onClick={() => {
-      playPopSound();
-      setIsAddModalOpen(true);
-    }}
-    className="font-label-sm text-label-sm text-primary hover:underline font-bold flex items-center gap-1 cursor-pointer"
-  >
-    <span>Q3 Vision</span>
-    <span>✨</span>
-  </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    playPopSound();
+                    setEditingGoalArc(null);
+                    setAddMode('goal');
+                    setNewTaskInput('');
+                    setNewGoalTimeline('30 days left');
+                    setNewGoalMilestones('');
+                    setIsAddModalOpen(true);
+                  }}
+                  className="font-label-sm text-label-sm text-primary hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  <span>New Goal</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    playPopSound();
+                    setIsAddModalOpen(true);
+                  }}
+                  className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Q3 Vision ✨</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-space-sm">
@@ -925,9 +1236,34 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                         {arc.title}
                       </h3>
                     </div>
-                    <span className={`font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold shrink-0 ${arc.priorityClass}`}>
-                      {arc.priorityText}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold shrink-0 ${arc.priorityClass}`}>
+                        {arc.priorityText}
+                      </span>
+                      <button
+                        onClick={() => {
+                          playPopSound();
+                          setEditingGoalArc(arc);
+                          setAddMode('goal');
+                          setNewTaskInput(arc.title);
+                          setNewRoutineEmoji(arc.emoji);
+                          setNewGoalTimeline(arc.daysLeft);
+                          setNewGoalMilestones(arc.subtasks.map((s) => s.text).join(', '));
+                          setIsAddModalOpen(true);
+                        }}
+                        className="w-7 h-7 rounded-full hover:bg-lavender-subtle hover:text-primary flex items-center justify-center text-on-surface-variant cursor-pointer transition-colors active:scale-95"
+                        title="Edit goal arc"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGoalArc(arc.id)}
+                        className="w-7 h-7 rounded-full hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant cursor-pointer transition-colors active:scale-95"
+                        title="Delete goal arc"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">delete</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Progress & Timeline */}
@@ -1026,86 +1362,93 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               </div>
             )}
 
-            {/* Cozy Reward Bazaar Sub-grid */}
+            {/* Cozy Reward Bazaar Sub-grid (Add, Edit & Delete Rewards) */}
             <div className="pt-2 border-t border-border-subtle space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">
                   Cozy Reward Bazaar
                 </span>
-                <span className="font-label-sm text-xs text-primary font-semibold">3 Perks Ready</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setEditingPerk(null);
+                      setPerkTitle('');
+                      setPerkCost('300');
+                      setPerkDesc('');
+                      setPerkEmoji('🎁');
+                      setIsPerkModalOpen(true);
+                    }}
+                    className="font-label-sm text-xs text-primary font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">add</span>
+                    <span>New Reward</span>
+                  </button>
+                  <span className="font-label-sm text-xs text-on-surface-variant">· {bazaarPerks.length} Perks</span>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {/* Perk 1 */}
-                <div className="p-2.5 rounded-2xl bg-lavender-subtle/70 flex flex-col justify-between gap-2 border border-border-subtle">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-base">🎨</span>
-                      <span className="font-label-sm text-[10px] font-bold text-primary bg-surface-card px-1.5 py-0.5 rounded-full">
-                        500 Pts
-                      </span>
+                {bazaarPerks.map((perk) => (
+                  <div key={perk.id} className={`p-2.5 rounded-2xl ${perk.bgClass || 'bg-lavender-subtle/70'} flex flex-col justify-between gap-2 border border-border-subtle group hover:border-primary/40 transition-all`}>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base">{perk.emoji}</span>
+                        <div className="flex items-center gap-1">
+                          <span className={`font-label-sm text-[10px] font-bold ${perk.accentColor || 'text-primary'} bg-surface-card px-1.5 py-0.5 rounded-full`}>
+                            {perk.cost} Pts
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playPopSound();
+                              setEditingPerk(perk);
+                              setPerkTitle(perk.title);
+                              setPerkCost(String(perk.cost));
+                              setPerkDesc(perk.detail);
+                              setPerkEmoji(perk.emoji);
+                              setIsPerkModalOpen(true);
+                            }}
+                            className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors text-[10px] cursor-pointer"
+                            title="Edit Perk"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePerk(perk.id)}
+                            className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors text-[10px] cursor-pointer"
+                            title="Delete Perk"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="font-headline-sm text-[13px] text-on-surface mt-1 leading-tight font-semibold font-fraunces">
+                        {perk.title}
+                      </p>
+                      <p className="font-body-sm text-[11px] text-on-surface-variant">{perk.detail}</p>
                     </div>
-                    <p className="font-headline-sm text-[13px] text-on-surface mt-1 leading-tight font-semibold font-fraunces">
-                      Sunset Lo-Fi Theme
-                    </p>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant">Atmospheric palette</p>
-                  </div>
-                  <button 
-                    onClick={() => handleRedeemPerk('perk-sunset', 500)}
-                    className={`w-full py-1 text-center rounded-xl font-label-sm text-[11px] font-bold shadow-xs active:scale-95 transition-transform cursor-pointer ${
-                      unlockedPerks['perk-sunset'] 
-                        ? 'bg-surface-card text-secondary pointer-events-none' 
-                        : 'bg-primary text-on-primary'
-                    }`}
-                  >
-                    {unlockedPerks['perk-sunset'] ? 'Unlocked!' : 'Claim Perk'}
-                  </button>
-                </div>
 
-                {/* Perk 2 */}
-                <div className="p-2.5 rounded-2xl bg-mint-subtle/70 flex flex-col justify-between gap-2 border border-border-subtle">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-base">🍵</span>
-                      <span className="font-label-sm text-[10px] font-bold text-secondary bg-surface-card px-1.5 py-0.5 rounded-full">
-                        300 Pts
-                      </span>
-                    </div>
-                    <p className="font-headline-sm text-[13px] text-on-surface mt-1 leading-tight font-semibold font-fraunces">
-                      Matcha Latte Break
-                    </p>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant">Guilt-free offline treat</p>
+                    {perk.claimedToday ? (
+                      <div className="w-full py-1 text-center rounded-xl bg-surface-card text-secondary font-label-sm text-[11px] font-bold shadow-xs">
+                        ✓ Claimed Today
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleRedeemPerk(perk.id, perk.cost)}
+                        className={`w-full py-1 text-center rounded-xl font-label-sm text-[11px] font-bold shadow-xs active:scale-95 transition-transform cursor-pointer ${
+                          perk.unlocked 
+                            ? 'bg-surface-card text-secondary pointer-events-none' 
+                            : 'bg-primary text-on-primary hover:bg-primary-container'
+                        }`}
+                      >
+                        {perk.unlocked ? 'Unlocked!' : 'Claim Perk'}
+                      </button>
+                    )}
                   </div>
-                  <div className="w-full py-1 text-center rounded-xl bg-surface-card text-secondary font-label-sm text-[11px] font-bold shadow-xs">
-                    ✓ Claimed Today
-                  </div>
-                </div>
-
-                {/* Perk 3 */}
-                <div className="p-2.5 rounded-2xl bg-peach-subtle/70 flex flex-col justify-between gap-2 border border-border-subtle">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-base">🎮</span>
-                      <span className="font-label-sm text-[10px] font-bold text-tertiary bg-surface-card px-1.5 py-0.5 rounded-full">
-                        250 Pts
-                      </span>
-                    </div>
-                    <p className="font-headline-sm text-[13px] text-on-surface mt-1 leading-tight font-semibold font-fraunces">
-                      1 Hr Game Break
-                    </p>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant">Rest &amp; recharge block</p>
-                  </div>
-                  <button 
-                    onClick={() => handleRedeemPerk('perk-game', 250)}
-                    className={`w-full py-1 text-center rounded-xl font-label-sm text-[11px] font-bold shadow-xs active:scale-95 transition-transform cursor-pointer ${
-                      unlockedPerks['perk-game'] 
-                        ? 'bg-surface-card text-tertiary pointer-events-none' 
-                        : 'bg-surface-card text-on-surface hover:text-tertiary'
-                    }`}
-                  >
-                    {unlockedPerks['perk-game'] ? 'Active!' : 'Redeem'}
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           </section>
@@ -1191,6 +1534,123 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         </div>
       )}
 
+      {/* Add / Edit Reward Perk Modal */}
+      {isPerkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎁</span>
+                <h3 className="font-headline-sm text-base font-bold text-on-surface font-fraunces">
+                  {editingPerk ? 'Edit Reward Perk' : 'New Sanctuary Reward'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsPerkModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">Customize incentives in your Cozy Reward Bazaar.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Perk Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Matcha Latte Break, Boba Tea, Game Block"
+                  value={perkTitle}
+                  onChange={(e) => setPerkTitle(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Description / Subtitle</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Guilt-free offline treat, 30m unwind"
+                  value={perkDesc}
+                  onChange={(e) => setPerkDesc(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">Glow Points Cost</label>
+                  <input
+                    type="number"
+                    placeholder="300"
+                    value={perkCost}
+                    onChange={(e) => setPerkCost(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">Emoji Icon</label>
+                  <input
+                    type="text"
+                    placeholder="🎁"
+                    value={perkEmoji}
+                    onChange={(e) => setPerkEmoji(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest text-center font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Color Palette</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'lavender', label: '💜 Lavender' },
+                    { id: 'mint', label: '🌱 Mint' },
+                    { id: 'peach', label: '🌸 Peach' },
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setPerkColor(c.id as any)}
+                      className={`py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        perkColor === c.id
+                          ? 'bg-lavender-subtle border-primary text-primary shadow-xs'
+                          : 'bg-surface-container border-border-subtle text-on-surface-variant'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-border-subtle">
+              {editingPerk && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeletePerk(editingPerk.id);
+                    setIsPerkModalOpen(false);
+                  }}
+                  className="py-2.5 px-3 rounded-full bg-peach-subtle text-tertiary font-bold text-xs hover:bg-peach-subtle/80 cursor-pointer"
+                >
+                  Delete 🗑️
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSavePerk}
+                className="flex-1 py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-md shadow-primary/20 hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
+              >
+                {editingPerk ? 'Save Perk' : 'Create Perk ✨'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ======================================================== */}
       {/* 4. ADD HABIT OR TASK MODAL                                */}
       {/* ======================================================== */}
@@ -1222,7 +1682,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   addMode === 'daily' ? 'bg-surface-card text-primary shadow-xs' : 'text-on-surface-variant'
                 }`}
               >
-                Today's Task
+                Today's Priority
               </button>
               <button
                 onClick={() => setAddMode('routine')}
@@ -1230,26 +1690,120 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   addMode === 'routine' ? 'bg-surface-card text-primary shadow-xs' : 'text-on-surface-variant'
                 }`}
               >
-                Recurring Routine
+                Daily Habit
+              </button>
+              <button
+                onClick={() => setAddMode('goal')}
+                className={`flex-1 py-1.5 text-center text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  addMode === 'goal' ? 'bg-surface-card text-primary shadow-xs' : 'text-on-surface-variant'
+                }`}
+              >
+                Long-Term Goal
               </button>
             </div>
 
             {/* Task Title Input */}
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">
-                {addMode === 'routine' ? 'Routine Title' : 'Task Title'}
-              </label>
-              <input
-                type="text"
-                value={newTaskInput}
-                onChange={(e) => setNewTaskInput(e.target.value)}
-                placeholder={addMode === 'routine' ? 'e.g., Drink water, Read 10 pages' : 'e.g., Deploy updates, Review notes'}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-lowest"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateItem();
-                }}
-              />
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  {addMode === 'routine' ? 'Habit / Routine Title' : addMode === 'goal' ? 'Long-Term Goal Title' : 'Priority Task Title'}
+                </label>
+                <input
+                  type="text"
+                  value={newTaskInput}
+                  onChange={(e) => setNewTaskInput(e.target.value)}
+                  placeholder={
+                    addMode === 'routine'
+                      ? 'e.g., Morning 2.5L Water, Read 20 pages'
+                      : addMode === 'goal'
+                      ? 'e.g., Master TypeScript & Next.js'
+                      : 'e.g., Deploy mobile app to Vercel'
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-border-subtle text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-surface-container-lowest"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateItem();
+                  }}
+                />
+              </div>
+
+              {addMode === 'routine' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Subtitle / Goal Target</label>
+                    <input
+                      type="text"
+                      value={newRoutineDetail}
+                      onChange={(e) => setNewRoutineDetail(e.target.value)}
+                      placeholder="e.g., 8 glasses logged · Hydrated & glowing"
+                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface-variant mb-1">Emoji Icon</label>
+                      <input
+                        type="text"
+                        value={newRoutineEmoji}
+                        onChange={(e) => setNewRoutineEmoji(e.target.value)}
+                        placeholder="e.g. 💧, 📖, 🧘, ✨"
+                        className="w-full px-3 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest text-center font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface-variant mb-1">Color Theme</label>
+                      <select
+                        value={newRoutineColor}
+                        onChange={(e) => setNewRoutineColor(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest font-medium"
+                      >
+                        <option value="mint">🌱 Mint Clean</option>
+                        <option value="lavender">💜 Lavender Focus</option>
+                        <option value="sky">💻 Sky Tech</option>
+                        <option value="peach">🌸 Peach Warmth</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {addMode === 'daily' && (
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">Scheduled Time</label>
+                  <input
+                    type="text"
+                    value={newTaskTime}
+                    onChange={(e) => setNewTaskTime(e.target.value)}
+                    placeholder="e.g., 4:00 PM, Today, Evening"
+                    className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                  />
+                </div>
+              )}
+
+              {addMode === 'goal' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Timeline / Target Date</label>
+                    <input
+                      type="text"
+                      value={newGoalTimeline}
+                      onChange={(e) => setNewGoalTimeline(e.target.value)}
+                      placeholder="e.g., 42 days left, Target Nov 2026"
+                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Initial Milestones (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={newGoalMilestones}
+                      onChange={(e) => setNewGoalMilestones(e.target.value)}
+                      placeholder="e.g. Build middleware, Test endpoints, Ship release"
+                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Priority Selection */}
