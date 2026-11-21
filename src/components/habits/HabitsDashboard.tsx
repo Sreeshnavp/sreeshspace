@@ -126,7 +126,28 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     } as Record<string, string>;
   }, [weekStart]);
 
-  const [selectedDay, setSelectedDay] = useState<string>('FRI');
+  // Determine current day key dynamically (e.g. SAT for Saturday)
+  const todayDayKey = useMemo(() => {
+    for (const [k, v] of Object.entries(dayDateMap)) {
+      if (v === TODAY) return k;
+    }
+    const dayIndex = new Date().getDay();
+    const map = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return map[dayIndex] || 'SAT';
+  }, [dayDateMap, TODAY]);
+
+  // Initialize selectedDay to matching selectedDate or todayDayKey (e.g. SAT)
+  const [selectedDay, setSelectedDay] = useState<string>(() => {
+    if (selectedDate) {
+      for (const [k, v] of Object.entries(dayDateMap)) {
+        if (v === selectedDate) return k;
+      }
+    }
+    for (const [k, v] of Object.entries(dayDateMap)) {
+      if (v === TODAY) return k;
+    }
+    return 'SAT';
+  });
 
   const activeDateKey = useMemo(() => {
     if (selectedDate && Object.values(dayDateMap).includes(selectedDate)) {
@@ -288,6 +309,42 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 75;
   const progressOffset = 175.9 - (175.9 * (focusPercent / 100));
+
+  // Dynamic 7-day configuration where today gets the active glowing purple pill design with 🌟
+  const daysConfig = useMemo(() => {
+    const dayDefs = [
+      { key: 'MON', short: 'M', full: 'Monday' },
+      { key: 'TUE', short: 'T', full: 'Tuesday' },
+      { key: 'WED', short: 'W', full: 'Wednesday' },
+      { key: 'THU', short: 'T', full: 'Thursday' },
+      { key: 'FRI', short: 'F', full: 'Friday' },
+      { key: 'SAT', short: 'S', full: 'Saturday' },
+      { key: 'SUN', short: 'S', full: 'Sunday' },
+    ];
+
+    const todayIdx = dayDefs.findIndex((d) => d.key === todayDayKey);
+    const effectiveTodayIdx = todayIdx >= 0 ? todayIdx : 5; // fallback to SAT
+
+    return dayDefs.map((d, idx) => {
+      const isToday = idx === effectiveTodayIdx;
+      const isPast = idx < effectiveTodayIdx;
+      const label = isToday ? d.key : d.short;
+
+      return {
+        key: d.key,
+        label,
+        isToday,
+        completed: isPast,
+        icon: isToday ? '🌟' : isPast ? 'check_circle' : '•',
+        fullName: d.full,
+        desc: isToday
+          ? `${d.full} (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)`
+          : isPast
+          ? `${d.full}: Completed routines (100% ★)`
+          : `${d.full}: Weekend rituals & sanctuary planning`,
+      };
+    });
+  }, [todayDayKey, completedRoutines, totalRoutines, focusPercent]);
 
   // Toggle daily habit
   const handleToggleHabit = (id: string) => {
@@ -859,20 +916,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             <div className="flex items-center justify-between mb-space-sm px-1">
               <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
               <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
-                <span>★</span> 100% on Mon–Thu
+                <span>★</span> {daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu'}
               </span>
             </div>
             <div className="space-y-2">
             <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-              {[
-                { key: 'MON', label: 'M', completed: true, icon: 'check_circle', desc: 'Monday: 4 of 4 completed (100%)' },
-                { key: 'TUE', label: 'T', completed: true, icon: 'check_circle', desc: 'Tuesday: 4 of 4 completed (100%)' },
-                { key: 'WED', label: 'W', completed: true, icon: 'check_circle', desc: 'Wednesday: 4 of 4 completed (100%)' },
-                { key: 'THU', label: 'T', completed: true, icon: 'check_circle', desc: 'Thursday: 4 of 4 completed (100%)' },
-                { key: 'FRI', label: 'FRI', isToday: true, icon: '🌟', desc: `Friday (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)` },
-                { key: 'SAT', label: 'S', completed: false, icon: '•', desc: 'Saturday: Weekend rituals planned' },
-                { key: 'SUN', label: 'S', completed: false, icon: '•', desc: 'Sunday: Rest & Weekly Reflection' },
-              ].map((d) => {
+              {daysConfig.map((d) => {
                 const isSelected = selectedDay === d.key;
                 return (
                   <button
@@ -916,17 +965,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               <span className="flex items-center gap-1 font-medium">
                 <span>📅</span>
                 <span>
-                  {selectedDay === 'MON' && 'Monday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'TUE' && 'Tuesday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'WED' && 'Wednesday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'THU' && 'Thursday: 4 of 4 completed (100% ★)'}
-                  {selectedDay === 'FRI' && `Friday (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`}
-                  {selectedDay === 'SAT' && 'Saturday: Light review & rest'}
-                  {selectedDay === 'SUN' && 'Sunday: Sanctuary planning & recharge'}
+                  {(() => {
+                    const activeConfig = daysConfig.find((d) => d.key === selectedDay);
+                    if (!activeConfig) return 'Habits view';
+                    if (activeConfig.isToday) {
+                      return `${activeConfig.fullName} (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`;
+                    }
+                    if (activeConfig.completed) {
+                      return `${activeConfig.fullName}: Completed routines (100% ★)`;
+                    }
+                    return `${activeConfig.fullName}: Weekend rituals & sanctuary planning`;
+                  })()}
                 </span>
               </span>
               <span className="text-primary font-bold text-[10px]">
-                {selectedDay === 'FRI' ? 'Active' : 'Logged'}
+                {selectedDay === todayDayKey ? 'Active' : 'Logged'}
               </span>
             </div>
           </div>
