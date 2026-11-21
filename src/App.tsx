@@ -103,6 +103,7 @@ import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { FinanceNumpadModal } from './components/finance/FinanceNumpadModal';
 import { NotesAndSketchpadArea } from './components/NotesAndSketchpadArea';
 import { HomeDashboard } from './components/home/HomeDashboard';
+import { LinksArea } from './components/links/LinksArea';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { SplashScreen } from './components/SplashScreen';
 import './components/home/home.css';
@@ -2179,6 +2180,35 @@ export function App() {
             setIsLocked(true);
           }}
         />
+      ) : workspaceView === 'links' && !searchQuery.trim() ? (
+        <LinksArea
+          links={links}
+          categories={categories}
+          onNavigate={(view) => {
+            navigateToView(view);
+            playPopSound();
+          }}
+          onLock={() => {
+            lockDevice();
+            setIsLocked(true);
+          }}
+          onOpenAddLinkModal={(catName) => {
+            setEditingLink(null);
+            setPrefilledUrl('');
+            setPrefilledCategory(catName || 'Uncategorized');
+            setIsAddModalOpen(true);
+            playPopSound();
+          }}
+          onSelectLink={(link) => setDetailLink(link)}
+          onTogglePin={handleTogglePin}
+          onVisitLink={handleVisitLink}
+          onOpenFolder={(cat) => setFolderModalCategory(cat)}
+          onEditCategory={(cat) => setEditingCategory(cat)}
+          onAddCategory={handleAddCategory}
+          onDropLinkOnCategory={handleDropLinkOnCategory}
+          onReorderCategory={handleReorderCategory}
+          onOpenHistoryTimeline={() => setIsHistoryTimelineOpen(true)}
+        />
       ) : (
         <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-6 space-y-4">
           
@@ -2186,7 +2216,7 @@ export function App() {
           <div className="space-y-4">
             
             {/* 1. LINKS SECTION (Category Bundles + Loose Bookmarks) */}
-            {(workspaceView === 'links' || workspaceView === 'both') && (
+            {workspaceView === 'both' && (
               <div className="flex flex-col w-full max-w-lg sm:max-w-4xl mx-auto pb-12 gap-space-md">
                 {/* Header Toolbar matching links_add_link_modal_pop_up/code.html */}
                 <div className="flex items-center justify-between gap-2 pt-1 overflow-x-auto pb-1">
@@ -2548,23 +2578,7 @@ export function App() {
         </div>
       )}
 
-      {/* Floating Action Button matching Google Stitch (Hidden on home) */}
-      {workspaceView === 'links' && (
-        <button
-          onClick={() => {
-            setEditingLink(null);
-            setPrefilledUrl('');
-            setPrefilledCategory('Uncategorized');
-            setIsAddModalOpen(true);
-            playPopSound();
-          }}
-          className="fixed bottom-24 right-5 z-40 w-14 h-14 rounded-full bg-primary text-on-primary shadow-[0_4px_16px_rgba(107,56,212,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-surface-card"
-          aria-label="Add New Link"
-          title="Add New Link"
-        >
-          <span className="material-symbols-outlined text-[28px]">add</span>
-        </button>
-      )}
+
 
       {/* Mobile Fixed Bottom Navigation Bar (Across ALL tabs on mobile!) */}
       <MobileBottomNav

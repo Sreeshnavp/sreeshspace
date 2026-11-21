@@ -60,7 +60,31 @@ export const STORAGE_KEY_STREAK = 'sreeshspace_streak_v1';
 export const STORAGE_KEY_BACKUP_PRE_V3 = 'sreeshspace_backup_pre_v3';
 export const STORAGE_KEY_SCHEMA_VERSION = 'sreeshspace_schema_version';
 
-export const DEFAULT_CATEGORIES: CategoryInfo[] = [];
+export const STITCH_DEFAULT_CATEGORIES: CategoryInfo[] = [
+  { id: 'cat-claude', name: 'Claude', icon: '💻', color: 'purple' },
+  { id: 'cat-antigravity', name: 'AntiGravity', icon: '💻', color: 'sky' },
+  { id: 'cat-aivideo', name: 'Ai Video Editing', icon: '📁', color: 'peach' },
+  { id: 'cat-aiskill', name: 'AI SKILL', icon: '🎯', color: 'mint' },
+];
+
+export const STITCH_DEFAULT_LINKS: LinkItem[] = [
+  { id: 'link-claude-1', title: 'Guide', url: 'https://claude.ai/docs', category: 'Claude', notes: '', pinned: false, attachments: [], clicks: 12, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-claude-2', title: 'Edit', url: 'https://claude.ai/chats', category: 'Claude', notes: '', pinned: false, attachments: [], clicks: 8, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-claude-3', title: 'Superpower', url: 'https://anthropic.com', category: 'Claude', notes: '', pinned: false, attachments: [], clicks: 15, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-claude-4', title: '+2 more', url: 'https://docs.anthropic.com/en/prompt-library', category: 'Claude', notes: '', pinned: false, attachments: [], clicks: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-claude-5', title: 'API Docs', url: 'https://docs.anthropic.com/api', category: 'Claude', notes: '', pinned: false, attachments: [], clicks: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-anti-1', title: 'AI', url: 'https://gemini.google.com', category: 'AntiGravity', notes: '', pinned: false, attachments: [], clicks: 9, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-video-1', title: 'Clipitstudio', url: 'https://clipit.studio', category: 'Ai Video Editing', notes: '', pinned: false, attachments: [], clicks: 6, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-video-2', title: 'Turn', url: 'https://turn.video', category: 'Ai Video Editing', notes: '', pinned: false, attachments: [], clicks: 4, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-video-3', title: 'Clipping', url: 'https://clipping.ai', category: 'Ai Video Editing', notes: '', pinned: false, attachments: [], clicks: 7, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-skill-1', title: 'collective', url: 'https://collective.ai', category: 'AI SKILL', notes: '', pinned: false, attachments: [], clicks: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-unfiled-1', title: 'Figma Community', url: 'https://figma.com/@explore', category: 'Uncategorized', notes: '', pinned: false, attachments: [], clicks: 18, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-unfiled-2', title: 'Vercel Dashboard', url: 'https://vercel.com/deployments', category: 'Uncategorized', notes: '', pinned: false, attachments: [], clicks: 22, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-unfiled-3', title: 'Raycast Store', url: 'https://raycast.com/extensions', category: 'Uncategorized', notes: '', pinned: false, attachments: [], clicks: 14, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'link-unfiled-4', title: 'Linear App', url: 'https://linear.app/issues', category: 'Uncategorized', notes: '', pinned: false, attachments: [], clicks: 11, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+];
+
+export const DEFAULT_CATEGORIES: CategoryInfo[] = STITCH_DEFAULT_CATEGORIES;
 
 export const PREINSTALLED_CATEGORY_IDS = new Set([
   'work', 'tools', 'design', 'study', 'personal', 'ideas'
@@ -173,7 +197,8 @@ export async function loadLinks(): Promise<LinkItem[]> {
   try {
     const idbData = await get<any[]>(STORAGE_KEY_LINKS);
     if (idbData !== undefined && Array.isArray(idbData)) {
-      return sanitizeLinks(idbData).filter((l) => !isSampleItem(l));
+      const sanitized = sanitizeLinks(idbData).filter((l) => !isSampleItem(l));
+      if (sanitized.length > 0) return sanitized;
     }
 
     const local = localStorage.getItem(STORAGE_KEY_LINKS);
@@ -181,15 +206,17 @@ export async function loadLinks(): Promise<LinkItem[]> {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed)) {
         const sanitized = sanitizeLinks(parsed).filter((l) => !isSampleItem(l));
-        await set(STORAGE_KEY_LINKS, sanitized);
-        return sanitized;
+        if (sanitized.length > 0) {
+          await set(STORAGE_KEY_LINKS, sanitized);
+          return sanitized;
+        }
       }
     }
 
-    await saveLinks([]);
-    return [];
+    await saveLinks(STITCH_DEFAULT_LINKS);
+    return STITCH_DEFAULT_LINKS;
   } catch (err) {
-    return [];
+    return STITCH_DEFAULT_LINKS;
   }
 }
 
@@ -217,18 +244,21 @@ export async function loadCategories(): Promise<CategoryInfo[]> {
   try {
     const data = await get<CategoryInfo[]>(STORAGE_KEY_CATEGORIES);
     if (data && Array.isArray(data)) {
-      return data.filter((c) => !isPreinstalledCategory(c));
+      const filtered = data.filter((c) => !isPreinstalledCategory(c));
+      if (filtered.length > 0) return filtered;
     }
     const local = localStorage.getItem(STORAGE_KEY_CATEGORIES);
     if (local) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed)) {
-        return parsed.filter((c) => !isPreinstalledCategory(c));
+        const filtered = parsed.filter((c) => !isPreinstalledCategory(c));
+        if (filtered.length > 0) return filtered;
       }
     }
-    return [];
+    await saveCategories(STITCH_DEFAULT_CATEGORIES);
+    return STITCH_DEFAULT_CATEGORIES;
   } catch (err) {
-    return [];
+    return STITCH_DEFAULT_CATEGORIES;
   }
 }
 
