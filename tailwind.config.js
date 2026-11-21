@@ -155,7 +155,7 @@ export default {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', '"Public Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         head: ['"Fraunces"', 'Georgia', 'serif'],
-        serif: ['"Fraunces"', 'Georgia', 'serif'],
+        serif: ['"Playfair Display"', '"Fraunces"', 'Georgia', 'serif'],
         hand: ['"Caveat"', 'cursive'],
         fraunces: ['"Fraunces"', 'Georgia', 'serif'],
         jakarta: ['"Plus Jakarta Sans"', 'sans-serif'],
@@ -210,6 +210,21 @@ export default {
       },
       backdropBlur: {
         'xs': '2px',
+      },
+      animation: {
+        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float-gentle': 'float 4s ease-in-out infinite',
+        'shimmer': 'shimmer 2s infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        }
       }
     },
   },
