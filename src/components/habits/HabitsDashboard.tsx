@@ -10,6 +10,7 @@ import type {
 } from '../../types';
 import avatarImg from '../../assets/avatar.jpg';
 import { playPopSound } from '../../utils/delight';
+import { useScrollVisibility } from '../../utils/useScrollVisibility';
 
 export interface HabitsDashboardProps {
   todos: TodoItem[];
@@ -78,6 +79,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   onSaveRoutine,
   onLock,
 }) => {
+  const isHeaderVisible = useScrollVisibility();
   const TODAY = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
 
   // Celebration helper
@@ -453,7 +455,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       {/* ======================================================== */}
       {/* 1. FIXED TOP HEADER MATCHING STITCH 1:1                  */}
       {/* ======================================================== */}
-      <header className="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+      <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
+        isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+      }`}>
         <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto">
           <div className="flex items-center gap-space-md">
             <div className="relative flex items-center justify-center">

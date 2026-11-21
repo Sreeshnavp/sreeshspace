@@ -1,6 +1,7 @@
 import React from 'react';
 import { WorkspaceView } from '../../types';
 import { playPopSound } from '../../utils/delight';
+import { useScrollVisibility } from '../../utils/useScrollVisibility';
 
 interface MobileBottomNavProps {
   currentView: WorkspaceView;
@@ -23,6 +24,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   financeCount,
   notesCount,
 }) => {
+  const isVisible = useScrollVisibility();
+
   const tabs: Array<{
     view: WorkspaceView;
     label: string;
@@ -39,7 +42,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   return (
     <nav
-      className="fixed bottom-0 w-full z-50 pb-safe bg-surface-card/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(139,92,246,0.08)] border-t border-border-subtle"
+      className={`fixed bottom-0 w-full z-50 pb-safe bg-surface-card/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(139,92,246,0.08)] border-t border-border-subtle transition-transform duration-300 ease-in-out ${
+        isVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+      }`}
       aria-label="Navigation Dock"
     >
       <div className="flex items-center justify-around h-20 px-space-xs max-w-xl mx-auto">

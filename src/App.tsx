@@ -164,7 +164,7 @@ export function App() {
   // Finance & Expense Tracking (Mibu)
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [financeCategories, setFinanceCategories] = useState<FinanceCategory[]>(DEFAULT_FINANCE_CATEGORIES);
-  const [financeCurrency, setFinanceCurrency] = useState<string>('$');
+  const [financeCurrency, setFinanceCurrency] = useState<string>('₹');
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
   const [defaultFinanceType, setDefaultFinanceType] = useState<TransactionType>('expense');

@@ -42,6 +42,7 @@ import {
 import type { NoteItem, SketchItem, Attachment, WorkspaceView } from '../types';
 import { formatDate } from '../utils/urlHelper';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
+import { useScrollVisibility } from '../utils/useScrollVisibility';
 import { NoteModal } from './NoteModal';
 import avatarImg from '../assets/avatar.jpg';
 import './notes.css';
@@ -177,6 +178,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string>('all');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const isHeaderVisible = useScrollVisibility();
 
   // Modals & Popups
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -512,7 +514,9 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
       {/* ======================================================== */}
       {/* 1. TOP APP HEADER (STITCH 1:1)                           */}
       {/* ======================================================== */}
-      <header className="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+      <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
+        isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+      }`}>
         <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-md mx-auto">
           <div className="flex items-center gap-space-md">
             <div className="relative flex items-center justify-center">

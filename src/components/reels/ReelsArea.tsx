@@ -32,6 +32,7 @@ import { EditReelCategoryModal } from './EditReelCategoryModal';
 import { ReelSequencePlayer } from './ReelSequencePlayer';
 import { ReelModal } from './ReelModal';
 import { playPopSound, triggerPartyPop } from '../../utils/delight';
+import { useScrollVisibility } from '../../utils/useScrollVisibility';
 import avatarImg from '../../assets/avatar.jpg';
 import './reels.css';
 
@@ -202,6 +203,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const [isFeedFullscreen, setIsFeedFullscreen] = useState(false);
   const [feedInitialId, setFeedInitialId] = useState<string | undefined>(undefined);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const isHeaderVisible = useScrollVisibility();
 
   // Move to Folder modal state
   const [reelToMove, setReelToMove] = useState<ReelItem | null>(null);
@@ -361,11 +363,13 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
     <div className="text-vault-dark min-h-screen flex flex-col font-sans pb-32 antialiased selection:bg-pink-200 bg-[#F4F3F8]">
       
       {/* ======================================================== */}
-      {/* 1. TOP APP HEADER (STITCH 1:1)                           */}
+      {/* 1. TOP APP HEADER (STITCH 1:1, AUTO-HIDE ON SCROLL)      */}
       {/* ======================================================== */}
-      <header className="pt-5 px-4 pb-3 max-w-md mx-auto w-full" data-purpose="profile-and-status-bar">
+      <header className={`fixed top-0 w-full z-40 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
+        isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+      }`}>
         {/* Top Bar with User Avatar, Mood Pill & Actions */}
-        <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-md mx-auto w-full">
           <div className="flex items-center gap-2.5">
             {/* Avatar with Emerald Online Dot */}
             <div className="relative">
@@ -418,7 +422,12 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
             </button>
           </div>
         </div>
+      </header>
 
+      {/* ======================================================== */}
+      {/* 2. MAIN CONTENT AREA                                     */}
+      {/* ======================================================== */}
+      <main className="pt-24 px-4 pb-3 max-w-md mx-auto w-full space-y-4">
         {/* Screen Title Banner with Film Badge & Subtitle */}
         <div className="bg-white rounded-3xl p-4 shadow-soft border border-stone-100 flex flex-col gap-3.5">
           <div className="flex items-center gap-3">
@@ -473,12 +482,6 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
             </button>
           </div>
         </div>
-      </header>
-
-      {/* ======================================================== */}
-      {/* 2. MAIN CONTENT AREA                                     */}
-      {/* ======================================================== */}
-      <main className="flex-1 max-w-md mx-auto w-full px-4 space-y-4">
         
         {/* BEGIN: FilterAndSearch */}
         <section className="space-y-2.5" data-purpose="filtering-and-search-controls">
@@ -554,7 +557,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         {/* ======================================================== */}
         {/* 3. CATEGORIZED FOLDERS ROW (CAROUSEL)                    */}
         {/* ======================================================== */}
-        <section className="space-y-2.5" data-purpose="reels-folder-carousel">
+        <section className="space-y-2.5" data-purpose="reels-folder-list">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-vault-subtle flex items-center gap-1.5">
               <span>📁 Categorized Folders</span>
@@ -562,289 +565,109 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
                 {effectiveCategories.length}
               </span>
             </h3>
-            <span className="text-[11px] text-primary font-semibold">Swipe to browse →</span>
-          </div>
-
-          {/* Horizontal Carousel of Folders matching screenshot */}
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 pt-0.5 -mx-4 px-4 snap-x snap-mandatory">
-            
-            {/* Folder 1: Highlights (2x2 preview slot card) */}
-            {effectiveCategories.length > 0 && (() => {
-              const cat1 = effectiveCategories[0];
-              const catReels = reelsByFolder[cat1.name.toLowerCase().trim()] || [];
-              const firstReel = catReels[0] || DEFAULT_DEMO_REELS[3];
-
-              return (
-                <article 
-                  key={cat1.id}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDropOnFolder(cat1.name)}
-                  className="min-w-[270px] w-[270px] bg-white rounded-3xl p-4 shadow-soft border border-stone-100 flex flex-col justify-between snap-start"
-                >
-                  <div>
-                    {/* Card Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm text-vault-dark leading-tight">{cat1.name}</h4>
-                          <p className="text-[11px] text-vault-subtle">{catReels.length || 1} reel{catReels.length !== 1 ? 's' : ''}</p>
-                        </div>
-                      </div>
-                      <button 
-                        aria-label="Edit folder" 
-                        onClick={() => {
-                          playPopSound();
-                          setEditingCategoryTarget(cat1);
-                          setIsCategoryModalOpen(true);
-                        }}
-                        className="w-7 h-7 rounded-full bg-stone-50 border border-stone-200/50 flex items-center justify-center text-vault-subtle hover:text-vault-dark cursor-pointer active:scale-95 transition-all"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* 2x2 Slots Grid */}
-                    <div className="grid grid-cols-2 gap-2 my-1">
-                      {/* Slot 1: Active Reel Thumbnail */}
-                      <div 
-                        onClick={() => handleOpenReelFeed(firstReel.id)}
-                        className="relative aspect-video rounded-xl overflow-hidden bg-stone-800 border border-stone-100 group cursor-pointer"
-                      >
-                        <img 
-                          alt={firstReel.headline || "Tech reel thumbnail"} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                          src={firstReel.thumbnailUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuD_89TauBQKx1uxZKK89ymAcDoG8-TqD5EDnGT25Lx1Qc3Q-0Uwd_bNTOrtNULDODCcWk6E-8vFWUWn2euDpoupYDnG5NEJscJe0xL0JQOjLdsDnPWk-gcCaW9L3wYy-FLX0NJx1D0fLVyh16VG39SZESTExoOBzmV8tUyGj_H-Ltf3SdPezO1sOQ8klOOJ4c6M3B_MbDu4-YDvYPmg2vb1sJ1ZSLArMLvK8Fz1SsCs"} 
-                        />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                          <div className="w-5 h-5 rounded-full bg-white/90 text-primary flex items-center justify-center shadow-sm">
-                            <span className="material-symbols-outlined text-[14px]">play_arrow</span>
-                          </div>
-                        </div>
-                        <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] px-1 py-0.2 rounded font-mono">
-                          0:45
-                        </span>
-                      </div>
-
-                      {/* Slot 2: Add Reel */}
-                      <div 
-                        onClick={() => handleOpenAdd(cat1.name)}
-                        className="aspect-video rounded-xl bg-gradient-to-br from-lavender-subtle/80 to-purple-50/50 border border-purple-200/60 flex flex-col items-center justify-center text-primary group cursor-pointer hover:bg-lavender-subtle transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[18px] opacity-70 group-hover:scale-110 transition-transform">add_circle</span>
-                        <span className="text-[9px] font-semibold tracking-tight text-primary/80 mt-0.5">Add Reel</span>
-                      </div>
-
-                      {/* Slot 3: Drafts */}
-                      <div 
-                        onClick={() => handleOpenAdd(cat1.name)}
-                        className="aspect-video rounded-xl bg-gradient-to-br from-peach-subtle/70 to-pink-50/40 border border-pink-200/60 flex flex-col items-center justify-center text-tertiary/70 group cursor-pointer hover:bg-peach-subtle transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[18px] opacity-70 group-hover:scale-110 transition-transform">movie_edit</span>
-                        <span className="text-[9px] font-medium tracking-tight text-vault-sub mt-0.5">Drafts</span>
-                      </div>
-
-                      {/* Slot 4: Memories */}
-                      <div 
-                        onClick={() => handleOpenReelFeed()}
-                        className="aspect-video rounded-xl bg-gradient-to-br from-amber-50 to-vault-cream border border-amber-200/50 flex flex-col items-center justify-center text-amber-800/70 group cursor-pointer hover:bg-amber-100/50 transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[18px] opacity-70 group-hover:scale-110 transition-transform">auto_awesome</span>
-                        <span className="text-[9px] font-medium tracking-tight text-vault-subtle mt-0.5">Memories</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom Action strip */}
-                  <div className="flex items-center justify-between pt-3 mt-2 border-t border-stone-100 text-[11px] font-semibold text-vault-subtle">
-                    <span className="flex items-center gap-1 cursor-grab">
-                      <svg className="w-3.5 h-3.5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M4 8h16M4 16h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                      </svg>
-                      Reorder
-                    </span>
-                    <button 
-                      onClick={() => {
-                        playPopSound();
-                        setFolderModalCategory(cat1);
-                      }}
-                      className="text-primary font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
-                      Open <span>→</span>
-                    </button>
-                  </div>
-                </article>
-              );
-            })()}
-
-            {/* Folder 2: Coding & Tech (Full Video Cover Feature Reel) */}
-            {effectiveCategories.length > 1 && (() => {
-              const cat2 = effectiveCategories[1];
-              const catReels = reelsByFolder[cat2.name.toLowerCase().trim()] || [];
-              const featuredReel = catReels[0] || DEFAULT_DEMO_REELS[4];
-
-              return (
-                <article 
-                  key={cat2.id}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDropOnFolder(cat2.name)}
-                  className="min-w-[270px] w-[270px] bg-white rounded-3xl p-4 shadow-soft border border-stone-100 flex flex-col justify-between snap-start"
-                >
-                  <div>
-                    {/* Tags & Star Row */}
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-stone-300 font-bold text-xs select-none">⋮⋮</span>
-                        <span className="px-2 py-0.5 bg-pink-50 text-vault-accent font-semibold text-[10px] rounded-full border border-pink-100/60 truncate">
-                          {cat2.name}
-                        </span>
-                        <span className="px-2 py-0.5 bg-stone-100 text-stone-500 text-[9px] font-medium rounded-full truncate max-w-[100px]">
-                          {featuredReel.author || '@reporterlive...'}
-                        </span>
-                      </div>
-                      <button 
-                        aria-label="Bookmark reel" 
-                        onClick={() => {
-                          playPopSound();
-                          onToggleFavoriteReel(featuredReel.id);
-                        }}
-                        className={`transition-colors cursor-pointer ${
-                          featuredReel.favorite ? 'text-amber-400' : 'text-stone-300 hover:text-amber-400'
-                        }`}
-                      >
-                        <svg className={`w-4 h-4 ${featuredReel.favorite ? 'fill-current' : 'fill-none stroke-current'}`} strokeWidth="2" viewBox="0 0 24 24">
-                          <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" strokeLinecap="round" strokeLinejoin="round"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Prominent Video Cover with Center Play button */}
-                    <div 
-                      onClick={() => handleOpenReelFeed(featuredReel.id)}
-                      className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-stone-900 border border-stone-100 shadow-inner group cursor-pointer"
-                    >
-                      <img 
-                        alt={featuredReel.headline || "Featured reel cover"} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                        src={featuredReel.thumbnailUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuBoUlII3oUcI_PAaJMaGEUU3LlCC225D4S_IMfZHyvpL8a39Oi2NR_h1BhMVGUPe8Vr-Gh2wAaMbhVQrbm4fjMfLVpowNNd71JXaEaVfxlvFowA14Up4v9M3K9XgNaFyj-DCNtE748ZLJxT-uUNHX_7Mm8iTXww4VkSPOcpftr7Wb1n59LkOLmwDms9sXJ1OzmqI-nT0sCzyUFE31JD5dC0oXCmp6E1nvuuX_ppjGr9"}
-                      />
-                      {/* Watch Reel chip badge */}
-                      <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <svg className="w-3 h-3 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Watch Reel</span>
-                      </div>
-                      {/* Big Pink/White Translucent Play Button */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm border border-white text-vault-accent flex items-center justify-center shadow-lg transition-transform active:scale-90 group-hover:scale-110">
-                          <svg className="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z"></path>
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Title */}
-                    <h5 className="font-bold text-xs text-vault-dark mt-2.5 line-clamp-2 leading-snug">
-                      {featuredReel.headline || 'Elephant Encounter on Scooter (Reporter Live)'}
-                    </h5>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 text-[10px] text-vault-subtle">
-                    <span className="text-stone-400">Added 2d ago</span>
-                    <button 
-                      onClick={() => handleOpenReelFeed(featuredReel.id)}
-                      className="text-vault-accent font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
-                    >
-                      Quick Play ↗
-                    </button>
-                  </div>
-                </article>
-              );
-            })()}
-
-            {/* Additional User Folders (if user creates more than 2) */}
-            {effectiveCategories.slice(2).map((cat) => {
-              const catReels = reelsByFolder[cat.name.toLowerCase().trim()] || [];
-              return (
-                <article 
-                  key={cat.id}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDropOnFolder(cat.name)}
-                  className="min-w-[270px] w-[270px] bg-white rounded-3xl p-4 shadow-soft border border-stone-100 flex flex-col justify-between snap-start"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                        <Folder size={16} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-vault-dark leading-tight">{cat.name}</h4>
-                        <p className="text-[11px] text-vault-subtle">{catReels.length} reel{catReels.length !== 1 ? 's' : ''}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        playPopSound();
-                        setEditingCategoryTarget(cat);
-                        setIsCategoryModalOpen(true);
-                      }}
-                      className="w-7 h-7 rounded-full bg-stone-50 border border-stone-200/50 flex items-center justify-center text-vault-subtle hover:text-vault-dark cursor-pointer"
-                    >
-                      <Edit3 size={12} />
-                    </button>
-                  </div>
-
-                  <div className="aspect-video rounded-xl bg-stone-50 border border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 gap-1 my-2">
-                    <span className="material-symbols-outlined text-[20px]">movie</span>
-                    <span className="text-[10px] font-medium">{catReels.length} reels organized</span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 mt-2 border-t border-stone-100 text-[11px] font-semibold text-vault-subtle">
-                    <span className="flex items-center gap-1 cursor-grab">
-                      <ArrowUpDown size={12} className="text-stone-400" />
-                      Reorder
-                    </span>
-                    <button 
-                      onClick={() => {
-                        playPopSound();
-                        setFolderModalCategory(cat);
-                      }}
-                      className="text-primary font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
-                      Open <span>→</span>
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-
-            {/* Folder 3: Add New Folder Card (Dashed Border) */}
-            <article 
+            <button
               onClick={() => {
                 playPopSound();
                 setEditingCategoryTarget(null);
                 setIsCategoryModalOpen(true);
               }}
-              className="min-w-[150px] w-[150px] bg-amber-50/40 rounded-3xl p-4 border-2 border-dashed border-amber-300/70 flex flex-col items-center justify-center text-center gap-2 snap-start cursor-pointer hover:bg-amber-50 transition-colors"
+              className="text-[11px] text-primary font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-full bg-[#FAECD6] text-[#A67332] flex items-center justify-center shadow-sm">
-                <svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 6v12m6-6H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
-                </svg>
-              </div>
-              <span className="font-bold text-xs text-[#8A5A20]">New folder</span>
-            </article>
+              <span>+ New Folder</span>
+            </button>
+          </div>
+
+          {/* Compact Vertical Stack of Folders ("just below below", no horizontal swipe) */}
+          <div className="flex flex-col gap-2">
+            {effectiveCategories.map((cat, idx) => {
+              const catReels = reelsByFolder[cat.name.toLowerCase().trim()] || [];
+              const firstReel = catReels[0] || (idx === 0 ? DEFAULT_DEMO_REELS[3] : DEFAULT_DEMO_REELS[4]);
+              const colors = [
+                { bg: 'bg-purple-50', text: 'text-purple-600' },
+                { bg: 'bg-pink-50', text: 'text-pink-600' },
+                { bg: 'bg-amber-50', text: 'text-amber-600' },
+                { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+              ];
+              const color = colors[idx % colors.length];
+
+              return (
+                <div
+                  key={cat.id}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDropOnFolder(cat.name)}
+                  className="w-full bg-white rounded-2xl p-3 shadow-soft border border-stone-100 hover:border-purple-200/70 transition-all flex items-center justify-between gap-3 group"
+                >
+                  <div 
+                    onClick={() => {
+                      playPopSound();
+                      setFolderModalCategory(cat);
+                    }}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.text} flex items-center justify-center shrink-0 shadow-xs`}>
+                      <span className="material-symbols-outlined text-[20px]">folder</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-xs text-vault-dark truncate group-hover:text-primary transition-colors">
+                          {cat.name}
+                        </h4>
+                        <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded-full font-semibold">
+                          {catReels.length || 1}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-vault-subtle truncate mt-0.5">
+                        {firstReel.headline || 'Tap to explore reels'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div 
+                      onClick={() => handleOpenReelFeed(firstReel.id)}
+                      className="relative w-12 h-8 rounded-lg overflow-hidden bg-stone-900 border border-stone-200/60 cursor-pointer shadow-xs group/thumb hover:scale-105 transition-transform"
+                      title="Quick preview"
+                    >
+                      <img 
+                        src={firstReel.thumbnailUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuD_89TauBQKx1uxZKK89ymAcDoG8-TqD5EDnGT25Lx1Qc3Q-0Uwd_bNTOrtNULDODCcWk6E-8vFWUWn2euDpoupYDnG5NEJscJe0xL0JQOjLdsDnPWk-gcCaW9L3wYy-FLX0NJx1D0fLVyh16VG39SZESTExoOBzmV8tUyGj_H-Ltf3SdPezO1sOQ8klOOJ4c6M3B_MbDu4-YDvYPmg2vb1sJ1ZSLArMLvK8Fz1SsCs"} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-white text-[12px]">play_arrow</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      aria-label="Edit folder" 
+                      onClick={() => {
+                        playPopSound();
+                        setEditingCategoryTarget(cat);
+                        setIsCategoryModalOpen(true);
+                      }}
+                      className="w-7 h-7 rounded-full bg-stone-50 border border-stone-200/50 flex items-center justify-center text-vault-subtle hover:text-vault-dark active:scale-95 transition-all cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">edit</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        playPopSound();
+                        setFolderModalCategory(cat);
+                      }}
+                      className="w-7 h-7 rounded-full bg-lavender-subtle text-primary flex items-center justify-center hover:bg-primary hover:text-white active:scale-95 transition-all cursor-pointer shadow-xs"
+                      title="Open folder"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
-        {/* END: FolderDeckRow */}
+
+        
 
         {/* ======================================================== */}
         {/* 4. INDEPENDENT REELS DOCK                                */}

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { LinkItem, CategoryInfo, WorkspaceView } from '../../types';
 import { playPopSound } from '../../utils/delight';
 import { extractDomain } from '../../utils/urlHelper';
+import { useScrollVisibility } from '../../utils/useScrollVisibility';
 import avatarImg from '../../assets/avatar.jpg';
 
 interface LinksAreaProps {
@@ -41,6 +42,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const isHeaderVisible = useScrollVisibility();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -201,7 +203,9 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
       {/* ======================================================== */}
       {/* 1. TOP HEADER (EXACT 1:1 TO STITCH & SCREENSHOT)          */}
       {/* ======================================================== */}
-      <header className="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] border-b border-border-subtle">
+      <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] border-b border-border-subtle transition-transform duration-300 ease-in-out ${
+        isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+      }`}>
         <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto w-full">
           {/* Left: Avatar with Sparkle + Name + Status Pill */}
           <div className="flex items-center gap-space-md">
