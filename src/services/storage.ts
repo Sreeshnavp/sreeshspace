@@ -172,7 +172,7 @@ export async function purgeAllSampleData(): Promise<void> {
         frozenDates: [],
       })
     );
-    localStorage.setItem('orbit_clean_slate_v9', 'true');
+    localStorage.setItem('orbit_clean_slate_v10', 'true');
   } catch (err) {
     console.error('Error purging sample data:', err);
   }

@@ -390,7 +390,7 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        if (localStorage.getItem('orbit_clean_slate_v9') !== 'true') {
+        if (localStorage.getItem('orbit_clean_slate_v10') !== 'true') {
           await purgeAllSampleData();
           const rawCats = await loadCategories();
           const cleanCats = rawCats.filter((c) => !isPreinstalledCategory(c));
@@ -400,7 +400,7 @@ export function App() {
             (e) => e && !e.type.includes('deleted') && !e.type.includes('uncompleted') && !isSampleItem(e)
           );
           await saveActivityEvents(validOnly);
-          localStorage.setItem('orbit_clean_slate_v9', 'true');
+          localStorage.setItem('orbit_clean_slate_v10', 'true');
         }
         if (localStorage.getItem('orbit_streak_pure_habits_v12') !== 'true') {
           const zeroStreak: StreakState = {

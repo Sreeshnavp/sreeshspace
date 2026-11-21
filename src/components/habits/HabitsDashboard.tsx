@@ -70,6 +70,7 @@ interface GoalArcDef {
 export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
   routines = [],
+  streakState,
   selectedDate,
   dayLogs = {},
   onAddTodo,
@@ -660,8 +661,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 </h2>
                 <div className="inline-flex items-center gap-1 text-sunshine-accent font-label-md text-label-md">
                   <span>🔥</span>
-                  <span className="text-on-surface font-semibold">5 Day Streak</span>
-                  <span className="text-on-surface-variant font-normal">· Keep it up!</span>
+                  <span className="text-on-surface font-semibold">
+                    {(streakState?.currentStreak || 0) > 0 ? `${streakState?.currentStreak} Day Streak` : '0 Day Streak'}
+                  </span>
+                  <span className="text-on-surface-variant font-normal">
+                    {(streakState?.currentStreak || 0) > 0 ? '· Keep it up!' : '· Ready to begin'}
+                  </span>
                 </div>
               </div>
 
@@ -1389,7 +1394,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
               <div className="p-3 rounded-2xl bg-mint-subtle/70 flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-secondary">🔥 5 Day Streak Active</span>
+                  <span className="font-bold text-xs text-secondary">
+                    {(streakState?.currentStreak || 0) > 0 ? `🔥 ${streakState?.currentStreak} Day Streak Active` : '🌱 Ready for Day 1'}
+                  </span>
                   <span className="text-[10px] text-on-surface-variant">Today</span>
                 </div>
                 <p className="text-xs text-on-surface-variant">You're glowing! Keep up the daily discipline to earn your gold ring.</p>

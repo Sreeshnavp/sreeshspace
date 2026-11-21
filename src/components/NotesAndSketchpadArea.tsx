@@ -690,7 +690,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
                   Vault Folders
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-semibold">
-                  3 Active
+                  {vaultFolders.length} Active
                 </span>
               </div>
               <button 
