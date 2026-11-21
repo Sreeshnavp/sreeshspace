@@ -40,6 +40,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
   const [viewTab, setViewTab] = useState<'folders' | 'all' | 'starred'>('folders');
   const [draggedLinkId, setDraggedLinkId] = useState<string | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
+  const [activeReorderCatId, setActiveReorderCatId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const isHeaderVisible = useScrollVisibility();
@@ -561,9 +562,55 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
 
                     {/* Footer Row */}
                     <div className="flex items-center justify-between pt-1 border-t border-border-subtle text-on-surface-variant font-label-sm text-label-sm">
-                      <div className="flex items-center gap-1 cursor-move text-outline select-none">
-                        <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
-                        <span>Reorder</span>
+                      <div className="relative flex items-center gap-1 text-outline">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playPopSound();
+                            setActiveReorderCatId(activeReorderCatId === category.id ? null : category.id);
+                          }}
+                          className="flex items-center gap-1 text-xs hover:text-primary transition-colors cursor-pointer py-1 px-1.5 rounded-lg hover:bg-lavender-subtle active:scale-95"
+                          title="Reorder category"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">swap_vert</span>
+                          <span>Reorder</span>
+                        </button>
+
+                        {/* Reorder Popover */}
+                        {activeReorderCatId === category.id && (
+                          <div className="absolute left-0 bottom-full mb-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 flex items-center gap-1 animate-in fade-in zoom-in-95">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => {
+                                playPopSound();
+                                if (onReorderCategory) onReorderCategory(idx, idx - 1);
+                                showToast(`Moved "${category.name}" up`);
+                                setActiveReorderCatId(null);
+                              }}
+                              className="p-1.5 rounded-xl hover:bg-lavender-subtle text-on-surface disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                              title="Move Up"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                              <span>Up</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx === uniqueCategories.length - 1}
+                              onClick={() => {
+                                playPopSound();
+                                if (onReorderCategory) onReorderCategory(idx, idx + 1);
+                                showToast(`Moved "${category.name}" down`);
+                                setActiveReorderCatId(null);
+                              }}
+                              className="p-1.5 rounded-xl hover:bg-lavender-subtle text-on-surface disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                              title="Move Down"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+                              <span>Down</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <button 
                         onClick={() => onOpenFolder(category)}

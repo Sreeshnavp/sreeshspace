@@ -116,6 +116,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [showBonusToast, setShowBonusToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>('FRI');
+  const [activePriorityMenuId, setActivePriorityMenuId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<'daily' | 'routine'>('daily');
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
@@ -589,43 +591,70 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 <span>★</span> 100% on Mon–Thu
               </span>
             </div>
+            <div className="space-y-2">
             <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-              {/* Mon */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-mint-subtle/70 text-on-secondary-container">
-                <span className="font-label-sm text-label-sm">M</span>
-                <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-              </div>
-              {/* Tue */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-mint-subtle/70 text-on-secondary-container">
-                <span className="font-label-sm text-label-sm">T</span>
-                <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-              </div>
-              {/* Wed */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-mint-subtle/70 text-on-secondary-container">
-                <span className="font-label-sm text-label-sm">W</span>
-                <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-              </div>
-              {/* Thu */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-mint-subtle/70 text-on-secondary-container">
-                <span className="font-label-sm text-label-sm">T</span>
-                <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-              </div>
-              {/* Fri (Active Today) */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-primary text-on-primary shadow-sm scale-105 transition-transform">
-                <span className="font-label-sm text-label-sm text-primary-fixed">FRI</span>
-                <span className="text-[13px] mt-1 font-bold">🌟</span>
-              </div>
-              {/* Sat */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-surface-container text-on-surface-variant opacity-75">
-                <span className="font-label-sm text-label-sm">S</span>
-                <span className="font-body-sm text-body-sm mt-1">•</span>
-              </div>
-              {/* Sun */}
-              <div className="flex flex-col items-center py-2 px-1 rounded-2xl bg-surface-container text-on-surface-variant opacity-75">
-                <span className="font-label-sm text-label-sm">S</span>
-                <span className="font-body-sm text-body-sm mt-1">•</span>
-              </div>
+              {[
+                { key: 'MON', label: 'M', completed: true, icon: 'check_circle', desc: 'Monday: 4 of 4 completed (100%)' },
+                { key: 'TUE', label: 'T', completed: true, icon: 'check_circle', desc: 'Tuesday: 4 of 4 completed (100%)' },
+                { key: 'WED', label: 'W', completed: true, icon: 'check_circle', desc: 'Wednesday: 4 of 4 completed (100%)' },
+                { key: 'THU', label: 'T', completed: true, icon: 'check_circle', desc: 'Thursday: 4 of 4 completed (100%)' },
+                { key: 'FRI', label: 'FRI', isToday: true, icon: '🌟', desc: `Friday (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)` },
+                { key: 'SAT', label: 'S', completed: false, icon: '•', desc: 'Saturday: Weekend rituals planned' },
+                { key: 'SUN', label: 'S', completed: false, icon: '•', desc: 'Sunday: Rest & Weekly Reflection' },
+              ].map((d) => {
+                const isSelected = selectedDay === d.key;
+                return (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setSelectedDay(d.key);
+                    }}
+                    className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
+                      d.isToday
+                        ? isSelected
+                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
+                          : 'bg-primary/90 text-on-primary shadow-sm'
+                        : isSelected
+                        ? 'bg-mint-subtle text-secondary ring-2 ring-secondary font-bold scale-105'
+                        : d.completed
+                        ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
+                        : 'bg-surface-container text-on-surface-variant opacity-75 hover:opacity-100'
+                    }`}
+                    title={d.desc}
+                  >
+                    <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
+                    {d.isToday ? (
+                      <span className="text-[13px] mt-1 font-bold">🌟</span>
+                    ) : d.completed ? (
+                      <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
+                    ) : (
+                      <span className="font-body-sm text-body-sm mt-1">•</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            {/* Interactive Day Status Banner */}
+            <div className="p-2 rounded-xl bg-surface-container-low text-[11px] text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
+              <span className="flex items-center gap-1 font-medium">
+                <span>📅</span>
+                <span>
+                  {selectedDay === 'MON' && 'Monday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'TUE' && 'Tuesday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'WED' && 'Wednesday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'THU' && 'Thursday: 4 of 4 completed (100% ★)'}
+                  {selectedDay === 'FRI' && `Friday (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`}
+                  {selectedDay === 'SAT' && 'Saturday: Light review & rest'}
+                  {selectedDay === 'SUN' && 'Sunday: Sanctuary planning & recharge'}
+                </span>
+              </span>
+              <span className="text-primary font-bold text-[10px]">
+                {selectedDay === 'FRI' ? 'Active' : 'Logged'}
+              </span>
+            </div>
+          </div>
           </section>
 
           {/* Section 3: Habits Checklist Section */}
@@ -760,16 +789,43 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       {task.text}
                     </p>
                   </div>
-                  <button 
-                    onClick={() => {
-                      setPrioritiesList((prev) => prev.filter((p) => p.id !== task.id));
-                      playPopSound();
-                    }}
-                    className="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer"
-                    title="Remove task"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                  </button>
+                  <div className="relative">
+                    <button 
+                      onClick={() => {
+                        playPopSound();
+                        setActivePriorityMenuId(activePriorityMenuId === task.id ? null : task.id);
+                      }}
+                      className="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer rounded-full hover:bg-surface-container"
+                      title="Options"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                    </button>
+                    {activePriorityMenuId === task.id && (
+                      <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[130px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                        <button
+                          onClick={() => {
+                            handleTogglePriority(task.id);
+                            setActivePriorityMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">{task.completed ? 'undo' : 'check'}</span>
+                          <span>{task.completed ? 'Mark Undone' : 'Mark Done'}</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPrioritiesList((prev) => prev.filter((p) => p.id !== task.id));
+                            playPopSound();
+                            setActivePriorityMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-peach-subtle text-tertiary flex items-center gap-1.5 cursor-pointer font-semibold"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">delete</span>
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -844,7 +900,16 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   {goalArcs.length} Active Arcs
                 </span>
               </div>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">Q3 Vision ✨</span>
+              <button 
+    onClick={() => {
+      playPopSound();
+      setIsAddModalOpen(true);
+    }}
+    className="font-label-sm text-label-sm text-primary hover:underline font-bold flex items-center gap-1 cursor-pointer"
+  >
+    <span>Q3 Vision</span>
+    <span>✨</span>
+  </button>
             </div>
 
             <div className="space-y-space-sm">

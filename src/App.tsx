@@ -691,7 +691,7 @@ export function App() {
   // ==========================================
   // 📲 GLOBAL SWIPE NAVIGATION ANYWHERE (LINKS <-> HABITS & TASKS <-> REELS <-> FINANCES <-> NOTES & SKETCHPAD)
   // ==========================================
-  const WORKSPACE_SECTIONS: WorkspaceView[] = ['home', 'links', 'notebook', 'reels', 'finance', 'notes'];
+  const WORKSPACE_SECTIONS: WorkspaceView[] = ['home', 'links', 'notebook', 'finance', 'reels', 'notes'];
 
   const navigateToView = useCallback((targetView: WorkspaceView, replace: boolean = false) => {
     setWorkspaceView((current) => {
@@ -741,16 +741,16 @@ export function App() {
 
   const showSwipePill = (section: WorkspaceView) => {
     const config: Record<WorkspaceView, { label: string; icon: string }> = {
-      home: { label: 'Home', icon: '🏠' },
-      links: { label: 'Links', icon: '🔗' },
-      notebook: { label: 'Habits & Tasks', icon: '📖' },
-      reels: { label: 'Reels Vault', icon: '🎬' },
-      finance: { label: 'Finances', icon: '👛' },
-      notes: { label: 'Notes & Sketchpad', icon: '🎨' },
-      both: { label: 'Workspace', icon: '✨' },
+      home: { label: 'Home', icon: 'auto_awesome' },
+      links: { label: 'Links', icon: 'bookmark_heart' },
+      notebook: { label: 'Habits', icon: 'spa' },
+      finance: { label: 'Finances', icon: 'account_balance_wallet' },
+      reels: { label: 'Reels', icon: 'movie' },
+      notes: { label: 'Notes', icon: 'edit_note' },
+      both: { label: 'Workspace', icon: 'auto_awesome' },
     };
     if (swipePillTimerRef.current) clearTimeout(swipePillTimerRef.current);
-    setSwipePill(config[section] || { label: 'Section', icon: '✨' });
+    setSwipePill(config[section] || { label: 'Section', icon: 'auto_awesome' });
     swipePillTimerRef.current = setTimeout(() => {
       setSwipePill(null);
     }, 1100);
@@ -827,19 +827,22 @@ export function App() {
         Math.abs(deltaX) > Math.abs(deltaY) * 1.5 &&
         elapsed <= 650
       ) {
-        const curIdx = WORKSPACE_SECTIONS.indexOf(workspaceView);
+        const effectiveView = workspaceView === 'both' ? 'notebook' : workspaceView;
+        const curIdx = WORKSPACE_SECTIONS.indexOf(effectiveView);
         if (curIdx === -1) return;
 
-        if (deltaX < 0 && curIdx < WORKSPACE_SECTIONS.length - 1) {
-          // Swipe Left -> Next Section
-          const next = WORKSPACE_SECTIONS[curIdx + 1];
+        if (deltaX < 0) {
+          // Swipe Left -> Next Section (Continuous smooth loop across all 6 tabs)
+          const nextIdx = (curIdx + 1) % WORKSPACE_SECTIONS.length;
+          const next = WORKSPACE_SECTIONS[nextIdx];
           navigateToView(next);
           playPopSound();
           if (navigator.vibrate) navigator.vibrate(15);
           showSwipePill(next);
-        } else if (deltaX > 0 && curIdx > 0) {
-          // Swipe Right -> Prev Section
-          const prev = WORKSPACE_SECTIONS[curIdx - 1];
+        } else if (deltaX > 0) {
+          // Swipe Right -> Prev Section (Continuous smooth loop across all 6 tabs)
+          const prevIdx = (curIdx - 1 + WORKSPACE_SECTIONS.length) % WORKSPACE_SECTIONS.length;
+          const prev = WORKSPACE_SECTIONS[prevIdx];
           navigateToView(prev);
           playPopSound();
           if (navigator.vibrate) navigator.vibrate(15);
@@ -2674,9 +2677,9 @@ export function App() {
 
       {/* 📲 Cute Swipe Gesture Section Indicator */}
       {swipePill && (
-        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-main/90 text-surface shadow-raised backdrop-blur-md text-xs font-black">
-            <span className="text-sm">{swipePill.icon}</span>
+        <div className="fixed bottom-24 sm:bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-stone-900/90 text-white shadow-xl backdrop-blur-md text-xs font-bold border border-white/10">
+            <span className="material-symbols-outlined text-[16px] text-primary-fixed">{swipePill.icon}</span>
             <span>{swipePill.label}</span>
           </div>
         </div>

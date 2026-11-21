@@ -87,6 +87,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [activeGoalForDeposit, setActiveGoalForDeposit] = useState<FinancialGoalDef | null>(null);
+  const [isEditCapsModalOpen, setIsEditCapsModalOpen] = useState(false);
+  const [isFullStatementOpen, setIsFullStatementOpen] = useState(false);
+  const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income' | 'goal'>('all');
+  const [statementSearch, setStatementSearch] = useState('');
+  const [allowanceCaps, setAllowanceCaps] = useState({
+    food: 500,
+    tech: 150,
+    shopping: 400,
+    knowledge: 100,
+  });
   const [depositAmountInput, setDepositAmountInput] = useState('50');
 
   // Quick Log form state
@@ -969,9 +979,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <button 
                 onClick={() => {
                   playPopSound();
-                  setIsQuickLogOpen(true);
+                  setIsFullStatementOpen(true);
                 }}
-                className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer"
+                className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer font-bold"
               >
                 <span>View Full Statement</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>

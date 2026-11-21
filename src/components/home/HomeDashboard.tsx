@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import confetti from 'canvas-confetti';
 import { WorkspaceView, LinkItem, TodoItem, ReelItem, FinanceTransaction, NoteItem, SketchItem } from '../../types';
 import { playPopSound } from '../../utils/delight';
 import { useScrollVisibility } from '../../utils/useScrollVisibility';
@@ -44,6 +45,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [favoriteQuote, setFavoriteQuote] = useState(false);
+  const [statusVibe, setStatusVibe] = useState('✨ Feeling Creative');
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [showVibeCard, setShowVibeCard] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -109,9 +112,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-space-xs mt-space-xs">
-                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-peach-subtle/80 text-on-tertiary-fixed-variant font-label-sm text-label-sm shadow-[0_1px_4px_rgba(220,44,79,0.08)]">
-                  <span>✨ Feeling Creative</span>
-                </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsStatusModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-peach-subtle/80 text-on-tertiary-fixed-variant font-label-sm text-label-sm shadow-[0_1px_4px_rgba(220,44,79,0.08)] hover:bg-peach-subtle active:scale-95 transition-all cursor-pointer"
+                  title="Change daily vibe status"
+                >
+                  <span>{statusVibe}</span>
+                  <span className="material-symbols-outlined text-[13px] opacity-70">expand_more</span>
+                </button>
               </div>
             </div>
           </div>
@@ -166,13 +178,31 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
-                <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-card/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm shadow-sm">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    try {
+                      confetti({ particleCount: 30, spread: 50, origin: { y: 0.3 } });
+                    } catch {}
+                  }}
+                  className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-card/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm shadow-sm hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                  title="Cheer up!"
+                >
                   <span>☀️ Good morning!</span>
-                </div>
-                <div className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-card/90 backdrop-blur-md text-on-surface-variant font-label-sm text-label-sm shadow-sm">
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setIsStatusModalOpen(true);
+                  }}
+                  className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-card/90 backdrop-blur-md text-on-surface-variant font-label-sm text-label-sm shadow-sm hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                  title="Change focus vibe"
+                >
                   <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                  <span>{timeString} • Cozy Focus</span>
-                </div>
+                  <span>{timeString} • {statusVibe.replace(/^[^s]+s*/, '')}</span>
+                </button>
               </div>
 
               {/* Greeting row */}
@@ -644,6 +674,59 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             >
               All Caught Up!
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Vibe & Status Picker Modal */}
+      {isStatusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌸</span>
+                <h3 className="font-headline-sm text-base font-bold text-on-surface font-fraunces">Daily Vibe &amp; Focus</h3>
+              </div>
+              <button 
+                onClick={() => setIsStatusModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">Set your mood and intention for your sanctuary today.</p>
+            <div className="space-y-2">
+              {[
+                { label: '✨ Feeling Creative', desc: 'Inspired to build and design' },
+                { label: '🍵 Cozy Focus', desc: 'Calm deep work with gentle breaks' },
+                { label: '🌿 Peaceful Pace', desc: 'Unhurried and mindful flow' },
+                { label: '🔥 Goal Crusher', desc: 'Knocking down priority tasks' },
+                { label: '🌸 Rest & Recharge', desc: 'Gentle reading and relaxing' },
+              ].map((v) => (
+                <button
+                  key={v.label}
+                  type="button"
+                  onClick={() => {
+                    playPopSound();
+                    setStatusVibe(v.label);
+                    setIsStatusModalOpen(false);
+                  }}
+                  className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    statusVibe === v.label
+                      ? 'bg-lavender-subtle border-primary text-primary font-bold shadow-xs'
+                      : 'bg-surface-container border-border-subtle text-on-surface hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div>
+                    <span className="text-xs block font-semibold">{v.label}</span>
+                    <span className="text-[10px] text-on-surface-variant block mt-0.5">{v.desc}</span>
+                  </div>
+                  {statusVibe === v.label && (
+                    <span className="material-symbols-outlined text-[16px] text-primary">check</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
