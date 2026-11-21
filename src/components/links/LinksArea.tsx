@@ -49,6 +49,17 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
     }, 2400);
   };
 
+  // Unique categories deduplicated by name
+  const uniqueCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((c) => {
+      const key = (c.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [categories]);
+
   // Grouped links per category
   const categorizedMap = useMemo(() => {
     const map = new Map<string, LinkItem[]>();
@@ -442,7 +453,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
           ) : (
             /* Folders View (Matching stitch dd9daaa0d6d44b3697e5791b55fd4b30 1:1) */
             <div className="grid grid-cols-1 gap-4 w-full">
-              {categories.map((category, idx) => {
+              {uniqueCategories.map((category, idx) => {
                 const folderLinks = categorizedMap.get(category.name) || [];
                 const style = getFolderStyle(idx, category);
                 const isDragTarget = dragOverCategory === category.name;
