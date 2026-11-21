@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import type { 
   FinanceTransaction, 
@@ -25,7 +25,9 @@ export interface FinanceDashboardProps {
   onLock?: () => void;
 }
 
-const FINANCE_STORAGE_KEY = 'orbit-finances-v2';
+const FINANCE_TX_KEY = 'orbit_finance_transactions_v1';
+const ALLOWANCES_KEY = 'sreesh-allowances-list-v2';
+const GOALS_KEY = 'sreesh-goals-list-v2';
 
 interface FinancialGoalDef {
   id: string;
@@ -39,22 +41,108 @@ interface FinancialGoalDef {
   gradient: string;
 }
 
-interface DefaultTransactionDef {
+interface AllowanceCategoryDef {
   id: string;
-  title: string;
-  subtitle: string;
-  amount: number;
-  type: 'expense' | 'income';
-  method: string;
+  key: string;
+  name: string;
+  emoji: string;
   icon: string;
-  iconBg: string;
+  cap: number;
+  bg: string;
   iconColor: string;
+  barColor: string;
+}
+
+const DEFAULT_CATEGORIES: AllowanceCategoryDef[] = [
+  { id: 'allw-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', cap: 500, bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
+  { id: 'allw-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', cap: 150, bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
+  { id: 'allw-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', cap: 400, bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
+  { id: 'allw-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', cap: 100, bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
+];
+
+const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [
+  {
+    id: 'tx-1',
+    note: 'Figma Pro Subscription',
+    amount: 15,
+    type: 'expense',
+    category: 'Tech Subs',
+    categoryIcon: '💻',
+    merchant: 'Figma',
+    date: new Date().toISOString().split('T')[0],
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tx-2',
+    note: 'Coffee with Friends ☕',
+    amount: 8.5,
+    type: 'expense',
+    category: 'Food & Cafe',
+    categoryIcon: '☕',
+    merchant: 'Cafe Corner',
+    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tx-3',
+    note: 'Freelance Design Payout',
+    amount: 850,
+    type: 'income',
+    category: 'Freelance',
+    categoryIcon: '💰',
+    merchant: 'Stripe Transfer',
+    date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tx-4',
+    note: 'Local Grocery Fresh Mart',
+    amount: 42.3,
+    type: 'expense',
+    category: 'Food & Cafe',
+    categoryIcon: '🛒',
+    merchant: 'Fresh Mart',
+    date: new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0],
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tx-5',
+    note: 'Apple Cloud Storage',
+    amount: 2.99,
+    type: 'expense',
+    category: 'Tech Subs',
+    categoryIcon: '💻',
+    merchant: 'Apple',
+    date: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0],
+    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export function matchesCategory(tx: FinanceTransaction, cat: { name: string; key?: string }): boolean {
+  if (!tx.category) return false;
+  const tCat = tx.category.toLowerCase().trim();
+  const cName = cat.name.toLowerCase().trim();
+  const cKey = (cat.key || '').toLowerCase().trim();
+  if (tCat === cName || tCat === cKey) return true;
+  if (cKey && tCat.includes(cKey)) return true;
+  if (cName.includes(tCat) || tCat.includes(cName)) return true;
+  if (cName.includes('food') && (tCat.includes('food') || tCat.includes('cafe') || tCat.includes('coffee') || tCat.includes('dining') || tCat.includes('grocer'))) return true;
+  if (cName.includes('tech') && (tCat.includes('tech') || tCat.includes('sub') || tCat.includes('software') || tCat.includes('cloud'))) return true;
+  if (cName.includes('shop') && (tCat.includes('shop') || tCat.includes('cloth') || tCat.includes('retail'))) return true;
+  if (cName.includes('know') && (tCat.includes('know') || tCat.includes('book') || tCat.includes('course') || tCat.includes('learn'))) return true;
+  return false;
 }
 
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   transactions = [],
   currency = '₹',
   onQuickAdd,
+  onDeleteTransaction,
   onLock,
 }) => {
   const TODAY = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
@@ -75,11 +163,98 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     } catch {}
   };
 
-  // Balance visibility toggle
+  // 1. DYNAMIC TRANSACTIONS STATE (Synchronized with localStorage & props)
+  const [localTransactions, setLocalTransactions] = useState<FinanceTransaction[]>(() => {
+    if (transactions && transactions.length > 0) return transactions;
+    try {
+      const saved = localStorage.getItem(FINANCE_TX_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_INITIAL_TRANSACTIONS;
+  });
+
+  useEffect(() => {
+    if (transactions && transactions.length > 0) {
+      setLocalTransactions(transactions);
+    }
+  }, [transactions]);
+
+  const saveTransactionsState = (next: FinanceTransaction[]) => {
+    setLocalTransactions(next);
+    try {
+      localStorage.setItem(FINANCE_TX_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
+  // 2. DYNAMIC CATEGORY ALLOWANCES LIST
+  const [allowancesList, setAllowancesList] = useState<AllowanceCategoryDef[]>(() => {
+    try {
+      const saved = localStorage.getItem(ALLOWANCES_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_CATEGORIES;
+  });
+
+  const saveAllowancesList = (next: AllowanceCategoryDef[]) => {
+    setAllowancesList(next);
+    try {
+      localStorage.setItem(ALLOWANCES_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
+  // 3. FINANCIAL GOALS STATE
+  const [goalsList, setGoalsList] = useState<FinancialGoalDef[]>(() => {
+    try {
+      const saved = localStorage.getItem(GOALS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'macbook',
+        title: 'M3 MacBook Air Fund',
+        emoji: '💻',
+        tag: 'Auto-Save',
+        tagColor: 'bg-sky-subtle text-sky-accent',
+        subtitle: '+₹150 auto-saved every Fri · Midnight starlight',
+        current: 1050,
+        target: 1400,
+        gradient: 'from-sky-accent to-primary',
+      },
+      {
+        id: 'kyoto',
+        title: 'Kyoto Autumn Trip',
+        emoji: '🍁',
+        tag: 'Target Nov',
+        tagColor: 'bg-peach-subtle text-tertiary',
+        subtitle: '₹600 of ₹1,200 saved',
+        current: 600,
+        target: 1200,
+        gradient: 'from-peach-subtle to-tertiary',
+      },
+    ];
+  });
+
+  const saveGoalsList = (next: FinancialGoalDef[]) => {
+    setGoalsList(next);
+    try {
+      localStorage.setItem(GOALS_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
+  // UI / Filter States
   const [showBalance, setShowBalance] = useState(true);
-  const [timeframe, setTimeframe] = useState<'week' | 'month' | 'ytd'>('ytd');
+  const [timeframe, setTimeframe] = useState<'week' | 'month' | 'ytd'>('week');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [hoveredBar, setHoveredBar] = useState<{ day: string; spent: string } | null>(null);
+  const [hoveredBar, setHoveredBar] = useState<{ day: string; spent: string; inflow: string } | null>(null);
 
   // Modals state
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
@@ -87,69 +262,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [activeGoalForDeposit, setActiveGoalForDeposit] = useState<FinancialGoalDef | null>(null);
-  const [isEditCapsModalOpen, setIsEditCapsModalOpen] = useState(false);
-  const [isFullStatementOpen, setIsFullStatementOpen] = useState(false);
-  const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income' | 'goal'>('all');
-  const [statementSearch, setStatementSearch] = useState('');
-  const [allowancesList, setAllowancesList] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('sreesh-allowances-list-v2');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      { id: 'allw-1', key: 'food', name: 'Food & Cafe', emoji: '☕', icon: 'local_cafe', spent: 340, cap: 500, bg: 'bg-sunshine-subtle/80', iconColor: 'text-sunshine-accent/15', barColor: 'bg-sunshine-accent' },
-      { id: 'allw-2', key: 'tech', name: 'Tech Subs', emoji: '💻', icon: 'laptop_mac', spent: 120, cap: 150, bg: 'bg-sky-subtle/80', iconColor: 'text-sky-accent/15', barColor: 'bg-sky-accent' },
-      { id: 'allw-3', key: 'shopping', name: 'Shopping', emoji: '🛍️', icon: 'shopping_bag', spent: 280, cap: 400, bg: 'bg-peach-subtle/80', iconColor: 'text-tertiary-container/15', barColor: 'bg-tertiary-container' },
-      { id: 'allw-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', spent: 60, cap: 100, bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
-    ];
-  });
-
-  const handleDeleteGoal = (goalId: string) => {
-    playPopSound();
-    setGoalsList((prev) => {
-      const next = prev.filter((g) => g.id !== goalId);
-      try { localStorage.setItem('sreesh-goals-list-v2', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-
-  const handleDeleteAllowance = (id: string) => {
-    playPopSound();
-    setAllowancesList((prev) => {
-      const next = prev.filter((a) => a.id !== id);
-      try { localStorage.setItem('sreesh-allowances-list-v2', JSON.stringify(next)); } catch {}
-      return next;
-    });
-    if (selectedCategoryForSpendView?.id === id) {
-      setSelectedCategoryForSpendView(null);
-    }
-  };
-
-  const handleAddNewAllowance = () => {
-    if (!newAllowanceName.trim()) return;
-    const capNum = parseInt(newAllowanceCap.replace(/[^0-9]/g, ''), 10) || 100;
-    const newAllw = {
-      id: 'allw-' + Date.now(),
-      key: newAllowanceName.toLowerCase().replace(/\s+/g, '-'),
-      name: newAllowanceName.trim(),
-      emoji: newAllowanceEmoji.trim() || '✨',
-      icon: 'category',
-      spent: 0,
-      cap: capNum,
-      bg: 'bg-lavender-subtle/80',
-      iconColor: 'text-primary/15',
-      barColor: 'bg-primary',
-    };
-    setAllowancesList((prev) => {
-      const next = [...prev, newAllw];
-      try { localStorage.setItem('sreesh-allowances-list-v2', JSON.stringify(next)); } catch {}
-      return next;
-    });
-    setNewAllowanceName('');
-    setIsAddingNewAllowance(false);
-    triggerCelebration();
-  };
   const [depositAmountInput, setDepositAmountInput] = useState('50');
+
+  const [isEditCapsModalOpen, setIsEditCapsModalOpen] = useState(false);
+  const [selectedCategoryForSpendView, setSelectedCategoryForSpendView] = useState<AllowanceCategoryDef | null>(null);
+  const [isFullStatementOpen, setIsFullStatementOpen] = useState(false);
+  const [statementFilter, setStatementFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [statementSearch, setStatementSearch] = useState('');
 
   // Quick Log form state
   const [logType, setLogType] = useState<'expense' | 'income' | 'goal'>('expense');
@@ -157,134 +276,60 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [rawDigits, setRawDigits] = useState('0');
   const [logNote, setLogNote] = useState('');
 
-  // Financial Goals state
-  const [goalsList, setGoalsList] = useState<FinancialGoalDef[]>([
-    {
-      id: 'macbook',
-      title: 'M3 MacBook Air Fund',
-      emoji: '💻',
-      tag: 'Auto-Save',
-      tagColor: 'bg-sky-subtle text-sky-accent',
-      subtitle: '+₹150 auto-saved every Fri · Midnight starlight',
-      current: 1050,
-      target: 1400,
-      gradient: 'from-sky-accent to-primary',
-    },
-    {
-      id: 'kyoto',
-      title: 'Kyoto Autumn Trip',
-      emoji: '🍁',
-      tag: 'Target Nov',
-      tagColor: 'bg-peach-subtle text-tertiary',
-      subtitle: '₹600 of ₹1,200 saved',
-      current: 600,
-      target: 1200,
-      gradient: 'from-peach-subtle to-tertiary',
-    },
-  ]);
+  // Add / Edit Category & Cap states
+  const [editingCapId, setEditingCapId] = useState<string | null>(null);
+  const [editingCapValue, setEditingCapValue] = useState('');
+  const [newAllowanceName, setNewAllowanceName] = useState('');
+  const [newAllowanceEmoji, setNewAllowanceEmoji] = useState('✨');
+  const [newAllowanceCap, setNewAllowanceCap] = useState('250');
+  const [isAddingNewAllowance, setIsAddingNewAllowance] = useState(false);
 
   // New goal form state
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalEmoji, setNewGoalEmoji] = useState('🎯');
   const [newGoalTarget, setNewGoalTarget] = useState('1000');
   const [newGoalDeadline, setNewGoalDeadline] = useState('Target Nov 2026');
+
+  // Recent logs tab filter
   const [recentLogsFilter, setRecentLogsFilter] = useState<'all' | 'expense' | 'income'>('all');
-  const [selectedCategoryForSpendView, setSelectedCategoryForSpendView] = useState<any | null>(null);
-  const [isAddingNewAllowance, setIsAddingNewAllowance] = useState(false);
-  const [newAllowanceName, setNewAllowanceName] = useState('');
-  const [newAllowanceEmoji, setNewAllowanceEmoji] = useState('✨');
-  const [newAllowanceCap, setNewAllowanceCap] = useState('250');
 
-  // Default transactions matching Stitch
-  const [recentLogs, setRecentLogs] = useState<DefaultTransactionDef[]>([
-    {
-      id: 'tx-1',
-      title: 'Figma Pro Subscription',
-      subtitle: 'Tools & Creative · Today, 11:20 AM',
-      amount: 15.00,
-      type: 'expense',
-      method: 'Card',
-      icon: 'brush',
-      iconBg: 'bg-lavender-subtle',
-      iconColor: 'text-primary',
-    },
-    {
-      id: 'tx-2',
-      title: 'Coffee with Friends ☕',
-      subtitle: 'Cafe Corner · Yesterday',
-      amount: 8.50,
-      type: 'expense',
-      method: 'ApplePay',
-      icon: 'coffee',
-      iconBg: 'bg-sunshine-subtle',
-      iconColor: 'text-sunshine-accent',
-    },
-    {
-      id: 'tx-3',
-      title: 'Freelance Design Payout',
-      subtitle: 'Stripe Transfer · 2 days ago',
-      amount: 850.00,
-      type: 'income',
-      method: 'Settled',
-      icon: 'paid',
-      iconBg: 'bg-mint-subtle',
-      iconColor: 'text-secondary',
-    },
-    {
-      id: 'tx-4',
-      title: 'Local Grocery Fresh Mart',
-      subtitle: 'Household & Pantry · 3 days ago',
-      amount: 42.30,
-      type: 'expense',
-      method: 'Debit',
-      icon: 'shopping_cart',
-      iconBg: 'bg-peach-subtle',
-      iconColor: 'text-tertiary',
-    },
-    {
-      id: 'tx-5',
-      title: 'Apple Cloud Storage',
-      subtitle: 'Cloud Backup · 5 days ago',
-      amount: 2.99,
-      type: 'expense',
-      method: 'Sub',
-      icon: 'cloud_sync',
-      iconBg: 'bg-sky-subtle',
-      iconColor: 'text-sky-accent',
-    },
-  ]);
+  // ========================================================
+  // CORE DYNAMIC TOTALS & BALANCES (100% computed from live data)
+  // ========================================================
+  const { totalInflow, totalSpent, netBalance, safePercent, monthlyCap } = useMemo(() => {
+    let inflow = 0;
+    let spent = 0;
 
-  // Base numbers from Stitch: Net balance: $4,850.00, Inflow: +$3,200, Spent: -$1,420
-  const { totalInflow, totalSpent, netBalance, safePercent } = useMemo(() => {
-    let inflow = 3200;
-    let spent = 1420;
-
-    transactions.forEach((tx) => {
+    localTransactions.forEach((tx) => {
+      const amt = Number(tx.amount) || 0;
       if (tx.type === 'income') {
-        inflow += tx.amount;
+        inflow += amt;
       } else {
-        spent += tx.amount;
+        spent += amt;
       }
     });
 
-    const net = inflow - spent + 3070; // yields $4,850.00 matching Stitch exactly
-    const safe = Math.min(100, Math.max(0, Math.round((spent / 2100) * 100))); // yields 68% matching Stitch exactly
+    const capSum = allowancesList.reduce((sum, c) => sum + (Number(c.cap) || 0), 0) || 2100;
+    // Base starting reserve (e.g. initial bank deposits)
+    const startingReserve = 3000;
+    const net = startingReserve + inflow - spent;
+    const safe = capSum > 0 ? Math.min(100, Math.max(0, Math.round((spent / capSum) * 100))) : 0;
 
     return {
-      totalInflow: inflow,
-      totalSpent: spent,
-      netBalance: net,
-      safePercent: safe > 0 ? safe : 68,
+      totalInflow: Math.round(inflow),
+      totalSpent: Math.round(spent),
+      netBalance: Math.round(net),
+      safePercent: safe,
+      monthlyCap: capSum,
     };
-  }, [transactions]);
+  }, [localTransactions, allowancesList]);
 
-  // Keypad formatted amount (Whole Rupees, no decimal point)
+  // Keypad formatted amount
   const displayAmount = useMemo(() => {
     if (!rawDigits || rawDigits === '0') return '0';
     return parseInt(rawDigits, 10).toLocaleString('en-IN');
   }, [rawDigits]);
 
-  // Handle keypad press (Direct whole integer rupees)
   const handleKeypadPress = (key: string) => {
     playPopSound();
     if (key === 'backspace') {
@@ -300,49 +345,59 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     }
   };
 
-  // Handle preset chip (Whole rupee presets)
   const handlePresetAdd = (amountRupees: number) => {
     playPopSound();
     const current = parseInt(rawDigits || '0', 10);
     setRawDigits(String(current + amountRupees));
   };
 
-  // Submit quick log transaction
+  // Submit Quick Log
   const handleSubmitTransaction = () => {
     const intAmt = parseInt(rawDigits || '0', 10);
     if (intAmt <= 0) return;
 
+    const newTx: FinanceTransaction = {
+      id: 'tx-' + Date.now(),
+      type: logType === 'income' ? 'income' : 'expense',
+      amount: intAmt,
+      category: logCategory,
+      categoryIcon: logCategory.includes('Food') ? '☕' : logCategory.includes('Tech') ? '💻' : logCategory.includes('Shopping') ? '🛍️' : logCategory.includes('Knowledge') ? '📚' : '✨',
+      note: logNote.trim() || logCategory,
+      merchant: logCategory,
+      date: TODAY,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const nextTxs = [newTx, ...localTransactions];
+    saveTransactionsState(nextTxs);
+
     if (onQuickAdd) {
       onQuickAdd({
-        type: logType === 'income' ? 'income' : 'expense',
-        amount: intAmt,
-        category: logCategory,
-        categoryIcon: logCategory.includes('Food') ? '☕' : logCategory.includes('Tech') ? '💻' : logCategory.includes('Shopping') ? '🛍️' : '✨',
-        note: logNote.trim() || logCategory,
-        date: TODAY,
+        type: newTx.type,
+        amount: newTx.amount,
+        category: newTx.category,
+        categoryIcon: newTx.categoryIcon,
+        note: newTx.note,
+        date: newTx.date,
+        merchant: newTx.merchant,
       });
     }
-
-    // Also add to local recentLogs
-    setRecentLogs((prev) => [
-      {
-        id: 'tx-' + Date.now(),
-        title: logNote.trim() || logCategory,
-        subtitle: `${logCategory} · Just now`,
-        amount: intAmt,
-        type: logType === 'income' ? 'income' : 'expense',
-        method: logType === 'income' ? 'Received' : 'Manual',
-        icon: logType === 'income' ? 'paid' : 'receipt_long',
-        iconBg: logType === 'income' ? 'bg-mint-subtle' : 'bg-lavender-subtle',
-        iconColor: logType === 'income' ? 'text-secondary' : 'text-primary',
-      },
-      ...prev,
-    ]);
 
     triggerCelebration();
     setRawDigits('0');
     setLogNote('');
     setIsQuickLogOpen(false);
+  };
+
+  // Delete a transaction
+  const handleDeleteTransactionRecord = (id: string) => {
+    playPopSound();
+    const next = localTransactions.filter((tx) => tx.id !== id);
+    saveTransactionsState(next);
+    if (onDeleteTransaction) {
+      onDeleteTransaction(id);
+    }
   };
 
   // Handle Goal Deposit
@@ -357,14 +412,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     if (!activeGoalForDeposit) return;
     const amt = parseFloat(depositAmountInput);
     if (amt > 0) {
-      setGoalsList((prev) =>
-        prev.map((g) => {
-          if (g.id === activeGoalForDeposit.id) {
-            return { ...g, current: Math.min(g.target, g.current + amt) };
-          }
-          return g;
-        })
-      );
+      const next = goalsList.map((g) => {
+        if (g.id === activeGoalForDeposit.id) {
+          return { ...g, current: Math.min(g.target, g.current + amt) };
+        }
+        return g;
+      });
+      saveGoalsList(next);
       triggerCelebration();
     }
     setIsDepositModalOpen(false);
@@ -377,31 +431,230 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const target = parseFloat(newGoalTarget);
     if (!title || !(target > 0)) return;
 
-    setGoalsList((prev) => [
-      ...prev,
+    const next = [
+      ...goalsList,
       {
         id: 'goal-' + Date.now(),
         title,
         emoji: newGoalEmoji || '🎯',
-        tag: 'Active',
+        tag: newGoalDeadline.trim() || 'Active',
         tagColor: 'bg-lavender-subtle text-primary',
-        subtitle: `₹0 of ₹${target.toLocaleString('en-IN')} saved`,
+        subtitle: `₹0 of ₹${target.toLocaleString('en-IN')} saved · ${newGoalDeadline.trim()}`,
         current: 0,
         target,
         gradient: 'from-primary to-primary-container',
       },
-    ]);
+    ];
 
+    saveGoalsList(next);
     triggerCelebration();
     setNewGoalTitle('');
     setIsAddGoalModalOpen(false);
   };
 
+  const handleDeleteGoal = (goalId: string) => {
+    playPopSound();
+    const next = goalsList.filter((g) => g.id !== goalId);
+    saveGoalsList(next);
+  };
+
+  // Handle Category Allowances Management
+  const handleDeleteAllowance = (id: string) => {
+    playPopSound();
+    const next = allowancesList.filter((a) => a.id !== id);
+    saveAllowancesList(next);
+    if (selectedCategoryForSpendView?.id === id) {
+      setSelectedCategoryForSpendView(null);
+    }
+  };
+
+  const handleUpdateCap = (id: string, newCap: number) => {
+    if (newCap <= 0) return;
+    const next = allowancesList.map((c) => (c.id === id ? { ...c, cap: newCap } : c));
+    saveAllowancesList(next);
+    if (selectedCategoryForSpendView && selectedCategoryForSpendView.id === id) {
+      setSelectedCategoryForSpendView({ ...selectedCategoryForSpendView, cap: newCap });
+    }
+    setEditingCapId(null);
+    triggerCelebration();
+  };
+
+  const handleAddNewAllowance = () => {
+    if (!newAllowanceName.trim()) return;
+    const capNum = parseInt(newAllowanceCap.replace(/[^0-9]/g, ''), 10) || 100;
+    const newAllw: AllowanceCategoryDef = {
+      id: 'allw-' + Date.now(),
+      key: newAllowanceName.toLowerCase().replace(/\s+/g, '-'),
+      name: newAllowanceName.trim(),
+      emoji: newAllowanceEmoji.trim() || '✨',
+      icon: 'category',
+      cap: capNum,
+      bg: 'bg-lavender-subtle/80',
+      iconColor: 'text-primary/15',
+      barColor: 'bg-primary',
+    };
+    const next = [...allowancesList, newAllw];
+    saveAllowancesList(next);
+    setNewAllowanceName('');
+    setIsAddingNewAllowance(false);
+    triggerCelebration();
+  };
+
+  // ========================================================
+  // ANALYTICS & INSIGHTS: DYNAMIC PACE & CATEGORY BREAKDOWN
+  // ========================================================
+  const analyticsData = useMemo(() => {
+    // 1. Filter transactions by timeframe
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const todayStr = now.toISOString().split('T')[0];
+
+    const filtered = localTransactions.filter((tx) => {
+      if (!tx.date) return true;
+      if (timeframe === 'month') {
+        return tx.date.startsWith(`${currentYear}-${currentMonth}`);
+      }
+      if (timeframe === 'ytd') {
+        return tx.date.startsWith(`${currentYear}`);
+      }
+      // 'week': last 7 days or current ISO week
+      const txTime = new Date(tx.date).getTime();
+      const weekAgo = now.getTime() - 7 * 86400000;
+      return txTime >= weekAgo;
+    });
+
+    const expensesOnly = filtered.filter((tx) => (tx.type as string) !== 'income');
+    const totalExpPeriod = expensesOnly.reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
+
+    // 2. Spending Pace (Days of the week: Mon - Sun)
+    const daysLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const currentDayIdx = (now.getDay() + 6) % 7; // 0 for Mon, 6 for Sun
+
+    const weeklyData = daysLabel.map((day, idx) => {
+      // Find transactions that match this day of week
+      const dayTxs = filtered.filter((tx) => {
+        if (!tx.date) return false;
+        const d = new Date(tx.date);
+        const dow = (d.getDay() + 6) % 7;
+        return dow === idx;
+      });
+
+      const daySpent = dayTxs
+        .filter((tx) => (tx.type as string) !== 'income')
+        .reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
+
+      const dayInflow = dayTxs
+        .filter((tx) => tx.type === 'income')
+        .reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
+
+      return {
+        day,
+        isToday: idx === currentDayIdx,
+        spent: Math.round(daySpent),
+        inflow: Math.round(dayInflow),
+      };
+    });
+
+    const maxPaceVal = Math.max(10, ...weeklyData.map((d) => Math.max(d.spent, d.inflow)));
+
+    // 3. Category Breakdown (Donut Chart & Legend)
+    const categoryTotals: Record<string, { name: string; emoji: string; amount: number; color: string }> = {};
+
+    allowancesList.forEach((cat) => {
+      categoryTotals[cat.name] = {
+        name: cat.name,
+        emoji: cat.emoji,
+        amount: 0,
+        color: cat.barColor.replace('bg-', '') || '#6b38d4',
+      };
+    });
+
+    expensesOnly.forEach((tx) => {
+      const amt = Number(tx.amount) || 0;
+      let matched = false;
+      for (const cat of allowancesList) {
+        if (matchesCategory(tx, cat)) {
+          categoryTotals[cat.name].amount += amt;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        const otherKey = tx.category || 'Other';
+        if (!categoryTotals[otherKey]) {
+          categoryTotals[otherKey] = {
+            name: otherKey,
+            emoji: '✨',
+            amount: 0,
+            color: '#8b5cf6',
+          };
+        }
+        categoryTotals[otherKey].amount += amt;
+      }
+    });
+
+    const categoriesArray = Object.values(categoryTotals).map((cat) => {
+      const pct = totalExpPeriod > 0 ? Math.round((cat.amount / totalExpPeriod) * 100) : 0;
+      return {
+        ...cat,
+        pct,
+      };
+    }).sort((a, b) => b.amount - a.amount);
+
+    // Compute SVG donut strokes
+    let cumulativePct = 0;
+    const donutSlices = categoriesArray.filter((c) => c.pct > 0).map((c) => {
+      const strokeDasharray = `${c.pct} ${100 - c.pct}`;
+      const strokeDashoffset = -cumulativePct;
+      cumulativePct += c.pct;
+
+      let hexColor = '#8b5cf6';
+      if (c.name.toLowerCase().includes('food')) hexColor = '#F59E0B';
+      else if (c.name.toLowerCase().includes('tech')) hexColor = '#0284C7';
+      else if (c.name.toLowerCase().includes('shop')) hexColor = '#dc2c4f';
+      else if (c.name.toLowerCase().includes('know')) hexColor = '#6b38d4';
+
+      return {
+        ...c,
+        strokeDasharray,
+        strokeDashoffset,
+        hexColor,
+      };
+    });
+
+    // Top Category & Insight Note
+    const topCategory = categoriesArray[0];
+    const avgDaily = Math.round(totalExpPeriod / 7);
+
+    return {
+      totalExpPeriod: Math.round(totalExpPeriod),
+      weeklyData,
+      maxPaceVal,
+      categoriesArray,
+      donutSlices,
+      topCategory,
+      avgDaily,
+    };
+  }, [localTransactions, allowancesList, timeframe]);
+
+  // Selected Category's expenses for Full Breakdown Modal
+  const categoryExpensesForModal = useMemo(() => {
+    if (!selectedCategoryForSpendView) return [];
+    return localTransactions.filter(
+      (tx) => (tx.type as string) !== 'income' && matchesCategory(tx, selectedCategoryForSpendView)
+    );
+  }, [localTransactions, selectedCategoryForSpendView]);
+
+  const selectedCategorySpentTotal = useMemo(() => {
+    return categoryExpensesForModal.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  }, [categoryExpensesForModal]);
+
   return (
     <div className="bg-canvas-bg font-body-md text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed min-h-screen">
       
       {/* ======================================================== */}
-      {/* 1. FIXED TOP HEADER MATCHING STITCH 1:1                  */}
+      {/* 1. FIXED TOP HEADER                                      */}
       {/* ======================================================== */}
       <header className={`fixed top-0 w-full z-40 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
@@ -426,7 +679,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </div>
               <div className="flex items-center gap-space-xs mt-space-xs">
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-peach-subtle/80 text-on-tertiary-fixed-variant font-label-sm text-label-sm shadow-[0_1px_4px_rgba(220,44,79,0.08)]">
-                  <span>✨ In Budget</span>
+                  <span>✨ {safePercent <= 80 ? 'In Budget' : 'Watch Spending'}</span>
                 </div>
               </div>
             </div>
@@ -436,7 +689,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <button 
               onClick={() => {
                 playPopSound();
-                analyticsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                setShowAnalytics(true);
+                setTimeout(() => analyticsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
               }}
               className="w-11 h-11 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:bg-lavender-subtle hover:text-primary transition-colors shadow-[0_2px_6px_rgba(21,19,17,0.04)] active:scale-95 cursor-pointer"
               title="Search and Analytics"
@@ -465,7 +719,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           
           {/* Primary Balance & Monthly Health Card */}
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-lavender-subtle via-surface-card to-sky-subtle p-space-xl shadow-[0_8px_24px_-4px_rgba(139,92,246,0.12)] border border-border-subtle mt-2">
-            {/* Watermark motif for subtle layered depth */}
             <span 
               className="material-symbols-outlined absolute -bottom-6 -right-4 text-[130px] text-primary/10 select-none pointer-events-none" 
               style={{ fontVariationSettings: '"FILL" 1' }}
@@ -488,7 +741,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   id="toggleBalanceBtn"
                   title={showBalance ? 'Hide balance' : 'Show balance'}
                 >
-                  <span className="material-symbols-outlined text-[18px]" id="eyeIcon">
+                  <span className="material-symbols-outlined text-[18px]">
                     {showBalance ? 'visibility' : 'visibility_off'}
                   </span>
                 </button>
@@ -496,10 +749,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
               <div>
                 <h1 className="font-display-lg-mobile text-display-lg-mobile text-on-surface tracking-tight font-fraunces" id="netBalanceValue">
-                  {showBalance ? `${currency}${Math.round(netBalance).toLocaleString('en-IN')}` : '••••••••'}
+                  {showBalance ? `${currency}${netBalance.toLocaleString('en-IN')}` : '••••••••'}
                 </h1>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Updated just now · 3 linked accounts
+                  Updated just now · Live transactions sync
                 </p>
               </div>
 
@@ -512,7 +765,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   <div className="flex flex-col min-w-0">
                     <span className="font-label-sm text-label-sm text-on-surface-variant truncate">Inflow</span>
                     <span className="font-label-lg text-label-lg text-secondary truncate font-bold">
-                      +{currency}{totalInflow.toLocaleString()}
+                      +{currency}{totalInflow.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -524,7 +777,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   <div className="flex flex-col min-w-0">
                     <span className="font-label-sm text-label-sm text-on-surface-variant truncate">Spent</span>
                     <span className="font-label-lg text-label-lg text-tertiary truncate font-bold">
-                      -{currency}{totalSpent.toLocaleString()}
+                      -{currency}{totalSpent.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -536,17 +789,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   <span className="font-label-md text-label-md flex items-center gap-1 font-semibold">
                     <span>✨</span> Monthly Safety Guard
                   </span>
-                  <span className="font-label-md text-label-md text-primary font-bold">{safePercent}% safe</span>
+                  <span className="font-label-md text-label-md text-primary font-bold">{Math.max(0, 100 - safePercent)}% safe</span>
                 </div>
                 <div className="h-3 w-full rounded-full bg-surface-card/80 p-0.5 overflow-hidden shadow-inner">
                   <div 
                     className="h-full rounded-full bg-gradient-to-r from-primary via-primary-container to-secondary-container transition-all duration-700 ease-out" 
-                    style={{ width: `${safePercent}%` }}
+                    style={{ width: `${Math.min(100, safePercent)}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
-                  <span>Spent {currency}{totalSpent.toLocaleString()}</span>
-                  <span>Cap: {currency}2,100</span>
+                  <span>Spent {currency}{totalSpent.toLocaleString('en-IN')}</span>
+                  <span>Cap: {currency}{monthlyCap.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>
@@ -586,250 +839,259 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </button>
           </div>
 
-          {/* RICH ANALYTICS SECTION (Toggled via Analytics View Button) */}
+          {/* ======================================================== */}
+          {/* 3. DYNAMIC ANALYTICS & INSIGHTS (Always synced with data) */}
+          {/* ======================================================== */}
           {showAnalytics && (
             <div ref={analyticsRef} className="flex flex-col space-y-space-sm pt-space-xs animate-in fade-in slide-in-from-top-3 duration-300" id="analyticsSection">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[18px]">📊</span>
-                <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Analytics &amp; Insights</h2>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-lavender-subtle text-primary font-label-sm text-label-sm font-semibold">
-                Live Sparkle
-              </span>
-            </div>
-
-            <div className="rounded-3xl bg-surface-card p-space-lg shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] space-y-space-md border border-border-subtle">
-              {/* Timeframe Tabs */}
-              <div className="flex p-1 rounded-2xl bg-canvas-bg border border-border-subtle" role="tablist">
-                <button 
-                  onClick={() => { playPopSound(); setTimeframe('week'); }}
-                  className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
-                    timeframe === 'week' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
-                  }`}
-                >
-                  This Week
-                </button>
-                <button 
-                  onClick={() => { playPopSound(); setTimeframe('month'); }}
-                  className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
-                    timeframe === 'month' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
-                  }`}
-                >
-                  This Month
-                </button>
-                <button 
-                  onClick={() => { playPopSound(); setTimeframe('ytd'); }}
-                  className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
-                    timeframe === 'ytd' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
-                  }`}
-                >
-                  Year-to-Date
-                </button>
-              </div>
-
-              {/* Delightful Insights Banner */}
-              <div className="p-space-sm rounded-2xl bg-gradient-to-r from-sunshine-subtle/80 via-peach-subtle/60 to-lavender-subtle/70 border border-sunshine-accent/20 flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-surface-card flex items-center justify-center flex-shrink-0 shadow-xs">
-                  <span className="text-[16px]">☕</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[18px]">📊</span>
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Analytics &amp; Insights</h2>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-label-md text-label-md text-on-surface font-semibold leading-tight">Coffee is down 18% this week</p>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                    You saved {currency}24! · Average daily spend: <span className="font-bold text-primary">{currency}47</span>
-                  </p>
-                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-lavender-subtle text-primary font-label-sm text-label-sm font-semibold">
+                  Live Sparkle
+                </span>
               </div>
 
-              {/* Spending vs Inflow Trend Chart */}
-              <div className="space-y-space-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-label-md text-label-md text-on-surface font-semibold">Spending &amp; Inflow Pace</span>
-                  <div className="flex items-center gap-3 text-label-sm font-label-sm text-on-surface-variant">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block"></span>Spent
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-secondary-container inline-block"></span>Inflow
-                    </span>
+              <div className="rounded-3xl bg-surface-card p-space-lg shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] space-y-space-md border border-border-subtle">
+                {/* Timeframe Tabs */}
+                <div className="flex p-1 rounded-2xl bg-canvas-bg border border-border-subtle" role="tablist">
+                  <button 
+                    onClick={() => { playPopSound(); setTimeframe('week'); }}
+                    className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
+                      timeframe === 'week' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    This Week
+                  </button>
+                  <button 
+                    onClick={() => { playPopSound(); setTimeframe('month'); }}
+                    className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
+                      timeframe === 'month' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    This Month
+                  </button>
+                  <button 
+                    onClick={() => { playPopSound(); setTimeframe('ytd'); }}
+                    className={`analytics-tab flex-1 py-1.5 text-center font-label-sm text-label-sm rounded-xl transition-all cursor-pointer ${
+                      timeframe === 'ytd' ? 'bg-surface-card text-primary shadow-xs font-bold' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    Year-to-Date
+                  </button>
+                </div>
+
+                {/* Dynamic Delightful Insights Banner */}
+                <div className="p-space-sm rounded-2xl bg-gradient-to-r from-sunshine-subtle/80 via-peach-subtle/60 to-lavender-subtle/70 border border-sunshine-accent/20 flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-surface-card flex items-center justify-center flex-shrink-0 shadow-xs">
+                    <span className="text-[16px]">{analyticsData.topCategory?.emoji || '☕'}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-label-md text-label-md text-on-surface font-semibold leading-tight">
+                      {analyticsData.topCategory 
+                        ? `${analyticsData.topCategory.name} is your top expense (${analyticsData.topCategory.pct}% of period)`
+                        : 'Spending is calm and balanced'}
+                    </p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                      Period Total: <span className="font-bold text-primary">{currency}{analyticsData.totalExpPeriod.toLocaleString('en-IN')}</span> · Daily average: {currency}{analyticsData.avgDaily.toLocaleString('en-IN')}
+                    </p>
                   </div>
                 </div>
 
-                {/* Interactive Chart Graphic */}
-                <div className="relative w-full h-40 bg-canvas-bg/60 rounded-2xl p-2.5 border border-border-subtle flex flex-col justify-end">
-                  {/* Tooltip */}
-                  {hoveredBar && (
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface font-label-sm text-[11px] shadow-md pointer-events-none transition-opacity z-10 animate-in fade-in">
-                      {hoveredBar.day}: Spent {hoveredBar.spent}
+                {/* Spending vs Inflow Trend Chart */}
+                <div className="space-y-space-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-md text-label-md text-on-surface font-semibold">Spending &amp; Inflow Pace</span>
+                    <div className="flex items-center gap-3 text-label-sm font-label-sm text-on-surface-variant">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block"></span>Spent
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-secondary-container inline-block"></span>Inflow
+                      </span>
                     </div>
-                  )}
-
-                  {/* SVG Trend Chart with Bars and Spline */}
-                  <svg className="w-full h-28 overflow-visible" preserveAspectRatio="none" viewBox="0 0 320 100">
-                    <defs>
-                      <linearGradient id="primaryBarGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#8455ef" stopOpacity="0.95"></stop>
-                        <stop offset="100%" stopColor="#d0bcff" stopOpacity="0.6"></stop>
-                      </linearGradient>
-                      <linearGradient id="inflowGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#4edea3" stopOpacity="0.5"></stop>
-                        <stop offset="100%" stopColor="#4edea3" stopOpacity="0.05"></stop>
-                      </linearGradient>
-                    </defs>
-                    
-                    {/* Grid guide lines */}
-                    <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="20" y2="20"></line>
-                    <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="50" y2="50"></line>
-                    <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="80" y2="80"></line>
-                    
-                    {/* Inflow Smooth Pastel Area */}
-                    <path d="M 10 75 Q 55 60, 100 68 T 190 35 T 280 45 L 310 60 L 310 95 L 10 95 Z" fill="url(#inflowGrad)"></path>
-                    <path d="M 10 75 Q 55 60, 100 68 T 190 35 T 280 45 L 310 60" fill="none" stroke="#00714d" strokeLinecap="round" strokeWidth="2"></path>
-                    
-                    {/* Weekly Bars (Mon - Sun) */}
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Mon', spent: `${currency}38` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="47" rx="6" width="16" x="18" y="48"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Tue', spent: `${currency}65` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="63" rx="6" width="16" x="62" y="32"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Wed', spent: `${currency}24` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="30" rx="6" width="16" x="106" y="65"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Thu', spent: `${currency}52` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity ring-2 ring-primary ring-offset-1" 
-                      fill="#6b38d4" height="53" rx="6" width="16" x="150" y="42"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Fri', spent: `${currency}88` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="79" rx="6" width="16" x="194" y="16"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Sat', spent: `${currency}45` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="45" rx="6" width="16" x="238" y="50"
-                    ></rect>
-                    <rect 
-                      onMouseEnter={() => setHoveredBar({ day: 'Sun', spent: `${currency}18` })}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity" 
-                      fill="url(#primaryBarGrad)" height="21" rx="6" width="16" x="282" y="74"
-                    ></rect>
-                  </svg>
-                  
-                  <div className="flex justify-between items-center px-1 pt-1 font-label-sm text-[11px] text-on-surface-variant font-medium">
-                    <span className="w-6 text-center">Mon</span>
-                    <span className="w-6 text-center">Tue</span>
-                    <span className="w-6 text-center">Wed</span>
-                    <span className="w-6 text-center font-bold text-primary">Thu</span>
-                    <span className="w-6 text-center">Fri</span>
-                    <span className="w-6 text-center">Sat</span>
-                    <span className="w-6 text-center">Sun</span>
                   </div>
-                </div>
-              </div>
 
-              {/* Category Breakdown Donut / Pie & Legends with Dropdown Filter */}
-              <div className="pt-space-xs border-t border-border-subtle space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-label-md text-label-md text-on-surface font-semibold">Category Breakdown</span>
-                  {/* Mobile Dropdown Selector */}
-                  <div className="relative">
-                    <select 
-                      value={categoryFilter}
-                      onChange={(e) => {
-                        playPopSound();
-                        setCategoryFilter(e.target.value);
-                      }}
-                      className="appearance-none pl-2.5 pr-7 py-1 text-label-sm font-semibold rounded-xl bg-canvas-bg border border-border-subtle text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer" 
-                      id="analyticsCategoryFilter"
-                    >
-                      <option value="all">🌈 All Categories</option>
-                      <option value="food">☕ Food &amp; Cafe (34%)</option>
-                      <option value="tech">💻 Tech &amp; Subs (24%)</option>
-                      <option value="shopping">🛍️ Shopping (22%)</option>
-                      <option value="knowledge">📚 Knowledge (20%)</option>
-                      <option value="transport">🚕 Transport (0%)</option>
-                      <option value="other">✨ Other (0%)</option>
-                    </select>
-                    <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-                      expand_more
-                    </span>
-                  </div>
-                </div>
+                  {/* Interactive Chart Graphic */}
+                  <div className="relative w-full h-40 bg-canvas-bg/60 rounded-2xl p-2.5 border border-border-subtle flex flex-col justify-end">
+                    {/* Tooltip */}
+                    {hoveredBar && (
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface font-label-sm text-[11px] shadow-md pointer-events-none transition-opacity z-10 animate-in fade-in flex items-center gap-2">
+                        <span className="font-bold">{hoveredBar.day}:</span>
+                        <span>Spent {hoveredBar.spent}</span>
+                        <span>· Inflow {hoveredBar.inflow}</span>
+                      </div>
+                    )}
 
-                <div className="flex items-center gap-space-md pt-1">
-                  {/* SVG Donut Chart */}
-                  <div className="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
-                      <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#FEF3C7" strokeWidth="5.5"></circle>
-                      {/* Food 34% */}
-                      <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#F59E0B" strokeDasharray="34 66" strokeDashoffset="0" strokeWidth="5.5"></circle>
-                      {/* Tech 24% */}
-                      <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#0284C7" strokeDasharray="24 76" strokeDashoffset="-34" strokeWidth="5.5"></circle>
-                      {/* Shopping 22% */}
-                      <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#dc2c4f" strokeDasharray="22 78" strokeDashoffset="-58" strokeWidth="5.5"></circle>
-                      {/* Knowledge 20% */}
-                      <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#6b38d4" strokeDasharray="20 80" strokeDashoffset="-80" strokeWidth="5.5"></circle>
+                    {/* SVG Trend Chart with Bars and Spline */}
+                    <svg className="w-full h-28 overflow-visible" preserveAspectRatio="none" viewBox="0 0 320 100">
+                      <defs>
+                        <linearGradient id="primaryBarGrad" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#8455ef" stopOpacity="0.95"></stop>
+                          <stop offset="100%" stopColor="#d0bcff" stopOpacity="0.6"></stop>
+                        </linearGradient>
+                        <linearGradient id="inflowGrad" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#4edea3" stopOpacity="0.45"></stop>
+                          <stop offset="100%" stopColor="#4edea3" stopOpacity="0.05"></stop>
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Grid guide lines */}
+                      <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="20" y2="20"></line>
+                      <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="50" y2="50"></line>
+                      <line stroke="#1d1b19" strokeDasharray="3 3" strokeOpacity="0.06" x1="0" x2="320" y1="80" y2="80"></line>
+                      
+                      {/* Dynamic Inflow Smooth Wave Path */}
+                      {(() => {
+                        const xs = [26, 70, 114, 158, 202, 246, 290];
+                        const pts = analyticsData.weeklyData.map((d, i) => {
+                          const y = Math.max(15, Math.min(88, 90 - (d.inflow / analyticsData.maxPaceVal) * 70));
+                          return { x: xs[i], y };
+                        });
+                        let pathD = `M ${pts[0].x} ${pts[0].y}`;
+                        for (let i = 1; i < pts.length; i++) {
+                          const prev = pts[i - 1];
+                          const curr = pts[i];
+                          const cx = (prev.x + curr.x) / 2;
+                          pathD += ` C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
+                        }
+                        const areaD = `${pathD} L ${pts[pts.length - 1].x} 95 L ${pts[0].x} 95 Z`;
+                        return (
+                          <>
+                            <path d={areaD} fill="url(#inflowGrad)" />
+                            <path d={pathD} fill="none" stroke="#00714d" strokeLinecap="round" strokeWidth="2" />
+                          </>
+                        );
+                      })()}
+                      
+                      {/* Dynamic Weekly Bars (Mon - Sun) */}
+                      {analyticsData.weeklyData.map((d, idx) => {
+                        const xs = [18, 62, 106, 150, 194, 238, 282];
+                        const x = xs[idx];
+                        const barHeight = Math.max(8, Math.round((d.spent / analyticsData.maxPaceVal) * 75));
+                        const y = 92 - barHeight;
+
+                        return (
+                          <rect 
+                            key={d.day}
+                            onMouseEnter={() => setHoveredBar({ day: d.day, spent: `${currency}${d.spent}`, inflow: `${currency}${d.inflow}` })}
+                            onMouseLeave={() => setHoveredBar(null)}
+                            onClick={() => setHoveredBar({ day: d.day, spent: `${currency}${d.spent}`, inflow: `${currency}${d.inflow}` })}
+                            className={`cursor-pointer hover:opacity-80 transition-all ${
+                              d.isToday ? 'ring-2 ring-primary ring-offset-1' : ''
+                            }`} 
+                            fill={d.isToday ? '#6b38d4' : 'url(#primaryBarGrad)'} 
+                            height={barHeight} 
+                            rx="5" 
+                            width="16" 
+                            x={x} 
+                            y={y}
+                          />
+                        );
+                      })}
                     </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span className="font-headline-sm text-[15px] font-bold text-on-surface leading-none font-fraunces">{currency}1.4k</span>
-                      <span className="font-label-sm text-[10px] text-on-surface-variant mt-0.5">Total</span>
+                    
+                    <div className="flex justify-between items-center px-1 pt-1 font-label-sm text-[11px] text-on-surface-variant font-medium">
+                      {analyticsData.weeklyData.map((d) => (
+                        <span 
+                          key={d.day} 
+                          className={`w-6 text-center ${d.isToday ? 'font-bold text-primary underline' : ''}`}
+                        >
+                          {d.day}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Category Breakdown Donut / Pie & Legends */}
+                <div className="pt-space-xs border-t border-border-subtle space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-md text-label-md text-on-surface font-semibold">Category Breakdown</span>
+                    <div className="relative">
+                      <select 
+                        value={categoryFilter}
+                        onChange={(e) => {
+                          playPopSound();
+                          setCategoryFilter(e.target.value);
+                        }}
+                        className="appearance-none pl-2.5 pr-7 py-1 text-label-sm font-semibold rounded-xl bg-canvas-bg border border-border-subtle text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer" 
+                        id="analyticsCategoryFilter"
+                      >
+                        <option value="all">🌈 All Categories</option>
+                        {analyticsData.categoriesArray.map((c) => (
+                          <option key={c.name} value={c.name}>
+                            {c.emoji} {c.name} ({c.pct}%)
+                          </option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+                        expand_more
+                      </span>
                     </div>
                   </div>
 
-                  {/* Legends Grid */}
-                  <div className="flex-1 grid grid-cols-2 gap-y-2 gap-x-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-sunshine-accent flex-shrink-0"></span>
-                      <div className="min-w-0">
-                        <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight">Food &amp; Cafe</p>
-                        <p className="font-body-sm text-[11px] text-on-surface-variant">34% · {currency}340</p>
+                  <div className="flex items-center gap-space-md pt-1">
+                    {/* SVG Donut Chart with Dynamic Percentages */}
+                    <div className="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
+                        <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#F1EBFB" strokeWidth="5.5"></circle>
+                        {analyticsData.donutSlices.map((slice) => (
+                          <circle 
+                            key={slice.name}
+                            cx="21" 
+                            cy="21" 
+                            fill="transparent" 
+                            r="15.91549430918954" 
+                            stroke={slice.hexColor} 
+                            strokeDasharray={slice.strokeDasharray} 
+                            strokeDashoffset={slice.strokeDashoffset} 
+                            strokeWidth="5.5"
+                          />
+                        ))}
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                        <span className="font-headline-sm text-[15px] font-bold text-on-surface leading-none font-fraunces">
+                          {currency}{analyticsData.totalExpPeriod.toLocaleString('en-IN')}
+                        </span>
+                        <span className="font-label-sm text-[10px] text-on-surface-variant mt-0.5">Total</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-sky-accent flex-shrink-0"></span>
-                      <div className="min-w-0">
-                        <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight">Tech Subs</p>
-                        <p className="font-body-sm text-[11px] text-on-surface-variant">24% · {currency}120</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-tertiary-container flex-shrink-0"></span>
-                      <div className="min-w-0">
-                        <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight">Shopping</p>
-                        <p className="font-body-sm text-[11px] text-on-surface-variant">22% · {currency}280</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0"></span>
-                      <div className="min-w-0">
-                        <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight">Knowledge</p>
-                        <p className="font-body-sm text-[11px] text-on-surface-variant">20% · {currency}60</p>
-                      </div>
+
+                    {/* Dynamic Legends Grid */}
+                    <div className="flex-1 grid grid-cols-2 gap-y-2 gap-x-1">
+                      {analyticsData.categoriesArray.slice(0, 4).map((c) => (
+                        <div key={c.name} className="flex items-center gap-1.5">
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor: c.name.toLowerCase().includes('food') 
+                                ? '#F59E0B' 
+                                : c.name.toLowerCase().includes('tech') 
+                                ? '#0284C7' 
+                                : c.name.toLowerCase().includes('shop') 
+                                ? '#dc2c4f' 
+                                : '#6b38d4'
+                            }}
+                          ></span>
+                          <div className="min-w-0">
+                            <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight truncate">{c.name}</p>
+                            <p className="font-body-sm text-[11px] text-on-surface-variant">{c.pct}% · {currency}{c.amount.toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
           )}
 
-          {/* FINANCIAL GOALS & SAVINGS TARGETS SYSTEM */}
+          {/* ======================================================== */}
+          {/* 4. FINANCIAL GOALS & SAVINGS TARGETS SYSTEM              */}
+          {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -910,12 +1172,14 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
           </div>
 
-          {/* Monthly Category Allowances (Click ANY category to see full spend breakdown) */}
+          {/* ======================================================== */}
+          {/* 5. CATEGORY-WISE EXPENSE BREAKDOWN (Exact requested design) */}
+          {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-[16px]">🌿</span>
-                <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Category Allowances</h2>
+                <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Category-wise Expense Breakdown</h2>
               </div>
               <button 
                 onClick={() => {
@@ -929,10 +1193,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Dynamic Category Cards Grid */}
+            {/* Dynamic Category Cards Grid with Live Spent Amounts */}
             <div className="grid grid-cols-2 gap-space-sm">
               {allowancesList.map((c) => {
-                const pct = Math.min(100, Math.round((c.spent / c.cap) * 100));
+                // Compute live spent for this category from actual transactions
+                const catSpent = localTransactions
+                  .filter((tx) => (tx.type as string) !== 'income' && matchesCategory(tx, c))
+                  .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+                const pct = c.cap > 0 ? Math.min(100, Math.round((catSpent / c.cap) * 100)) : 0;
+
                 return (
                   <div 
                     key={c.id || c.name}
@@ -941,7 +1211,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       setSelectedCategoryForSpendView(c);
                     }}
                     className={`relative overflow-hidden p-space-md rounded-3xl ${c.bg || 'bg-lavender-subtle/80'} flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle hover:shadow-md hover:border-primary/40 transition-all cursor-pointer active:scale-98`}
-                    title="Click to view all spending in this category"
+                    title="Click to view full expenses of this category"
                   >
                     <span 
                       className={`material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] ${c.iconColor || 'text-primary/15'} select-none pointer-events-none`} 
@@ -958,8 +1228,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     <div>
                       <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
                       <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}{c.spent}</span>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}{c.cap}</span>
+                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">{currency}{Math.round(catSpent).toLocaleString('en-IN')}</span>
+                        <span className="font-body-sm text-body-sm text-on-surface-variant">/ {currency}{Math.round(c.cap).toLocaleString('en-IN')}</span>
                       </div>
                       <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
                         <div className={`h-full rounded-full ${c.barColor || 'bg-primary'}`} style={{ width: `${pct}%` }}></div>
@@ -971,7 +1241,9 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
           </div>
 
-          {/* Recent Ledger / Transactions Section with Filter & Below Total */}
+          {/* ======================================================== */}
+          {/* 6. RECENT LOGS WITH FILTER & CALCULATED TOTALS           */}
+          {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -990,7 +1262,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Filter Tabs: Both (All) vs Spent (Expense) vs Income */}
+            {/* Filter Tabs: Both (All) vs Spent vs Income */}
             <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-surface-container border border-border-subtle text-xs">
               {[
                 { key: 'all', label: 'Both' },
@@ -1015,78 +1287,78 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               ))}
             </div>
 
-            {/* Filtered Transaction List Container */}
+            {/* Filtered Logs List */}
             {(() => {
-              const allLogs = [
-                ...recentLogs,
-                ...transactions.map((tx) => ({
-                  id: tx.id,
-                  title: tx.note || tx.category,
-                  subtitle: `${tx.category} · ${tx.date}`,
-                  amount: tx.amount,
-                  time: tx.date,
-                  category: tx.category,
-                  type: tx.type,
-                  icon: 'payments',
-                  iconBg: 'bg-lavender-subtle',
-                  iconColor: 'text-primary',
-                  method: 'Live',
-                })),
-              ];
-
-              const filteredLogs = allLogs.filter((tx) => {
+              const filteredLogs = localTransactions.filter((tx) => {
                 if (recentLogsFilter === 'expense') return (tx.type as string) !== 'income';
                 if (recentLogsFilter === 'income') return tx.type === 'income';
                 return true;
               });
 
-              const totalSpent = filteredLogs
+              const periodSpent = filteredLogs
                 .filter((tx) => (tx.type as string) !== 'income')
-                .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
-              const totalIncome = filteredLogs
+              const periodIncome = filteredLogs
                 .filter((tx) => tx.type === 'income')
-                .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
-              const netTotal = totalIncome - totalSpent;
+              const periodNet = periodIncome - periodSpent;
 
               return (
                 <div className="rounded-3xl bg-surface-card p-space-md shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] space-y-space-sm border border-border-subtle">
                   {filteredLogs.length === 0 ? (
                     <div className="py-6 text-center text-xs text-on-surface-variant">
-                      No logs found for this filter.
+                      No logs found for this filter. Tap "+ Log Expense" to record one!
                     </div>
                   ) : (
-                    filteredLogs.map((tx) => (
-                      <div 
-                        key={tx.id}
-                        className="flex items-center justify-between p-space-sm rounded-2xl hover:bg-canvas-bg transition-colors cursor-pointer border border-transparent hover:border-border-subtle"
-                      >
-                        <div className="flex items-center gap-space-sm min-w-0">
-                          <div className={`w-11 h-11 rounded-2xl ${tx.iconBg} flex items-center justify-center ${tx.iconColor} flex-shrink-0 shadow-xs`}>
-                            <span className="material-symbols-outlined text-[22px]">{tx.icon}</span>
+                    filteredLogs.map((tx) => {
+                      const isInc = tx.type === 'income';
+                      return (
+                        <div 
+                          key={tx.id}
+                          className="flex items-center justify-between p-space-sm rounded-2xl hover:bg-canvas-bg transition-colors cursor-pointer border border-transparent hover:border-border-subtle"
+                        >
+                          <div className="flex items-center gap-space-sm min-w-0">
+                            <div className={`w-11 h-11 rounded-2xl ${isInc ? 'bg-mint-subtle text-secondary' : 'bg-lavender-subtle text-primary'} flex items-center justify-center flex-shrink-0 shadow-xs text-lg`}>
+                              {tx.categoryIcon || (isInc ? '💰' : '💸')}
+                            </div>
+                            <div className="min-w-0 ml-1">
+                              <h3 className="font-label-lg text-label-lg text-on-surface truncate font-semibold">
+                                {tx.note || tx.category}
+                              </h3>
+                              <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                                {tx.category} · {tx.date}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0 ml-1">
-                            <h3 className="font-label-lg text-label-lg text-on-surface truncate font-semibold">{tx.title}</h3>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant truncate">{tx.subtitle}</p>
+                          <div className="flex items-center gap-2 text-right flex-shrink-0 pl-2">
+                            <div>
+                              <span className={`font-label-lg text-label-lg block font-bold ${
+                                isInc ? 'text-secondary' : 'text-on-surface'
+                              }`}>
+                                {isInc ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
+                              </span>
+                              <span className={`font-label-sm text-[10px] px-1.5 py-0.5 rounded-full inline-block font-medium ${
+                                isInc ? 'bg-mint-subtle text-on-secondary-fixed-variant' : 'bg-canvas-bg text-on-surface-variant'
+                              }`}>
+                                {tx.merchant || 'Record'}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTransactionRecord(tx.id);
+                              }}
+                              className="w-7 h-7 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors active:scale-95 cursor-pointer ml-1"
+                              title="Delete transaction"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">delete</span>
+                            </button>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0 pl-2">
-                          <span className={`font-label-lg text-label-lg block font-bold ${
-                            tx.type === 'income' ? 'text-secondary' : 'text-on-surface'
-                          }`}>
-                            {tx.type === 'income' ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
-                          </span>
-                          <span className={`font-label-sm text-label-sm px-1.5 py-0.5 rounded-full inline-block font-medium ${
-                            tx.type === 'income' 
-                              ? 'bg-mint-subtle text-on-secondary-fixed-variant' 
-                              : 'bg-canvas-bg text-on-surface-variant'
-                          }`}>
-                            {tx.method}
-                          </span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
 
                   {/* Calculated Total Bar Below the List */}
@@ -1099,13 +1371,13 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                         : 'Net Summary'}
                     </span>
                     <span className={`font-headline-sm text-sm font-bold font-mono ${
-                      recentLogsFilter === 'income' || (recentLogsFilter === 'all' && netTotal >= 0)
+                      recentLogsFilter === 'income' || (recentLogsFilter === 'all' && periodNet >= 0)
                         ? 'text-secondary'
                         : 'text-primary'
                     }`}>
-                      {recentLogsFilter === 'expense' && `-${currency}${Math.round(totalSpent).toLocaleString('en-IN')}`}
-                      {recentLogsFilter === 'income' && `+${currency}${Math.round(totalIncome).toLocaleString('en-IN')}`}
-                      {recentLogsFilter === 'all' && `${netTotal >= 0 ? '+' : '-'}${currency}${Math.round(Math.abs(netTotal)).toLocaleString('en-IN')}`}
+                      {recentLogsFilter === 'expense' && `-${currency}${Math.round(periodSpent).toLocaleString('en-IN')}`}
+                      {recentLogsFilter === 'income' && `+${currency}${Math.round(periodIncome).toLocaleString('en-IN')}`}
+                      {recentLogsFilter === 'all' && `${periodNet >= 0 ? '+' : '-'}${currency}${Math.round(Math.abs(periodNet)).toLocaleString('en-IN')}`}
                     </span>
                   </div>
                 </div>
@@ -1113,12 +1385,11 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             })()}
           </div>
 
-
         </div>
       </main>
 
       {/* ======================================================== */}
-      {/* 3. FLOATING QUICK ADD BUTTON (FAB)                       */}
+      {/* 7. FLOATING QUICK ADD BUTTON (FAB)                       */}
       {/* ======================================================== */}
       <div className="fixed bottom-24 right-5 z-40">
         <button 
@@ -1130,7 +1401,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           className="relative group w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-primary-container text-white flex items-center justify-center shadow-[0_8px_24px_rgba(107,56,212,0.42)] hover:scale-105 active:scale-95 transition-all duration-200 animate-soft-float cursor-pointer" 
           id="fabQuickAdd"
         >
-          <span className="material-symbols-outlined text-[28px] transition-transform duration-300 group-hover:rotate-90" id="fabIcon">
+          <span className="material-symbols-outlined text-[28px] transition-transform duration-300 group-hover:rotate-90">
             add
           </span>
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-secondary-container rounded-full ring-2 ring-white"></span>
@@ -1138,12 +1409,284 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 4. QUICK LOG MODAL / BOTTOM SHEET (WITH KEYPAD)          */}
+      {/* 8. FULL EXPENSE BREAKDOWN MODAL (FOR A CATEGORY)         */}
+      {/* ======================================================== */}
+      {selectedCategoryForSpendView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-lavender-subtle flex items-center justify-center text-xl shadow-xs">
+                  {selectedCategoryForSpendView.emoji}
+                </div>
+                <div>
+                  <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
+                    {selectedCategoryForSpendView.name}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">Full Category Expense Breakdown</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedCategoryForSpendView(null)}
+                className="w-8 h-8 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metrics Row */}
+            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-canvas-bg border border-border-subtle text-center">
+              <div>
+                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Spent</span>
+                <span className="text-sm font-bold text-tertiary">
+                  {currency}{Math.round(selectedCategorySpentTotal).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Monthly Cap</span>
+                <span className="text-sm font-bold text-on-surface">
+                  {currency}{Math.round(selectedCategoryForSpendView.cap).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-on-surface-variant uppercase font-semibold">Remaining</span>
+                <span className="text-sm font-bold text-secondary">
+                  {currency}{Math.max(0, Math.round(selectedCategoryForSpendView.cap - selectedCategorySpentTotal)).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Actions Row */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setLogCategory(selectedCategoryForSpendView.name);
+                  setLogType('expense');
+                  setIsQuickLogOpen(true);
+                }}
+                className="flex-1 py-2 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs hover:bg-primary-container active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>+ Log Expense Here</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingCapId(selectedCategoryForSpendView.id);
+                  setEditingCapValue(String(selectedCategoryForSpendView.cap));
+                  setIsEditCapsModalOpen(true);
+                }}
+                className="py-2 px-3 rounded-xl bg-lavender-subtle text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all cursor-pointer"
+              >
+                Edit Cap
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Delete ${selectedCategoryForSpendView.name} category?`)) {
+                    handleDeleteAllowance(selectedCategoryForSpendView.id);
+                  }
+                }}
+                className="py-2 px-3 rounded-xl bg-peach-subtle text-tertiary font-bold text-xs hover:bg-tertiary hover:text-white transition-all cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+
+            {/* Transaction List in this Category */}
+            <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1 min-h-[160px] max-h-[300px]">
+              <span className="font-bold text-xs text-on-surface-variant uppercase tracking-wider">
+                All Transactions ({categoryExpensesForModal.length})
+              </span>
+
+              {categoryExpensesForModal.length === 0 ? (
+                <div className="py-8 text-center text-xs text-on-surface-variant bg-canvas-bg rounded-2xl border border-border-subtle p-4">
+                  No expenses recorded in {selectedCategoryForSpendView.name} yet. Tap "+ Log Expense Here" to add one!
+                </div>
+              ) : (
+                categoryExpensesForModal.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-canvas-bg border border-border-subtle hover:border-primary/40 transition-colors"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <h4 className="font-bold text-xs text-on-surface truncate">{tx.note || tx.category}</h4>
+                      <p className="text-[11px] text-on-surface-variant">{tx.date} · {tx.merchant || 'Expense'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="font-bold text-xs text-tertiary">
+                        -{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteTransactionRecord(tx.id)}
+                        className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors"
+                        title="Delete this expense"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedCategoryForSpendView(null)}
+              className="w-full py-2.5 rounded-full bg-surface-container text-on-surface font-bold text-xs hover:bg-surface-container-high transition-all cursor-pointer mt-1"
+            >
+              Done Viewing
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 9. EDIT CAPS & CATEGORIES MODAL                          */}
+      {/* ======================================================== */}
+      {isEditCapsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌿</span>
+                <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
+                  Manage Categories &amp; Caps
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsEditCapsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Existing Categories List */}
+            <div className="space-y-2">
+              {allowancesList.map((c) => (
+                <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{c.emoji}</span>
+                    <div>
+                      <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
+                      {editingCapId === c.id ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-xs font-bold text-primary">{currency}</span>
+                          <input 
+                            type="number"
+                            value={editingCapValue}
+                            onChange={(e) => setEditingCapValue(e.target.value)}
+                            className="w-20 px-2 py-0.5 rounded-lg bg-surface-card border border-primary text-xs font-bold text-on-surface focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleUpdateCap(c.id, Number(editingCapValue))}
+                            className="px-2 py-0.5 rounded-lg bg-primary text-on-primary font-bold text-xs"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingCapId(null)}
+                            className="text-xs text-on-surface-variant"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-on-surface-variant">Cap: {currency}{c.cap}</p>
+                      )}
+                    </div>
+                  </div>
+                  {editingCapId !== c.id && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingCapId(c.id);
+                          setEditingCapValue(String(c.cap));
+                        }}
+                        className="px-2 py-1 rounded-lg bg-lavender-subtle text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAllowance(c.id)}
+                        className="w-7 h-7 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                        title="Delete category"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add New Category Section */}
+            {isAddingNewAllowance ? (
+              <div className="p-3 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2">
+                <span className="font-bold text-xs text-primary block">+ Add New Category</span>
+                <input 
+                  type="text"
+                  placeholder="Category Name (e.g. Travel, Gym)"
+                  value={newAllowanceName}
+                  onChange={(e) => setNewAllowanceName(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                />
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="Emoji (e.g. ✈️)"
+                    value={newAllowanceEmoji}
+                    onChange={(e) => setNewAllowanceEmoji(e.target.value)}
+                    className="w-20 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs text-center"
+                  />
+                  <input 
+                    type="number"
+                    placeholder="Monthly Cap (₹)"
+                    value={newAllowanceCap}
+                    onChange={(e) => setNewAllowanceCap(e.target.value)}
+                    className="flex-1 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleAddNewAllowance}
+                    className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs"
+                  >
+                    Add Category
+                  </button>
+                  <button
+                    onClick={() => setIsAddingNewAllowance(false)}
+                    className="px-3 py-1.5 rounded-xl bg-surface-container text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAddingNewAllowance(true)}
+                className="w-full py-2.5 rounded-2xl border border-dashed border-primary text-primary font-bold text-xs hover:bg-lavender-subtle transition-all cursor-pointer"
+              >
+                + Add New Category
+              </button>
+            )}
+
+            <button 
+              onClick={() => setIsEditCapsModalOpen(false)}
+              className="w-full py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-sm hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 10. QUICK LOG MODAL / BOTTOM SHEET (WITH KEYPAD)         */}
       {/* ======================================================== */}
       {isQuickLogOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn">
           <div className="w-full max-w-lg bg-surface-card rounded-t-3xl p-space-lg shadow-2xl space-y-space-md border-t border-lavender-subtle animate-in slide-in-from-bottom duration-200">
-            {/* Sheet Handle */}
             <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto -mt-1 mb-1"></div>
             
             <div className="flex items-center justify-between">
@@ -1154,7 +1697,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               <button 
                 onClick={() => setIsQuickLogOpen(false)}
                 className="w-9 h-9 rounded-full bg-canvas-bg flex items-center justify-center text-on-surface-variant hover:text-on-surface active:scale-90 transition-transform cursor-pointer" 
-                id="closeModalBtn"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -1193,7 +1735,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
             {/* Category Selector Dropdown */}
             <div className="space-y-1.5">
-              <label className="block font-label-sm text-label-sm text-on-surface-variant font-semibold" htmlFor="quickLogCategorySelect">
+              <label className="block font-label-sm text-label-sm text-on-surface-variant font-semibold">
                 Select Category
               </label>
               <div className="relative">
@@ -1201,15 +1743,15 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   value={logCategory}
                   onChange={(e) => setLogCategory(e.target.value)}
                   className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
-                  id="quickLogCategorySelect"
                 >
-                  <option value="Food & Cafe">☕ Food &amp; Cafe</option>
-                  <option value="Tech Subs">💻 Tech &amp; Subs</option>
-                  <option value="Shopping">🛍️ Shopping</option>
-                  <option value="Knowledge">📚 Knowledge</option>
+                  {allowancesList.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.emoji} {cat.name}
+                    </option>
+                  ))}
                   <option value="Transport">🚕 Transport</option>
                   <option value="Living & Bills">🏠 Living &amp; Bills</option>
-                  <option value="Self-Care">💖 Self-Care</option>
+                  <option value="Freelance">💰 Freelance / Income</option>
                   <option value="Other">✨ Other</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
@@ -1221,7 +1763,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             {/* Display & Presets Area */}
             <div className="p-space-sm rounded-2xl bg-canvas-bg border border-border-subtle space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Amount</span>
+                <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Amount ({currency})</span>
                 <div className="flex items-center gap-1">
                   <button 
                     onClick={() => handlePresetAdd(100)}
@@ -1249,7 +1791,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
               <div className="flex items-baseline justify-center py-1">
                 <span className="font-headline-md text-primary font-bold text-[24px] mr-1">{currency}</span>
-                <span className="font-display-lg text-[32px] tracking-tight font-bold text-on-surface leading-none select-none font-fraunces" id="keypadAmountDisplay">
+                <span className="font-display-lg text-[32px] tracking-tight font-bold text-on-surface leading-none select-none font-fraunces">
                   {displayAmount}
                 </span>
               </div>
@@ -1259,7 +1801,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 <span className="material-symbols-outlined text-[16px] text-on-surface-variant">edit_note</span>
                 <input 
                   className="w-full bg-transparent border-0 font-body-sm text-body-sm text-on-surface focus:ring-0 p-0 focus:outline-none" 
-                  id="quickLogNote" 
                   placeholder="What was this for? (e.g. Iced Matcha)" 
                   type="text"
                   value={logNote}
@@ -1272,7 +1813,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
 
             {/* Numeric Keypad (3x4 Grid) */}
-            <div className="grid grid-cols-3 gap-1.5 pt-0.5" id="financeKeypad">
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                 <button 
                   key={digit}
@@ -1310,7 +1851,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <button 
               onClick={handleSubmitTransaction}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white font-label-lg text-label-lg font-bold shadow-[0_4px_16px_rgba(107,56,212,0.25)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer" 
-              id="submitExpenseBtn" 
               type="button"
             >
               <span>{logType === 'income' ? 'Save Income' : logType === 'goal' ? 'Save to Goal' : 'Save Expense'}</span>
@@ -1321,7 +1861,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 5. DEPOSIT MODAL                                         */}
+      {/* 11. DEPOSIT MODAL                                        */}
       {/* ======================================================== */}
       {isDepositModalOpen && activeGoalForDeposit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1382,7 +1922,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 6. NEW GOAL TARGET MODAL                                 */}
+      {/* 12. NEW GOAL TARGET MODAL                                */}
       {/* ======================================================== */}
       {isAddGoalModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1469,7 +2009,101 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 7. NOTIFICATIONS MODAL                                   */}
+      {/* 13. FULL STATEMENT MODAL                                 */}
+      {/* ======================================================== */}
+      {isFullStatementOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-hidden">
+            <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🧾</span>
+                <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
+                  Full Financial Statement
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsFullStatementOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <input 
+                type="text"
+                placeholder="Search description, category, or note..."
+                value={statementSearch}
+                onChange={(e) => setStatementSearch(e.target.value)}
+                className="flex-1 px-3 py-1.5 rounded-xl bg-canvas-bg border border-border-subtle text-xs"
+              />
+              <div className="flex rounded-xl bg-canvas-bg border border-border-subtle p-0.5 text-xs">
+                {(['all', 'expense', 'income'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setStatementFilter(filter)}
+                    className={`px-2.5 py-1 rounded-lg font-bold capitalize transition-all ${
+                      statementFilter === filter ? 'bg-surface-card text-primary shadow-xs' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1 min-h-[200px]">
+              {localTransactions
+                .filter((tx) => {
+                  if (statementFilter === 'expense' && (tx.type as string) === 'income') return false;
+                  if (statementFilter === 'income' && tx.type !== 'income') return false;
+                  if (statementSearch.trim()) {
+                    const q = statementSearch.toLowerCase();
+                    return (
+                      (tx.note || '').toLowerCase().includes(q) ||
+                      (tx.category || '').toLowerCase().includes(q) ||
+                      (tx.merchant || '').toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                })
+                .map((tx) => {
+                  const isInc = tx.type === 'income';
+                  return (
+                    <div key={tx.id} className="flex items-center justify-between p-2.5 rounded-xl bg-canvas-bg border border-border-subtle">
+                      <div>
+                        <h4 className="font-bold text-xs text-on-surface">{tx.note || tx.category}</h4>
+                        <p className="text-[11px] text-on-surface-variant">{tx.category} · {tx.date}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold text-xs ${isInc ? 'text-secondary' : 'text-on-surface'}`}>
+                          {isInc ? '+' : '-'}{currency}{Math.round(tx.amount).toLocaleString('en-IN')}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteTransactionRecord(tx.id)}
+                          className="w-6 h-6 rounded hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant"
+                          title="Delete"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <button 
+              onClick={() => setIsFullStatementOpen(false)}
+              className="w-full py-2.5 rounded-full bg-primary text-on-primary font-bold text-xs shadow-sm hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
+            >
+              Close Statement
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 14. NOTIFICATIONS MODAL                                  */}
       {/* ======================================================== */}
       {isNotificationOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
@@ -1491,17 +2125,23 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
               <div className="p-3 rounded-2xl bg-mint-subtle/70 flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-secondary">✨ 68% Safety Guard</span>
+                  <span className="font-bold text-xs text-secondary">✨ Safety Guard Active</span>
                   <span className="text-[10px] text-on-surface-variant">Live</span>
                 </div>
-                <p className="text-xs text-on-surface-variant">Your spending pace is healthy and within your monthly cap of {currency}2,100.</p>
+                <p className="text-xs text-on-surface-variant">
+                  {safePercent <= 80 ? 'Your spending is comfortably within budget.' : 'Spending is approaching your monthly allowance cap.'}
+                </p>
               </div>
               <div className="p-3 rounded-2xl bg-sunshine-subtle/70 flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-sunshine-accent">☕ Coffee Savings Alert</span>
-                  <span className="text-[10px] text-on-surface-variant">This Week</span>
+                  <span className="font-bold text-xs text-sunshine-accent">☕ Dynamic Spending</span>
+                  <span className="text-[10px] text-on-surface-variant">Live</span>
                 </div>
-                <p className="text-xs text-on-surface-variant">Coffee is down 18% this week. You saved {currency}24!</p>
+                <p className="text-xs text-on-surface-variant">
+                  {analyticsData.topCategory 
+                    ? `Top spending area: ${analyticsData.topCategory.name} (${analyticsData.topCategory.pct}%).`
+                    : 'All spending categories are balanced.'}
+                </p>
               </div>
             </div>
             <button 
