@@ -99,9 +99,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [glowPoints, setGlowPoints] = useState<number>(() => {
     try {
       const saved = localStorage.getItem(`${HABITS_STORAGE_KEY}-points`);
-      return saved ? parseInt(saved, 10) : 830;
+      return saved ? parseInt(saved, 10) : 0;
     } catch {
-      return 830;
+      return 0;
     }
   });
 
@@ -109,7 +109,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     try {
       return localStorage.getItem(`${HABITS_STORAGE_KEY}-bonus-claimed`) === 'true';
     } catch {
-      return true; // Match the default in Stitch HTML
+      return false;
     }
   });
 
@@ -140,112 +140,26 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const saved = localStorage.getItem('sreesh-bazaar-perks-v2');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      {
-        id: 'perk-sunset',
-        title: 'Sunset Lo-Fi Theme',
-        detail: 'Atmospheric palette',
-        cost: 500,
-        emoji: '🎨',
-        bgClass: 'bg-lavender-subtle/70',
-        accentColor: 'text-primary',
-        unlocked: false,
-      },
-      {
-        id: 'perk-matcha',
-        title: 'Matcha Latte Break',
-        detail: 'Guilt-free offline treat',
-        cost: 300,
-        emoji: '🍵',
-        bgClass: 'bg-mint-subtle/70',
-        accentColor: 'text-secondary',
-        claimedToday: true,
-      },
-      {
-        id: 'perk-game',
-        title: '1 Hr Game Break',
-        detail: 'Rest & recharge block',
-        cost: 250,
-        emoji: '🎮',
-        bgClass: 'bg-peach-subtle/70',
-        accentColor: 'text-tertiary',
-        unlocked: false,
-      },
-    ];
+    return [];
   });
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
 
   // Bazaar perks state
   const [unlockedPerks, setUnlockedPerks] = useState<Record<string, boolean>>(() => {
-    return { 'perk-matcha': true };
+    return {};
   });
 
-  // Default Daily Habits matching Stitch 1:1
-  const [habitsList, setHabitsList] = useState<HabitItemDef[]>([
-    {
-      id: 'h1',
-      title: 'Drink 2.5L Water',
-      detail: 'Hydrated & glowing · 8 glasses logged',
-      emoji: '💧',
-      badge: '8/8 done',
-      badgeBg: 'bg-secondary text-on-secondary',
-      bgClass: 'bg-mint-subtle/80 text-on-secondary-container',
-      watermark: 'water_drop',
-      watermarkColor: 'text-secondary/10',
-      iconBg: 'bg-surface-card',
-      iconColor: 'text-secondary',
-      btnBgDone: 'bg-secondary text-on-secondary',
-      completed: true,
-    },
-    {
-      id: 'h2',
-      title: 'Read 20 pages',
-      detail: 'Atomic Habits · page 84-104',
-      emoji: '📖',
-      badge: 'Ch. 4',
-      badgeBg: 'bg-primary text-on-primary',
-      bgClass: 'bg-lavender-subtle/80 text-on-primary-fixed',
-      watermark: 'menu_book',
-      watermarkColor: 'text-primary/10',
-      iconBg: 'bg-surface-card',
-      iconColor: 'text-primary',
-      btnBgDone: 'bg-primary text-on-primary',
-      completed: true,
-    },
-    {
-      id: 'h3',
-      title: 'Code for 1 hour',
-      detail: 'Next.js Personal App Project',
-      emoji: '💻',
-      badge: '62 mins',
-      badgeBg: 'bg-sky-accent text-on-primary',
-      bgClass: 'bg-sky-subtle/80 text-on-surface',
-      watermark: 'terminal',
-      watermarkColor: 'text-sky-accent/10',
-      iconBg: 'bg-surface-card',
-      iconColor: 'text-sky-accent',
-      btnBgDone: 'bg-sky-accent text-on-primary',
-      completed: true,
-    },
-    {
-      id: 'h4',
-      title: '10m Meditation',
-      detail: 'Pending for evening unwind session',
-      emoji: '🧘',
-      badge: '✨ Pending',
-      badgeBg: 'bg-surface-card text-tertiary',
-      bgClass: 'bg-peach-subtle/90 text-on-tertiary-fixed-variant',
-      watermark: 'self_improvement',
-      watermarkColor: 'text-tertiary/10',
-      iconBg: 'bg-surface-card',
-      iconColor: 'text-tertiary',
-      btnBgDone: 'bg-tertiary text-on-primary',
-      completed: false,
-    },
-  ]);
+  // Daily Habits List (zero dummy items)
+  const [habitsList, setHabitsList] = useState<HabitItemDef[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-habits-list-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
 
-  // Default Today's Priorities matching Stitch
+  // Today's Priorities (zero dummy items)
   interface PriorityTaskDef {
     id: string;
     priority: 'high' | 'medium' | 'gentle';
@@ -254,81 +168,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     completed: boolean;
   }
 
-  const [prioritiesList, setPrioritiesList] = useState<PriorityTaskDef[]>([
-    {
-      id: 'p1',
-      priority: 'high',
-      time: '4:00 PM',
-      text: 'Deploy Sreeshnav mobile app to Vercel',
-      completed: false,
-    },
-    {
-      id: 'p2',
-      priority: 'medium',
-      time: '5:30 PM',
-      text: 'Review Figma design tokens & corner radii',
-      completed: false,
-    },
-    {
-      id: 'p3',
-      priority: 'gentle',
-      time: '11:00 AM',
-      text: 'Send weekly community newsletter',
-      completed: true,
-    },
-  ]);
+  const [prioritiesList, setPrioritiesList] = useState<PriorityTaskDef[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-priorities-list-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
 
-  // Long-Term Goal Arcs matching Stitch
-  const [goalArcs, setGoalArcs] = useState<GoalArcDef[]>([
-    {
-      id: 'g1',
-      title: 'Master TypeScript & Next.js',
-      emoji: '🚀',
-      priorityText: '🌸 High Priority',
-      priorityClass: 'bg-peach-subtle text-on-tertiary-fixed-variant',
-      progressPercent: 68,
-      progressLabel: '68% completed (2/3 Milestones)',
-      daysLeft: '42 days left',
-      barColor: 'bg-secondary',
-      subtasks: [
-        { id: 'g1-s1', text: 'Build Auth engine & session middleware', completed: true },
-        { id: 'g1-s2', text: 'Ship dashboard state management', completed: false },
-        { id: 'g1-s3', text: 'Deploy Next.js production micro-app', completed: false },
-      ],
-    },
-    {
-      id: 'g2',
-      title: 'Read 12 Books This Year',
-      emoji: '📚',
-      priorityText: '💜 Medium Priority',
-      priorityClass: 'bg-lavender-subtle text-primary',
-      progressPercent: 50,
-      progressLabel: '50% completed (6/12 Books)',
-      daysLeft: '120 days left',
-      barColor: 'bg-primary',
-      subtasks: [
-        { id: 'g2-s1', text: "Finish 'Atomic Habits' (Ch. 1-20)", completed: true },
-        { id: 'g2-s2', text: "Read 'Design of Everyday Things'", completed: false },
-        { id: 'g2-s3', text: "Read 'Show Your Work!' by Austin Kleon", completed: false },
-      ],
-    },
-    {
-      id: 'g3',
-      title: 'Build $10k Passive MRR',
-      emoji: '🌱',
-      priorityText: '🌿 Gentle Priority',
-      priorityClass: 'bg-mint-subtle text-secondary',
-      progressPercent: 32,
-      progressLabel: '32% completed ($3,200 MRR)',
-      daysLeft: '180 days left',
-      barColor: 'bg-sky-accent',
-      subtasks: [
-        { id: 'g3-s1', text: 'Launch Pastel Whimsy Figma Kit', completed: true },
-        { id: 'g3-s2', text: 'Build Micro-SaaS boilerplate & Stripe billing', completed: false },
-        { id: 'g3-s3', text: 'Create 5 interactive landing templates', completed: false },
-      ],
-    },
-  ]);
+  // Long-Term Goal Arcs (zero dummy items)
+  const [goalArcs, setGoalArcs] = useState<GoalArcDef[]>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-goal-arcs-v2');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
 
   // Dynamic user tasks from props
   const userDailyTodos = useMemo(() => {
@@ -950,6 +805,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             </div>
 
             <div className="space-y-space-sm" id="habits-list">
+              {habitsList.length === 0 && (
+                <div className="p-6 bg-surface-card rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-1">
+                  <p className="font-semibold text-on-surface">No daily habits yet</p>
+                  <p>Tap + below or Organize to add your first intentional habit!</p>
+                </div>
+              )}
               {habitsList.map((habit) => (
                 <div 
                   key={habit.id}
@@ -1042,6 +903,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
             {/* Task Cards Container */}
             <div className="space-y-2.5">
+              {prioritiesList.length === 0 && userDailyTodos.length === 0 && (
+                <div className="p-6 bg-surface-card rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-1">
+                  <p className="font-semibold text-on-surface">No priority tasks for today</p>
+                  <p>Tap + below to add what matters most today!</p>
+                </div>
+              )}
               {prioritiesList.map((task) => (
                 <div 
                   key={task.id}
@@ -1224,6 +1091,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             </div>
 
             <div className="space-y-space-sm">
+              {goalArcs.length === 0 && (
+                <div className="p-6 bg-surface-card rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-1">
+                  <p className="font-semibold text-on-surface">No long-term goals yet</p>
+                  <p>Tap + New Goal above to create milestone arcs for big dreams!</p>
+                </div>
+              )}
               {goalArcs.map((arc) => (
                 <div 
                   key={arc.id}
@@ -1390,6 +1263,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {bazaarPerks.length === 0 && (
+                  <div className="col-span-1 sm:col-span-3 p-4 bg-surface-container-low rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
+                    No custom perks yet. Click <span className="font-semibold text-primary">+ New Reward</span> to create incentives for your glow points!
+                  </div>
+                )}
                 {bazaarPerks.map((perk) => (
                   <div key={perk.id} className={`p-2.5 rounded-2xl ${perk.bgClass || 'bg-lavender-subtle/70'} flex flex-col justify-between gap-2 border border-border-subtle group hover:border-primary/40 transition-all`}>
                     <div>

@@ -60,68 +60,7 @@ const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [
   { id: 'cat-4', key: 'knowledge', name: 'Knowledge', emoji: '📚', icon: 'menu_book', bg: 'bg-lavender-subtle/80', iconColor: 'text-primary/15', barColor: 'bg-primary' },
 ];
 
-const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [
-  {
-    id: 'tx-1',
-    note: 'Figma Pro Subscription',
-    amount: 15,
-    type: 'expense',
-    category: 'Tech Subs',
-    categoryIcon: '💻',
-    merchant: 'Figma',
-    date: new Date().toISOString().split('T')[0],
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'tx-2',
-    note: 'Coffee with Friends ☕',
-    amount: 8.5,
-    type: 'expense',
-    category: 'Food & Cafe',
-    categoryIcon: '☕',
-    merchant: 'Cafe Corner',
-    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'tx-3',
-    note: 'Freelance Design Payout',
-    amount: 850,
-    type: 'income',
-    category: 'Freelance',
-    categoryIcon: '💰',
-    merchant: 'Stripe Transfer',
-    date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0],
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'tx-4',
-    note: 'Local Grocery Fresh Mart',
-    amount: 42.3,
-    type: 'expense',
-    category: 'Food & Cafe',
-    categoryIcon: '🛒',
-    merchant: 'Fresh Mart',
-    date: new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0],
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'tx-5',
-    note: 'Apple Cloud Storage',
-    amount: 2.99,
-    type: 'expense',
-    category: 'Tech Subs',
-    categoryIcon: '💻',
-    merchant: 'Apple',
-    date: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0],
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [];
 
 export function matchesCategory(tx: FinanceTransaction, cat: { name: string; key?: string }): boolean {
   if (!tx.category) return false;
@@ -203,7 +142,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return DEFAULT_INITIAL_TRANSACTIONS;
+    return [];
   });
 
   useEffect(() => {
@@ -255,31 +194,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       const saved = localStorage.getItem(GOALS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return [
-      {
-        id: 'macbook',
-        title: 'M3 MacBook Air Fund',
-        emoji: '💻',
-        targetDate: '2026-12-31',
-        subtitle: '+₹150 auto-saved every Fri · Midnight starlight',
-        current: 1050,
-        target: 1400,
-        gradient: 'from-sky-accent to-primary',
-      },
-      {
-        id: 'kyoto',
-        title: 'Kyoto Autumn Trip',
-        emoji: '🍁',
-        targetDate: '2026-11-30',
-        subtitle: '₹600 of ₹1,200 saved',
-        current: 600,
-        target: 1200,
-        gradient: 'from-peach-subtle to-tertiary',
-      },
-    ];
+    return [];
   });
 
   const saveGoalsList = (next: FinancialGoalDef[]) => {
@@ -348,7 +266,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       }
     });
 
-    const startingReserve = 3000;
+    const startingReserve = 0;
     const net = startingReserve + inflow - spent;
     const cashFlow = inflow - spent;
 
@@ -1126,6 +1044,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
             {/* Goals List */}
             <div className="space-y-space-sm">
+              {goalsList.length === 0 && (
+                <div className="p-6 rounded-3xl bg-surface-card border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-1">
+                  <p className="font-semibold text-on-surface">No financial targets yet</p>
+                  <p>Tap + New Target to set up savings funds and goals!</p>
+                </div>
+              )}
               {goalsList.map((goal) => {
                 const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
                 const { label: daysLeftLabel, isPast } = calculateDaysRemaining(goal.targetDate);

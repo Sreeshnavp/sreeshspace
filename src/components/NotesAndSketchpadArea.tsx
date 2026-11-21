@@ -88,40 +88,7 @@ const TAG_CONFIGS: NoteTagConfig[] = [
   { id: 'urgent', label: 'Urgent', emoji: '🚨', bgClass: 'bg-error-container text-on-error-container', textClass: 'text-on-error-container' },
 ];
 
-const DEFAULT_SHOWCASE_NOTES: NoteItem[] = [
-  {
-    id: 'note-showcase-1',
-    title: 'Design System Radii & Colors',
-    content: '- [x] Rounded-full pill shapes across CTA buttons\n- [x] Pastel lavender and peach card washes\n- [ ] Export SVG iconography bundle for cute stickers',
-    color: 'lavender',
-    pinned: true,
-    tag: '#Design',
-    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'note-showcase-2',
-    title: 'Quick Coffee Thoughts ☕',
-    content: '"The secret to morning flow is a calm desk, soft warm lamp light, and gentle ambient lo-fi hum."',
-    highlight: '"The secret to morning flow is a calm desk, soft warm lamp light, and gentle ambient lo-fi hum."',
-    color: 'amber',
-    pinned: false,
-    tag: '#Mindset',
-    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'note-showcase-3',
-    title: 'Weekend Coding Ideas',
-    content: 'Interactive canvas with cute doodle pads, brush stroke width selector, and floating cute stickers palette for quick markdown highlights.',
-    color: 'sky',
-    pinned: false,
-    tag: '#Ideas',
-    drawing: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>',
-    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-  },
-];
+const DEFAULT_SHOWCASE_NOTES: NoteItem[] = [];
 
 const PASTEL_PALETTE = [
   { name: 'Charcoal', hex: '#292524' },
@@ -159,19 +126,9 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
   onNavigate,
   onLock,
 }) => {
-  // Merged effective notes ensuring demo notes exist
+  // User notes (Clean slate, zero dummy items)
   const effectiveNotes = useMemo(() => {
-    const userNotes = [...(notes || [])];
-    const result = [...userNotes];
-    DEFAULT_SHOWCASE_NOTES.forEach((demo) => {
-      const exists = result.some(
-        (n) => n.title.toLowerCase().trim() === demo.title.toLowerCase().trim()
-      );
-      if (!exists) {
-        result.push(demo);
-      }
-    });
-    return result;
+    return notes || [];
   }, [notes]);
 
   // Filtering & search
@@ -195,11 +152,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
       const saved = localStorage.getItem('sreesh-notes-vault-folders-v2');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      { id: 'vf-1', name: 'Creative Sparks', emoji: '💡', description: 'Midnight prompts, moodboard links & ideas', bg: 'bg-lavender-subtle', tags: ['#frontend', '#ai-prompts'] },
-      { id: 'vf-2', name: 'Daily Gratitude', emoji: '🌸', description: 'Morning reflections & peaceful mindset notes', bg: 'bg-peach-subtle', tags: ['#mindset', '#gratitude'] },
-      { id: 'vf-3', name: 'Project Dev Notes', emoji: '💻', description: 'Architecture, system tokens & component release notes', bg: 'bg-sky-subtle', tags: ['#frontend', '#ideas'] },
-    ];
+    return [];
   });
 
   const handleDeleteVaultFolder = (id: string) => {
@@ -752,6 +705,11 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+              {vaultFolders.length === 0 && (
+                <div className="col-span-1 sm:col-span-2 p-4 bg-surface-container-low rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
+                  No note categories yet. Tap <span className="font-semibold text-primary">+ New Category</span> to organize your ideas!
+                </div>
+              )}
               {vaultFolders.map((vf) => {
                 const isSelected = selectedFolder === vf.name;
                 const folderNotesCount = notes.filter((n) => 

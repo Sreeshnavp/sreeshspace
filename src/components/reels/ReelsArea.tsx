@@ -54,87 +54,9 @@ export interface ReelsAreaProps {
 type ReelLayoutMode = 'grid' | 'list';
 type ReelFilterMode = 'all' | 'starred';
 
-const DEFAULT_DEMO_CATEGORIES: CategoryInfo[] = [
-  {
-    id: 'cat-highlights',
-    name: 'Highlights',
-    color: 'lavender',
-    icon: 'folder',
-    description: 'Special saved reels',
-    order: 0,
-  },
-  {
-    id: 'cat-coding-tech',
-    name: 'Coding & Tech',
-    color: 'rose',
-    icon: 'code',
-    description: 'Dev and tech tutorials',
-    order: 1,
-  },
-];
+const DEFAULT_DEMO_CATEGORIES: CategoryInfo[] = [];
 
-const DEFAULT_DEMO_REELS: ReelItem[] = [
-  {
-    id: 'reel-demo-1',
-    url: 'https://www.instagram.com/reel/DfY6UsmnHz7/',
-    shortcode: 'DfY6UsmnHz7',
-    headline: '10 Prompts I Reuse on Every Project',
-    author: '@designcoder',
-    tags: ['AI', 'Design'],
-    collection: '',
-    thumbnailUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDIcR7ucluFBsqO4H84JTSBROAeqVyENGtPd59DfcjSAV5Iggnr1wbV7wsH80DGK2Et6LMVMOfn1sukH7-9Rrsmq4xWWIDkP1rtjZpg2wHUsM31DAQszgCP4eANsF7lNiE3Xf_gHO2MHFtOxKRksNlAJ4DUUR1y95N7fCainHJZ9sLlC2IJ9IhJHrPteyvn41uArATt7k10FXulzIYPNGLZ9JBRqVDwaVDjF0v1xl0I',
-    createdAt: new Date().toISOString(),
-    favorite: false,
-  },
-  {
-    id: 'reel-demo-2',
-    url: 'https://www.instagram.com/reel/Df4KRuLxMF7/',
-    shortcode: 'Df4KRuLxMF7',
-    headline: 'Matcha Latte Art Tutorial 🍵',
-    author: '@cozycoffee',
-    tags: ['Cafe', 'Morning'],
-    collection: '',
-    thumbnailUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD4SLtNaD7tZsBD_w67n5zLCRIFUTDUkj_-_y7D4am01QWBkw4bPdS4zVC3AxTFU2FlKO64UBZ3Zu2fJVYTsIQF4EbNSKwTK_jjM1BroZOVNHQOsDoK3UkitnKWSV580rqByNYaHxDvcRVSNEu9_LSTRVoD_qyziJEd5MLVjrACMZvSj5zIk3wGkjWXd6WSUqKQYQx5nktn_Ehc4mKAPGkj2lhHxWtZ7vNShBpcEVUY',
-    createdAt: new Date().toISOString(),
-    favorite: false,
-  },
-  {
-    id: 'reel-demo-3',
-    url: 'https://www.instagram.com/reel/DfY6UsnnHz7/',
-    shortcode: 'DfY6UsnnHz7',
-    headline: 'Vibe Coding with Claude & Tailwind',
-    author: '@vibecoder',
-    tags: ['Claude3', 'Frontend'],
-    collection: '',
-    thumbnailUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBUI83FDpmzpG-nr84b0NS-mXTVB75I05nFOtZRErgwLeGTcCFhPHM9lZCH_q2-wB3v_Tbi9fEMT0QjqNspTSMGdPg3URj-bWIWrZdMznW4guw8Idi8EtEeiCFOZkmcLxf9dZWJzZep0IRQOGqy-nNpXkLyXG4RuB73q1GGeY9ZW9vgPoqVsztBQr2BRx5kMXcMnVs6t7vH_j_wAJTbuLX9Hzb8h212F094ieNWeclS',
-    createdAt: new Date().toISOString(),
-    favorite: false,
-  },
-  {
-    id: 'reel-demo-highlight',
-    url: 'https://www.instagram.com/reel/Df6PC2vlBHS/',
-    shortcode: 'Df6PC2vlBHS',
-    headline: 'Tech reel thumbnail',
-    author: '@techcreator',
-    tags: ['Tech'],
-    collection: 'Highlights',
-    thumbnailUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD_89TauBQKx1uxZKK89ymAcDoG8-TqD5EDnGT25Lx1Qc3Q-0Uwd_bNTOrtNULDODCcWk6E-8vFWUWn2euDpoupYDnG5NEJscJe0xL0JQOjLdsDnPWk-gcCaW9L3wYy-FLX0NJx1D0fLVyh16VG39SZESTExoOBzmV8tUyGj_H-Ltf3SdPezO1sOQ8klOOJ4c6M3B_MbDu4-YDvYPmg2vb1sJ1ZSLArMLvK8Fz1SsCs',
-    createdAt: new Date().toISOString(),
-    favorite: false,
-  },
-  {
-    id: 'reel-demo-coding',
-    url: 'https://www.instagram.com/reel/Df6PC2v1BHS/',
-    shortcode: 'Df6PC2v1BHS',
-    headline: 'Elephant Encounter on Scooter (Reporter Live)',
-    author: '@reporterlivemalayalam',
-    tags: ['ReporterLive'],
-    collection: 'Coding & Tech',
-    thumbnailUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoUlII3oUcI_PAaJMaGEUU3LlCC225D4S_IMfZHyvpL8a39Oi2NR_h1BhMVGUPe8Vr-Gh2wAaMbhVQrbm4fjMfLVpowNNd71JXaEaVfxlvFowA14Up4v9M3K9XgNaFyj-DCNtE748ZLJxT-uUNHX_7Mm8iTXww4VkSPOcpftr7Wb1n59LkOLmwDms9sXJ1OzmqI-nT0sCzyUFE31JD5dC0oXCmp6E1nvuuX_ppjGr9',
-    createdAt: new Date().toISOString(),
-    favorite: true,
-  },
-];
+const DEFAULT_DEMO_REELS: ReelItem[] = [];
 
 export const ReelsArea: React.FC<ReelsAreaProps> = ({
   reels = [],
@@ -150,41 +72,13 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   onNavigate,
   onLock,
 }) => {
-  // Merged effective categories & reels
+  // Merged effective categories & reels (Clean slate, zero dummy items)
   const effectiveCategories = useMemo(() => {
-    const list = [...(categories || [])];
-    DEFAULT_DEMO_CATEGORIES.forEach((demoCat) => {
-      if (!list.some((c) => c.name.toLowerCase().trim() === demoCat.name.toLowerCase().trim())) {
-        list.push(demoCat);
-      }
-    });
-    return list;
+    return categories || [];
   }, [categories]);
 
   const effectiveReels = useMemo(() => {
-    const list = [...(reels || [])];
-    // Map any reel that mentions elephant to Coding & Tech
-    const mapped = list.map((r) => {
-      const h = (r.headline || '').toLowerCase();
-      if (h.includes('elephant') && (!r.collection || r.collection.trim() === '')) {
-        return { ...r, collection: 'Coding & Tech' };
-      }
-      return r;
-    });
-
-    const result = [...mapped];
-    DEFAULT_DEMO_REELS.forEach((demo) => {
-      const demoHeadline = (demo.headline || '').toLowerCase().trim();
-      const exists = result.some(
-        (r) =>
-          (r.shortcode && r.shortcode === demo.shortcode) ||
-          (r.headline && r.headline.toLowerCase().trim() === demoHeadline)
-      );
-      if (!exists) {
-        result.push(demo);
-      }
-    });
-    return result;
+    return reels || [];
   }, [reels]);
 
   // View toggles
@@ -579,9 +473,14 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
 
           {/* Compact Vertical Stack of Folders ("just below below", no horizontal swipe) */}
           <div className="flex flex-col gap-2">
+            {effectiveCategories.length === 0 && (
+              <div className="p-4 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-center text-xs text-stone-400">
+                No folders yet. Click <span className="font-semibold text-primary">+ New Folder</span> above to create one.
+              </div>
+            )}
             {effectiveCategories.map((cat, idx) => {
               const catReels = reelsByFolder[cat.name.toLowerCase().trim()] || [];
-              const firstReel = catReels[0] || (idx === 0 ? DEFAULT_DEMO_REELS[3] : DEFAULT_DEMO_REELS[4]);
+              const firstReel = catReels[0];
               const colors = [
                 { bg: 'bg-purple-50', text: 'text-purple-600' },
                 { bg: 'bg-pink-50', text: 'text-pink-600' },
@@ -613,30 +512,32 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
                           {cat.name}
                         </h4>
                         <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded-full font-semibold">
-                          {catReels.length || 1}
+                          {catReels.length}
                         </span>
                       </div>
                       <p className="text-[11px] text-vault-subtle truncate mt-0.5">
-                        {firstReel.headline || 'Tap to explore reels'}
+                        {firstReel?.headline || 'Tap to explore reels'}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <div 
-                      onClick={() => handleOpenReelFeed(firstReel.id)}
-                      className="relative w-12 h-8 rounded-lg overflow-hidden bg-stone-900 border border-stone-200/60 cursor-pointer shadow-xs group/thumb hover:scale-105 transition-transform"
-                      title="Quick preview"
-                    >
-                      <img 
-                        src={firstReel.thumbnailUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuD_89TauBQKx1uxZKK89ymAcDoG8-TqD5EDnGT25Lx1Qc3Q-0Uwd_bNTOrtNULDODCcWk6E-8vFWUWn2euDpoupYDnG5NEJscJe0xL0JQOjLdsDnPWk-gcCaW9L3wYy-FLX0NJx1D0fLVyh16VG39SZESTExoOBzmV8tUyGj_H-Ltf3SdPezO1sOQ8klOOJ4c6M3B_MbDu4-YDvYPmg2vb1sJ1ZSLArMLvK8Fz1SsCs"} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-white text-[12px]">play_arrow</span>
+                    {firstReel && (
+                      <div 
+                        onClick={() => handleOpenReelFeed(firstReel.id)}
+                        className="relative w-12 h-8 rounded-lg overflow-hidden bg-stone-900 border border-stone-200/60 cursor-pointer shadow-xs group/thumb hover:scale-105 transition-transform"
+                        title="Quick preview"
+                      >
+                        <img 
+                          src={firstReel.thumbnailUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuD_89TauBQKx1uxZKK89ymAcDoG8-TqD5EDnGT25Lx1Qc3Q-0Uwd_bNTOrtNULDODCcWk6E-8vFWUWn2euDpoupYDnG5NEJscJe0xL0JQOjLdsDnPWk-gcCaW9L3wYy-FLX0NJx1D0fLVyh16VG39SZESTExoOBzmV8tUyGj_H-Ltf3SdPezO1sOQ8klOOJ4c6M3B_MbDu4-YDvYPmg2vb1sJ1ZSLArMLvK8Fz1SsCs"} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-white text-[12px]">play_arrow</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <button 
                       aria-label="Edit folder" 
@@ -674,6 +575,13 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         {/* ======================================================== */}
         <section className="space-y-3" data-purpose="unfiled-independent-reels">
           <div className="space-y-2.5" id="independent-reels-list">
+            {independentReels.length === 0 && (
+              <div className="p-6 bg-white/70 rounded-2xl border border-dashed border-stone-200 text-center text-xs text-stone-400 space-y-1">
+                <Film size={24} className="mx-auto text-stone-300 mb-1" />
+                <p className="font-semibold text-stone-600">No unfiled reels</p>
+                <p>Tap the pink + button below to paste an Instagram Reel link!</p>
+              </div>
+            )}
             {independentReels.map((reel) => {
               return (
                 <div 
