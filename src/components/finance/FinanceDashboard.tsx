@@ -648,7 +648,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       <header className={`fixed top-0 w-full z-40 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-space-md">
             <div className="relative flex items-center justify-center">
               <img 
@@ -704,7 +704,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 2. MAIN FINANCE CANVAS                                   */}
       {/* ======================================================== */}
       <main className="flex flex-col relative w-full pt-20 pb-36 bg-canvas-bg min-h-screen">
-        <div className="flex flex-col w-full px-margin-mobile space-y-space-lg max-w-lg mx-auto">
+        <div className="flex flex-col w-full px-4 sm:px-6 lg:px-10 space-y-space-lg w-full max-w-7xl mx-auto">
           
           {/* Primary Balance & Cash Flow Card (NO MONTHLY CAP) */}
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-lavender-subtle via-surface-card to-sky-subtle p-space-xl shadow-[0_8px_24px_-4px_rgba(139,92,246,0.12)] border border-border-subtle mt-2">
@@ -1068,10 +1068,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* 4. FINANCIAL GOALS & TARGETS (WITH DYNAMIC DAYS REMAINING)*/}
-          {/* ======================================================== */}
-          <div className="flex flex-col space-y-space-sm pt-space-xs">
+          {/* Financial Goals + Category-wise Expense Breakdown (2 columns on desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-start">
+            {/* ======================================================== */}
+            {/* 4. FINANCIAL GOALS & TARGETS (WITH DYNAMIC DAYS REMAINING)*/}
+            {/* ======================================================== */}
+            <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-[18px]">🌱</span>
@@ -1263,11 +1265,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               })}
             </div>
           </div>
+        </div>
 
-          {/* ======================================================== */}
-          {/* 6. RECENT LOGS WITH DELETE CONFIRMATION & TOTALS        */}
-          {/* ======================================================== */}
-          <div className="flex flex-col space-y-space-sm pt-space-xs">
+        {/* ======================================================== */}
+        {/* 6. RECENT LOGS WITH DELETE CONFIRMATION & TOTALS        */}
+        {/* ======================================================== */}
+        <div className="flex flex-col space-y-space-sm pt-space-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-[16px]">🧾</span>

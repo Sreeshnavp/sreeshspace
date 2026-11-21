@@ -784,7 +784,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-space-md">
             <div className="relative flex items-center justify-center">
               <img 
@@ -839,154 +839,159 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       {/* 2. MAIN HABITS & TASKS CONTENT                           */}
       {/* ======================================================== */}
       <main className="flex flex-col relative w-full pt-20 pb-28 bg-canvas-bg min-h-screen">
-        <div className="flex flex-col w-full px-space-md sm:px-space-lg space-y-space-lg max-w-lg mx-auto">
+        <div className="flex flex-col w-full px-4 sm:px-6 lg:px-10 space-y-space-lg w-full max-w-7xl mx-auto">
           
-          {/* Section 1: Gamified Header / Progress Card */}
-          <section className="relative overflow-hidden bg-surface-card rounded-3xl p-space-lg shadow-sm border border-border-subtle mt-2">
-            {/* Subtle Ambient Glow */}
-            <div className="absolute -top-12 -right-12 w-36 h-36 bg-mint-subtle/60 rounded-full blur-2xl pointer-events-none"></div>
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-lavender-subtle/70 rounded-full blur-2xl pointer-events-none"></div>
-            
-            <div className="relative z-10 flex items-center justify-between gap-space-md">
-              <div className="flex flex-col space-y-1">
-                <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-mint-subtle text-on-secondary-container">
-                  <span className="text-xs">🌱</span>
-                  <span className="font-label-sm text-label-sm uppercase tracking-wider font-bold">Growing Daily</span>
+          {/* Top Overview: Progress Card + Week at a Glance (2 columns on desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-stretch mt-2">
+            {/* Section 1: Gamified Header / Progress Card */}
+            <section className="relative overflow-hidden bg-surface-card rounded-3xl p-space-lg shadow-sm border border-border-subtle flex flex-col justify-between">
+              {/* Subtle Ambient Glow */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-mint-subtle/60 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-lavender-subtle/70 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="relative z-10 flex items-center justify-between gap-space-md">
+                <div className="flex flex-col space-y-1">
+                  <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-mint-subtle text-on-secondary-container">
+                    <span className="text-xs">🌱</span>
+                    <span className="font-label-sm text-label-sm uppercase tracking-wider font-bold">Growing Daily</span>
+                  </div>
+                  <h2 className="font-headline-md text-headline-md text-on-surface font-fraunces">
+                    You're glowing!
+                  </h2>
+                  <div className="inline-flex items-center gap-1 text-sunshine-accent font-label-md text-label-md">
+                    <span>🔥</span>
+                    <span className="text-on-surface font-semibold">
+                      {(streakState?.currentStreak || 0) > 0 ? `${streakState?.currentStreak} Day Streak` : '0 Day Streak'}
+                    </span>
+                    <span className="text-on-surface-variant font-normal">
+                      {(streakState?.currentStreak || 0) > 0 ? '· Keep it up!' : '· Ready to begin'}
+                    </span>
+                  </div>
                 </div>
-                <h2 className="font-headline-md text-headline-md text-on-surface font-fraunces">
-                  You're glowing!
-                </h2>
-                <div className="inline-flex items-center gap-1 text-sunshine-accent font-label-md text-label-md">
-                  <span>🔥</span>
-                  <span className="text-on-surface font-semibold">
-                    {(streakState?.currentStreak || 0) > 0 ? `${streakState?.currentStreak} Day Streak` : '0 Day Streak'}
-                  </span>
-                  <span className="text-on-surface-variant font-normal">
-                    {(streakState?.currentStreak || 0) > 0 ? '· Keep it up!' : '· Ready to begin'}
-                  </span>
+
+                {/* Cute Circular Progress Meter */}
+                <div className="relative flex items-center justify-center w-20 h-20 shrink-0">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
+                    <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6.5"></circle>
+                    <circle 
+                      className="text-secondary transition-all duration-700 ease-out" 
+                      cx="36" 
+                      cy="36" 
+                      fill="none" 
+                      r="28" 
+                      stroke="currentColor" 
+                      strokeDasharray="175.9" 
+                      strokeDashoffset={progressOffset} 
+                      strokeLinecap="round" 
+                      strokeWidth="6.5"
+                    ></circle>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="font-headline-sm text-headline-sm text-on-surface leading-none font-fraunces">
+                      {focusPercent}%
+                    </span>
+                    <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
+                      {completedRoutines}/{totalRoutines} Done
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Cute Circular Progress Meter */}
-              <div className="relative flex items-center justify-center w-20 h-20 shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
-                  <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6.5"></circle>
-                  <circle 
-                    className="text-secondary transition-all duration-700 ease-out" 
-                    cx="36" 
-                    cy="36" 
-                    fill="none" 
-                    r="28" 
-                    stroke="currentColor" 
-                    strokeDasharray="175.9" 
-                    strokeDashoffset={progressOffset} 
-                    strokeLinecap="round" 
-                    strokeWidth="6.5"
-                  ></circle>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="font-headline-sm text-headline-sm text-on-surface leading-none font-fraunces">
-                    {focusPercent}%
-                  </span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
-                    {completedRoutines}/{totalRoutines} Done
-                  </span>
+              {/* Motivational Micro-sticker */}
+              <div className="mt-space-md pt-space-sm flex items-center justify-between bg-surface-container-low px-space-md py-space-sm rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">✨</span>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                    {remainingRoutines > 0 
+                      ? 'One tiny ritual left to complete your gold ring!' 
+                      : 'All rituals complete! You have achieved your gold ring! 🎉'}
+                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Motivational Micro-sticker */}
-            <div className="mt-space-md pt-space-sm flex items-center justify-between bg-surface-container-low px-space-md py-space-sm rounded-2xl">
-              <div className="flex items-center gap-2">
-                <span className="text-base">✨</span>
-                <p className="font-body-sm text-body-sm text-on-surface-variant">
-                  {remainingRoutines > 0 
-                    ? 'One tiny ritual left to complete your gold ring!' 
-                    : 'All rituals complete! You have achieved your gold ring! 🎉'}
-                </p>
-              </div>
-              <span className="font-label-sm text-label-sm text-primary font-bold">
-                {remainingRoutines > 0 ? `${remainingRoutines} left` : 'Done ✨'}
-              </span>
-            </div>
-          </section>
-
-          {/* Section 2: Week at a Glance mini calendar pills */}
-          <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle">
-            <div className="flex items-center justify-between mb-space-sm px-1">
-              <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
-              <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
-                <span>★</span> {daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu'}
-              </span>
-            </div>
-            <div className="space-y-2">
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-              {daysConfig.map((d) => {
-                const isSelected = selectedDay === d.key;
-                return (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => {
-                      playPopSound();
-                      setSelectedDay(d.key);
-                      const targetDate = dayDateMap[d.key];
-                      if (onSelectDate && targetDate) {
-                        onSelectDate(targetDate);
-                      }
-                    }}
-                    className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
-                      d.isToday
-                        ? isSelected
-                          ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
-                          : 'bg-primary/90 text-on-primary shadow-sm'
-                        : isSelected
-                        ? 'bg-mint-subtle text-secondary ring-2 ring-secondary font-bold scale-105'
-                        : d.completed
-                        ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
-                        : 'bg-surface-container text-on-surface-variant opacity-75 hover:opacity-100'
-                    }`}
-                    title={d.desc}
-                  >
-                    <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
-                    {d.isToday ? (
-                      <span className="text-[13px] mt-1 font-bold">🌟</span>
-                    ) : d.completed ? (
-                      <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
-                    ) : (
-                      <span className="font-body-sm text-body-sm mt-1">•</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Interactive Day Status Banner */}
-            <div className="p-2 rounded-xl bg-surface-container-low text-[11px] text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
-              <span className="flex items-center gap-1 font-medium">
-                <span>📅</span>
-                <span>
-                  {(() => {
-                    const activeConfig = daysConfig.find((d) => d.key === selectedDay);
-                    if (!activeConfig) return 'Habits view';
-                    if (activeConfig.isToday) {
-                      return `${activeConfig.fullName} (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`;
-                    }
-                    if (activeConfig.completed) {
-                      return `${activeConfig.fullName}: Completed routines (100% ★)`;
-                    }
-                    return `${activeConfig.fullName}: Weekend rituals & sanctuary planning`;
-                  })()}
+                <span className="font-label-sm text-label-sm text-primary font-bold">
+                  {remainingRoutines > 0 ? `${remainingRoutines} left` : 'Done ✨'}
                 </span>
-              </span>
-              <span className="text-primary font-bold text-[10px]">
-                {selectedDay === todayDayKey ? 'Active' : 'Logged'}
-              </span>
-            </div>
-          </div>
-          </section>
+              </div>
+            </section>
 
-          {/* Section 3: Habits Checklist Section */}
-          <section className="space-y-space-md">
+            {/* Section 2: Week at a Glance mini calendar pills */}
+            <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-space-sm px-1">
+                <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
+                <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
+                  <span>★</span> {daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu'}
+                </span>
+              </div>
+              <div className="space-y-2">
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+                {daysConfig.map((d) => {
+                  const isSelected = selectedDay === d.key;
+                  return (
+                    <button
+                      key={d.key}
+                      type="button"
+                      onClick={() => {
+                        playPopSound();
+                        setSelectedDay(d.key);
+                        const targetDate = dayDateMap[d.key];
+                        if (onSelectDate && targetDate) {
+                          onSelectDate(targetDate);
+                        }
+                      }}
+                      className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
+                        d.isToday
+                          ? isSelected
+                            ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
+                            : 'bg-primary/90 text-on-primary shadow-sm'
+                          : isSelected
+                          ? 'bg-mint-subtle text-secondary ring-2 ring-secondary font-bold scale-105'
+                          : d.completed
+                          ? 'bg-mint-subtle/70 text-on-secondary-container hover:bg-mint-subtle'
+                          : 'bg-surface-container text-on-surface-variant opacity-75 hover:opacity-100'
+                      }`}
+                      title={d.desc}
+                    >
+                      <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
+                      {d.isToday ? (
+                        <span className="text-[13px] mt-1 font-bold">🌟</span>
+                      ) : d.completed ? (
+                        <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
+                      ) : (
+                        <span className="font-body-sm text-body-sm mt-1">•</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Interactive Day Status Banner */}
+              <div className="p-2 rounded-xl bg-surface-container-low text-[11px] text-on-surface-variant flex items-center justify-between border border-border-subtle/50">
+                <span className="flex items-center gap-1 font-medium">
+                  <span>📅</span>
+                  <span>
+                    {(() => {
+                      const activeConfig = daysConfig.find((d) => d.key === selectedDay);
+                      if (!activeConfig) return 'Habits view';
+                      if (activeConfig.isToday) {
+                        return `${activeConfig.fullName} (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`;
+                      }
+                      if (activeConfig.completed) {
+                        return `${activeConfig.fullName}: Completed routines (100% ★)`;
+                      }
+                      return `${activeConfig.fullName}: Weekend rituals & sanctuary planning`;
+                    })()}
+                  </span>
+                </span>
+                <span className="text-primary font-bold text-[10px]">
+                  {selectedDay === todayDayKey ? 'Active' : 'Logged'}
+                </span>
+              </div>
+            </div>
+            </section>
+          </div>
+
+          {/* Main Workspace: Daily Habits + Priorities (2 columns on desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-start">
+            {/* Section 3: Habits Checklist Section */}
+            <section className="space-y-space-md">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Daily Habits</span>
@@ -1279,7 +1284,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               ))}
             </div>
           </section>
+        </div>
 
+        {/* Long-Term Goals + Cozy Reward Bazaar (2 columns on desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-start">
           {/* Section 5: Long-Term Goals (3 Active Arcs) */}
           <section className="space-y-space-md">
             <div className="flex items-center justify-between px-1">
@@ -1557,9 +1565,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               </div>
             </div>
           </section>
+        </div>
 
-          {/* Section 7: Daily Gentle Note */}
-          <section className="bg-gradient-to-r from-peach-subtle/50 via-lavender-subtle/40 to-mint-subtle/50 rounded-3xl p-space-md flex items-center gap-3 shadow-sm border border-border-subtle">
+        {/* Section 7: Daily Gentle Note */}
+        <section className="bg-gradient-to-r from-peach-subtle/50 via-lavender-subtle/40 to-mint-subtle/50 rounded-3xl p-space-md flex items-center gap-3 shadow-sm border border-border-subtle">
             <div className="w-10 h-10 rounded-2xl bg-surface-card flex items-center justify-center text-lg shrink-0 shadow-xs">
               💌
             </div>
