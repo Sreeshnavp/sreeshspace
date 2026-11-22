@@ -608,4 +608,74 @@ describe('syncService - merge algorithms', () => {
     expect(decisions['2026-11-18']).toBeDefined();
     expect(decisions['2026-11-18'].action).toBe('carried_all');
   });
+
+  it('merges habits, priorities, goal arcs, and bazaar perks across mobile and desktop', () => {
+    const localVault = {
+      settings: {
+        habitsList: [
+          { id: 'h-1', title: 'Morning 20m Meditation', completed: true, updatedAt: '2026-11-22T08:00:00.000Z' },
+        ],
+        prioritiesList: [
+          { id: 'p-1', text: 'Deploy mobile sync update', completed: true, date: '2026-11-22', updatedAt: '2026-11-22T09:00:00.000Z' },
+        ],
+        goalArcs: [
+          { id: 'g-1', title: 'Launch Orbit v2 Mobile', progressPercent: 50, updatedAt: '2026-11-22T08:30:00.000Z' },
+        ],
+        bazaarPerks: [
+          { id: 'perk-custom-1', title: '1 Hour Coffee Break', cost: 40, updatedAt: '2026-11-22T08:00:00.000Z' },
+        ],
+        glowPoints: 120,
+        statusVibe: '🔥 Goal Crusher',
+      },
+    };
+
+    const remoteVault = {
+      settings: {
+        habitsList: [
+          { id: 'h-2', title: 'Evening Hydration 2L', completed: false, updatedAt: '2026-11-22T07:30:00.000Z' },
+        ],
+        prioritiesList: [
+          { id: 'p-2', text: 'Prepare weekly grocery list', completed: false, date: '2026-11-23', updatedAt: '2026-11-22T07:30:00.000Z' },
+        ],
+        goalArcs: [
+          { id: 'g-2', title: 'Complete reading list', progressPercent: 20, updatedAt: '2026-11-22T06:00:00.000Z' },
+        ],
+        bazaarPerks: [
+          { id: 'perk-default-1', title: 'Artisanal Coffee or Boba', cost: 40 }, // should be filtered out!
+          { id: 'perk-custom-2', title: 'Movie Marathon', cost: 100, updatedAt: '2026-11-22T07:00:00.000Z' },
+        ],
+        glowPoints: 150,
+      },
+    };
+
+    const merged = mergeVaultData(localVault as any, remoteVault as any);
+    const settings = merged.settings as any;
+
+    // Both habits present
+    expect(settings.habitsList).toHaveLength(2);
+    expect(settings.habitsList.find((h: any) => h.id === 'h-1')).toBeDefined();
+    expect(settings.habitsList.find((h: any) => h.id === 'h-2')).toBeDefined();
+
+    // Both priorities present
+    expect(settings.prioritiesList).toHaveLength(2);
+    expect(settings.prioritiesList.find((p: any) => p.id === 'p-1')).toBeDefined();
+    expect(settings.prioritiesList.find((p: any) => p.id === 'p-2')).toBeDefined();
+
+    // Both goals present
+    expect(settings.goalArcs).toHaveLength(2);
+    expect(settings.goalArcs.find((g: any) => g.id === 'g-1')).toBeDefined();
+    expect(settings.goalArcs.find((g: any) => g.id === 'g-2')).toBeDefined();
+
+    // Only custom perks present (perk-default-1 filtered out)
+    expect(settings.bazaarPerks).toHaveLength(2);
+    expect(settings.bazaarPerks.find((p: any) => p.id === 'perk-default-1')).toBeUndefined();
+    expect(settings.bazaarPerks.find((p: any) => p.id === 'perk-custom-1')).toBeDefined();
+    expect(settings.bazaarPerks.find((p: any) => p.id === 'perk-custom-2')).toBeDefined();
+
+    // Glow points takes the higher points across devices
+    expect(settings.glowPoints).toBe(150);
+
+    // Status vibe preserved
+    expect(settings.statusVibe).toBe('🔥 Goal Crusher');
+  });
 });

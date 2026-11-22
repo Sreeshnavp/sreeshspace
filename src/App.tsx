@@ -368,18 +368,41 @@ export function App() {
       });
     });
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+    const handleActive = () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
         syncWithCloud({ onMerged: refreshDataFromStorage });
       }
     };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleActive();
+      }
+    };
+
+    const handleSyncUpdated = () => {
+      refreshDataFromStorage();
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleActive);
+    window.addEventListener('online', handleActive);
+    window.addEventListener('orbit-sync-updated', handleSyncUpdated);
+
+    // Periodic heartbeat sync every 20 seconds to guarantee mobile & desktop never drift
+    const heartbeatInterval = setInterval(() => {
+      handleActive();
+    }, 20000);
 
     return () => {
       unsubStatus();
       unsubRealtime();
       unsubWallpaper();
+      clearInterval(heartbeatInterval);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleActive);
+      window.removeEventListener('online', handleActive);
+      window.removeEventListener('orbit-sync-updated', handleSyncUpdated);
     };
   }, []);
 

@@ -8,6 +8,7 @@ import type {
 import type { WorkspaceView } from '../../types';
 import { playPopSound } from '../../utils/delight';
 import { useScrollVisibility } from '../../utils/useScrollVisibility';
+import { triggerAutoSync } from '../../services/syncService';
 import avatarImg from '../../assets/avatar.jpg';
 
 export interface FinanceDashboardProps {
@@ -278,11 +279,27 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     return [];
   });
 
+  // Live reload when remote cloud sync merges updated savings goals
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem(GOALS_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setGoalsList(parsed);
+        }
+      } catch {}
+    };
+    window.addEventListener('orbit-sync-updated', handleSync);
+    return () => window.removeEventListener('orbit-sync-updated', handleSync);
+  }, []);
+
   const saveGoalsList = (next: FinancialGoalDef[]) => {
     setGoalsList(next);
     try {
       localStorage.setItem(GOALS_KEY, JSON.stringify(next));
     } catch {}
+    triggerAutoSync();
   };
 
   // UI / Filter States

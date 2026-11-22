@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { WorkspaceView, LinkItem, TodoItem, ReelItem, FinanceTransaction, NoteItem, SketchItem } from '../../types';
 import { playPopSound } from '../../utils/delight';
 import { useScrollVisibility } from '../../utils/useScrollVisibility';
+import { triggerAutoSync } from '../../services/syncService';
 import avatarImg from '../../assets/avatar.jpg';
 import sreeshCharacterImg from '../../assets/sreesh_character.png';
 
@@ -45,7 +46,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 }) => {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [favoriteQuote, setFavoriteQuote] = useState(false);
-  const [statusVibe, setStatusVibe] = useState('✨ Feeling Creative');
+  const [statusVibe, setStatusVibe] = useState(() => {
+    try {
+      return localStorage.getItem('orbit_status_vibe_v1') || '✨ Feeling Creative';
+    } catch {
+      return '✨ Feeling Creative';
+    }
+  });
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isEditQuickLinksOpen, setIsEditQuickLinksOpen] = useState(false);
   const [editingQuickLink, setEditingQuickLink] = useState<any | null>(null);
@@ -69,6 +76,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     ];
   });
 
+  // Live reload when remote cloud sync merges new links or status vibe
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const savedLinks = localStorage.getItem('sreesh-quick-access-links-v2');
+        if (savedLinks) setQuickAccessLinks(JSON.parse(savedLinks));
+        const savedVibe = localStorage.getItem('orbit_status_vibe_v1');
+        if (savedVibe) setStatusVibe(savedVibe);
+      } catch {}
+    };
+    window.addEventListener('orbit-sync-updated', handleSync);
+    return () => window.removeEventListener('orbit-sync-updated', handleSync);
+  }, []);
+
   const triggerCelebration = () => {
     try {
       playPopSound();
@@ -88,6 +109,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       try { localStorage.setItem('sreesh-quick-access-links-v2', JSON.stringify(next)); } catch {}
       return next;
     });
+    triggerAutoSync();
   };
 
   const handleSaveQuickLink = () => {
@@ -131,6 +153,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     setNewLinkTitle('');
     setNewLinkUrl('');
     setIsAddingQuickLink(false);
+    triggerAutoSync();
     triggerCelebration();
   };
   const [showVibeCard, setShowVibeCard] = useState(false);
@@ -902,6 +925,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   onClick={() => {
                     playPopSound();
                     setStatusVibe(v.label);
+                    try { localStorage.setItem('orbit_status_vibe_v1', v.label); } catch {}
+                    triggerAutoSync();
                     setIsStatusModalOpen(false);
                   }}
                   className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${

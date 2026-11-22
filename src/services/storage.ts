@@ -1131,3 +1131,210 @@ export async function saveReelCategories(categories: CategoryInfo[]): Promise<vo
     console.error('Error saving reel categories:', err);
   }
 }
+
+// ==========================================
+// 🌟 HABITS, GOALS, PERKS & SYSTEM SYNC STORAGE
+// ==========================================
+
+export const STORAGE_KEY_HABITS_LIST = 'sreesh-habits-list-v2';
+export const STORAGE_KEY_PRIORITIES_LIST = 'sreesh-priorities-list-v2';
+export const STORAGE_KEY_GOAL_ARCS = 'sreesh-goal-arcs-v2';
+export const STORAGE_KEY_BAZAAR_PERKS = 'sreesh-bazaar-perks-v2';
+export const STORAGE_KEY_GLOW_POINTS = 'orbit-habits-v2-points';
+export const STORAGE_KEY_GLOW_POINTS_ALT = 'orbit-habits-points';
+export const STORAGE_KEY_POINT_RATES = 'sreesh-habit-point-rates-v1';
+export const STORAGE_KEY_BONUS_DATE = 'orbit-habits-v2-bonus-date';
+export const STORAGE_KEY_BONUS_DATE_ALT = 'orbit-habits-bonus-date';
+export const STORAGE_KEY_NOTES_FOLDERS = 'sreesh-notes-vault-folders-v2';
+export const STORAGE_KEY_QUICK_ACCESS_LINKS = 'sreesh-quick-access-links-v2';
+export const STORAGE_KEY_SAVINGS_GOALS = 'sreesh-savings-goals-v2';
+export const STORAGE_KEY_STATUS_VIBE = 'orbit_status_vibe_v1';
+
+export function loadHabitsList(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_HABITS_LIST);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function saveHabitsList(habits: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_HABITS_LIST, JSON.stringify(habits || []));
+  } catch {}
+}
+
+export function loadPrioritiesList(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRIORITIES_LIST);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function savePrioritiesList(priorities: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PRIORITIES_LIST, JSON.stringify(priorities || []));
+  } catch {}
+}
+
+export function loadGoalArcs(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_GOAL_ARCS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((g: any) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-'));
+      }
+    }
+  } catch {}
+  return [];
+}
+
+export function saveGoalArcs(goalArcs: any[]): void {
+  try {
+    const clean = (goalArcs || []).filter((g: any) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-'));
+    localStorage.setItem(STORAGE_KEY_GOAL_ARCS, JSON.stringify(clean));
+  } catch {}
+}
+
+export function loadBazaarPerks(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_BAZAAR_PERKS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((p: any) => !p.id?.startsWith('perk-default-'));
+      }
+    }
+  } catch {}
+  return [];
+}
+
+export function saveBazaarPerks(perks: any[]): void {
+  try {
+    const clean = (perks || []).filter((p: any) => !p.id?.startsWith('perk-default-'));
+    localStorage.setItem(STORAGE_KEY_BAZAAR_PERKS, JSON.stringify(clean));
+  } catch {}
+}
+
+export function loadGlowPoints(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_GLOW_POINTS) || localStorage.getItem(STORAGE_KEY_GLOW_POINTS_ALT);
+    if (raw) return parseInt(raw, 10) || 0;
+  } catch {}
+  return 0;
+}
+
+export function saveGlowPoints(points: number): void {
+  try {
+    const val = Math.max(0, Math.floor(points || 0)).toString();
+    localStorage.setItem(STORAGE_KEY_GLOW_POINTS, val);
+    localStorage.setItem(STORAGE_KEY_GLOW_POINTS_ALT, val);
+  } catch {}
+}
+
+export function loadPointRates(): any | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_POINT_RATES);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function savePointRates(rates: any): void {
+  try {
+    if (rates) {
+      localStorage.setItem(STORAGE_KEY_POINT_RATES, JSON.stringify(rates));
+    }
+  } catch {}
+}
+
+export function loadLastBonusDate(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_BONUS_DATE) || localStorage.getItem(STORAGE_KEY_BONUS_DATE_ALT) || '';
+  } catch {}
+  return '';
+}
+
+export function saveLastBonusDate(d: string): void {
+  try {
+    if (d) {
+      localStorage.setItem(STORAGE_KEY_BONUS_DATE, d);
+      localStorage.setItem(STORAGE_KEY_BONUS_DATE_ALT, d);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_BONUS_DATE);
+      localStorage.removeItem(STORAGE_KEY_BONUS_DATE_ALT);
+    }
+  } catch {}
+}
+
+export function loadNotesFolders(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_NOTES_FOLDERS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function saveNotesFolders(folders: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_NOTES_FOLDERS, JSON.stringify(folders || []));
+  } catch {}
+}
+
+export function loadQuickAccessLinks(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_QUICK_ACCESS_LINKS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function saveQuickAccessLinks(links: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_QUICK_ACCESS_LINKS, JSON.stringify(links || []));
+  } catch {}
+}
+
+export function loadSavingsGoals(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SAVINGS_GOALS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function saveSavingsGoals(goals: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_SAVINGS_GOALS, JSON.stringify(goals || []));
+  } catch {}
+}
+
+export function loadStatusVibe(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_STATUS_VIBE) || '✨ Feeling Creative';
+  } catch {}
+  return '✨ Feeling Creative';
+}
+
+export function saveStatusVibe(vibe: string): void {
+  try {
+    if (vibe) localStorage.setItem(STORAGE_KEY_STATUS_VIBE, vibe);
+  } catch {}
+}

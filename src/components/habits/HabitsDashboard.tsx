@@ -23,6 +23,7 @@ import {
   getWeekNumber,
 } from '../../utils/dates';
 import { computeStreakState } from '../../utils/streakCalculator';
+import { triggerAutoSync } from '../../services/syncService';
 
 export interface HabitsDashboardProps {
   todos: TodoItem[];
@@ -301,7 +302,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const next = Math.max(0, prev + delta);
       try {
         localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, next.toString());
+        localStorage.setItem('orbit-habits-v2-points', next.toString());
       } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -363,6 +366,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     try {
       localStorage.setItem('sreesh-habit-point-rates-v1', JSON.stringify(cleanRates));
     } catch {}
+    triggerAutoSync();
     setIsEditRatesModalOpen(false);
     triggerCelebration();
     showPointsFeedback('✨ Reward Point rates updated!', 0, 'earn');
@@ -459,6 +463,49 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     } catch {}
     return [];
   });
+
+  // Keep Habits, Priorities, Goals & Perks live-synced when cloud sync delivers remote updates
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const hSaved = localStorage.getItem('sreesh-habits-list-v2');
+        if (hSaved) setHabitsList(JSON.parse(hSaved));
+
+        const pSaved = localStorage.getItem('sreesh-priorities-list-v2');
+        if (pSaved) setPrioritiesList(JSON.parse(pSaved));
+
+        const gSaved = localStorage.getItem('sreesh-goal-arcs-v2');
+        if (gSaved) {
+          const parsed = JSON.parse(gSaved);
+          if (Array.isArray(parsed)) {
+            setGoalArcs(parsed.filter((g: any) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-')));
+          }
+        }
+
+        const bSaved = localStorage.getItem('sreesh-bazaar-perks-v2');
+        if (bSaved) {
+          const parsed = JSON.parse(bSaved);
+          if (Array.isArray(parsed)) {
+            setBazaarPerks(parsed.filter((p: any) => !p.id?.startsWith('perk-default-')));
+          }
+        }
+
+        const ptsSaved = localStorage.getItem('orbit-habits-v2-points') || localStorage.getItem('orbit-habits-points');
+        if (ptsSaved) setGlowPoints(parseInt(ptsSaved, 10) || 0);
+
+        const ratesSaved = localStorage.getItem('sreesh-habit-point-rates-v1');
+        if (ratesSaved) setPointRates(JSON.parse(ratesSaved));
+
+        const bonusSaved = localStorage.getItem('orbit-habits-v2-bonus-date') || localStorage.getItem('orbit-habits-bonus-date');
+        if (bonusSaved !== null) setLastBonusDate(bonusSaved || '');
+      } catch (err) {
+        console.error('Error refreshing habits on sync:', err);
+      }
+    };
+
+    window.addEventListener('orbit-sync-updated', handleSync);
+    return () => window.removeEventListener('orbit-sync-updated', handleSync);
+  }, []);
 
   // Dynamic user tasks from props
   const userDailyTodos = useMemo(() => {
@@ -636,6 +683,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       try {
         localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next));
       } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -656,6 +704,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         updateGlowPoints(-pts);
         showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
       }
+      triggerAutoSync();
       return;
     }
 
@@ -682,6 +731,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       try {
         localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next));
       } catch {}
+      triggerAutoSync();
       return next;
     });
 
@@ -698,12 +748,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     playPopSound();
     if (isExternal) {
       onDeleteTodo(id);
+      triggerAutoSync();
       return;
     }
 
     setPrioritiesList((prev) => {
       const next = prev.filter((p) => p.id !== id);
       try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+      triggerAutoSync();
       return next;
     });
 
@@ -768,6 +820,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     }
 
     triggerCelebration();
+    triggerAutoSync();
   };
 
   // Toggle goal subtask (awards +milestonePts on milestone achieved, -milestonePts if undone)
@@ -809,6 +862,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       try {
         localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next));
       } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -826,6 +880,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       try {
         localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
       } catch {}
+      triggerAutoSync();
       showPointsFeedback(`Reset Daily Streak Bonus (-${bonus} Glow Points)`, -bonus, 'redeem');
       return;
     }
@@ -835,6 +890,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     try {
       localStorage.setItem(`${HABITS_STORAGE_KEY}-bonus-date`, TODAY);
     } catch {}
+    triggerAutoSync();
     triggerCelebration();
     showPointsFeedback(`🎉 Claimed +${bonus} Daily Streak Bonus into your Vault!`, bonus, 'earn');
   };
@@ -874,10 +930,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       try {
         localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next));
       } catch {}
+      triggerAutoSync();
       return next;
     });
 
     triggerCelebration();
+    triggerAutoSync();
     showPointsFeedback(`🎉 Redeemed "${perk.title}"! (-${cost} pts) Enjoy your reward! ✨`, cost, 'redeem');
   };
 
@@ -886,6 +944,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setBazaarPerks((prev) => {
       const next = prev.filter((p) => p.id !== id);
       try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -908,6 +967,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             : p
         );
         try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        triggerAutoSync();
         return next;
       });
       setEditingPerk(null);
@@ -924,6 +984,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       setBazaarPerks((prev) => {
         const next = [...prev, newP];
         try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        triggerAutoSync();
         return next;
       });
     }
@@ -931,6 +992,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setPerkTitle('');
     setPerkDesc('');
     setIsPerkModalOpen(false);
+    triggerAutoSync();
     triggerCelebration();
   };
 
@@ -943,6 +1005,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     if (onArchiveCompletedDaily) {
       onArchiveCompletedDaily(activeDateKey);
     }
+    triggerAutoSync();
     playPopSound();
   };
 
@@ -952,6 +1015,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setHabitsList((prev) => {
       const next = prev.filter((h) => h.id !== id);
       try { localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next)); } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -962,6 +1026,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setGoalArcs((prev) => {
       const next = prev.filter((g) => g.id !== id);
       try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next)); } catch {}
+      triggerAutoSync();
       return next;
     });
   };
@@ -1147,6 +1212,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setNewRoutineDetail('');
     setNewGoalMilestones('');
     setIsAddModalOpen(false);
+    triggerAutoSync();
     triggerCelebration();
     return;
   };

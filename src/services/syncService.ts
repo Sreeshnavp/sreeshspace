@@ -36,6 +36,28 @@ import {
   isSampleItem,
   isPreinstalledCategory,
   isPreinstalledReelCategory,
+  loadHabitsList,
+  saveHabitsList,
+  loadPrioritiesList,
+  savePrioritiesList,
+  loadGoalArcs,
+  saveGoalArcs,
+  loadBazaarPerks,
+  saveBazaarPerks,
+  loadGlowPoints,
+  saveGlowPoints,
+  loadPointRates,
+  savePointRates,
+  loadLastBonusDate,
+  saveLastBonusDate,
+  loadNotesFolders,
+  saveNotesFolders,
+  loadQuickAccessLinks,
+  saveQuickAccessLinks,
+  loadSavingsGoals,
+  saveSavingsGoals,
+  loadStatusVibe,
+  saveStatusVibe,
 } from './storage';
 import type {
   LinkItem,
@@ -480,6 +502,90 @@ export function mergeVaultData(
     ...localRolloverDecisions,
   };
 
+  // 16. Habits List
+  const localHabits = (local.settings?.habitsList as any[]) || [];
+  const remoteHabits = (remote.settings?.habitsList as any[]) || [];
+  const habitsList = mergeItemsById(
+    localHabits,
+    remoteHabits,
+    (h) => new Date(h.updatedAt || h.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 17. Today's & Advance Priorities List
+  const localPriorities = (local.settings?.prioritiesList as any[]) || [];
+  const remotePriorities = (remote.settings?.prioritiesList as any[]) || [];
+  const prioritiesList = mergeItemsById(
+    localPriorities,
+    remotePriorities,
+    (p) => new Date(p.updatedAt || p.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 18. Long-Term Goal Arcs
+  const localGoalArcs = (local.settings?.goalArcs as any[]) || [];
+  const remoteGoalArcs = (remote.settings?.goalArcs as any[]) || [];
+  const goalArcs = mergeItemsById(
+    localGoalArcs.filter((g) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-')),
+    remoteGoalArcs.filter((g) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-')),
+    (g) => new Date(g.updatedAt || g.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 19. Cozy Reward Bazaar Perks
+  const localPerks = (local.settings?.bazaarPerks as any[]) || [];
+  const remotePerks = (remote.settings?.bazaarPerks as any[]) || [];
+  const bazaarPerks = mergeItemsById(
+    localPerks.filter((p) => !p.id?.startsWith('perk-default-')),
+    remotePerks.filter((p) => !p.id?.startsWith('perk-default-')),
+    (p) => new Date(p.updatedAt || p.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 20. Glow Points & Vault Points
+  const localPts = typeof local.settings?.glowPoints === 'number' ? local.settings.glowPoints : 0;
+  const remotePts = typeof remote.settings?.glowPoints === 'number' ? remote.settings.glowPoints : 0;
+  const glowPoints = Math.max(localPts, remotePts);
+
+  // 21. Configurable Point Rates
+  const pointRates = remote.settings?.pointRates || local.settings?.pointRates || null;
+
+  // 22. Daily Bonus Claim Date
+  const lastBonusDate = (remote.settings?.lastBonusDate) || (local.settings?.lastBonusDate) || '';
+
+  // 23. Notes Vault Custom Folders
+  const localNotesFolders = (local.settings?.notesFolders as any[]) || [];
+  const remoteNotesFolders = (remote.settings?.notesFolders as any[]) || [];
+  const notesFolders = mergeItemsById(
+    localNotesFolders,
+    remoteNotesFolders,
+    (f) => new Date(f.updatedAt || f.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 24. Quick Access Links
+  const localQuickLinks = (local.settings?.quickAccessLinks as any[]) || [];
+  const remoteQuickLinks = (remote.settings?.quickAccessLinks as any[]) || [];
+  const quickAccessLinks = mergeItemsById(
+    localQuickLinks,
+    remoteQuickLinks,
+    (q) => new Date(q.updatedAt || q.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 25. Financial Savings Goals
+  const localSavingsGoals = (local.settings?.savingsGoals as any[]) || [];
+  const remoteSavingsGoals = (remote.settings?.savingsGoals as any[]) || [];
+  const savingsGoals = mergeItemsById(
+    localSavingsGoals,
+    remoteSavingsGoals,
+    (s) => new Date(s.updatedAt || s.createdAt || 0).getTime(),
+    mergedTombstones
+  );
+
+  // 26. Daily Status Vibe
+  const statusVibe = remote.settings?.statusVibe || local.settings?.statusVibe || '✨ Feeling Creative';
+
   const settings = {
     ...(remote.settings || {}),
     ...(local.settings || {}),
@@ -491,6 +597,17 @@ export function mergeVaultData(
     reels,
     reelCategories,
     rolloverDecisions,
+    habitsList,
+    prioritiesList,
+    goalArcs,
+    bazaarPerks,
+    glowPoints,
+    pointRates,
+    lastBonusDate,
+    notesFolders,
+    quickAccessLinks,
+    savingsGoals,
+    statusVibe,
     ...(streakResetAt > 0 ? { streakResetAt: new Date(streakResetAt).toISOString() } : {}),
   };
 
@@ -574,6 +691,18 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       loadRolloverDecisions(),
     ]);
 
+    const localHabits = loadHabitsList();
+    const localPriorities = loadPrioritiesList();
+    const localGoalArcs = loadGoalArcs();
+    const localPerks = loadBazaarPerks();
+    const localGlowPoints = loadGlowPoints();
+    const localPointRates = loadPointRates();
+    const localLastBonusDate = loadLastBonusDate();
+    const localNotesFolders = loadNotesFolders();
+    const localQuickAccessLinks = loadQuickAccessLinks();
+    const localSavingsGoals = loadSavingsGoals();
+    const localStatusVibe = loadStatusVibe();
+
     const localData = {
       links: localLinks,
       categories: localCategories,
@@ -599,6 +728,17 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         reels: localReels,
         reelCategories: localReelCats,
         rolloverDecisions: localRolloverDecisions,
+        habitsList: localHabits,
+        prioritiesList: localPriorities,
+        goalArcs: localGoalArcs,
+        bazaarPerks: localPerks,
+        glowPoints: localGlowPoints,
+        pointRates: localPointRates,
+        lastBonusDate: localLastBonusDate,
+        notesFolders: localNotesFolders,
+        quickAccessLinks: localQuickAccessLinks,
+        savingsGoals: localSavingsGoals,
+        statusVibe: localStatusVibe,
         streakResetAt: '2026-11-17T16:20:00.000Z',
       },
     };
@@ -663,6 +803,41 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         ? saveRolloverDecisions(mergedPayload.settings.rolloverDecisions)
         : Promise.resolve(),
     ]);
+
+    // Save Habits, Goals, Perks & Miscellaneous Sync State to local storage
+    if (mergedPayload.settings?.habitsList) {
+      saveHabitsList(mergedPayload.settings.habitsList);
+    }
+    if (mergedPayload.settings?.prioritiesList) {
+      savePrioritiesList(mergedPayload.settings.prioritiesList);
+    }
+    if (mergedPayload.settings?.goalArcs) {
+      saveGoalArcs(mergedPayload.settings.goalArcs);
+    }
+    if (mergedPayload.settings?.bazaarPerks) {
+      saveBazaarPerks(mergedPayload.settings.bazaarPerks);
+    }
+    if (typeof mergedPayload.settings?.glowPoints === 'number') {
+      saveGlowPoints(mergedPayload.settings.glowPoints);
+    }
+    if (mergedPayload.settings?.pointRates) {
+      savePointRates(mergedPayload.settings.pointRates);
+    }
+    if (typeof mergedPayload.settings?.lastBonusDate === 'string') {
+      saveLastBonusDate(mergedPayload.settings.lastBonusDate);
+    }
+    if (mergedPayload.settings?.notesFolders) {
+      saveNotesFolders(mergedPayload.settings.notesFolders);
+    }
+    if (mergedPayload.settings?.quickAccessLinks) {
+      saveQuickAccessLinks(mergedPayload.settings.quickAccessLinks);
+    }
+    if (mergedPayload.settings?.savingsGoals) {
+      saveSavingsGoals(mergedPayload.settings.savingsGoals);
+    }
+    if (mergedPayload.settings?.statusVibe) {
+      saveStatusVibe(mergedPayload.settings.statusVibe);
+    }
 
     // Save and apply merged wallpaper if updated from cloud
     if (mergedPayload.settings?.wallpaper) {
@@ -733,6 +908,11 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       syncKey,
     });
 
+    // Notify all open components and views that new synced data is ready
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('orbit-sync-updated'));
+    }
+
     if (options?.onMerged) {
       options.onMerged();
     }
@@ -750,6 +930,17 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
   }
 }
 
+let autoSyncTimer: any = null;
+/**
+ * Triggers a debounced background sync whenever any local item changes.
+ */
+export function triggerAutoSync(debounceMs = 1200): void {
+  if (autoSyncTimer) clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(() => {
+    syncWithCloud().catch((err) => console.error('Auto sync error:', err));
+  }, debounceMs);
+}
+
 /**
  * Initializes realtime listening on the orbit_vaults table for cross-device updates.
  */
@@ -759,6 +950,7 @@ export function initRealtimeSync(onRemoteUpdate: () => void): () => void {
 
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
   }
 
   realtimeChannel = supabase
@@ -766,21 +958,32 @@ export function initRealtimeSync(onRemoteUpdate: () => void): () => void {
     .on(
       'postgres_changes',
       {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'orbit_vaults',
         filter: `sync_key=eq.${syncKey}`,
       },
       (payload) => {
         // If the update came from another device, pull and reload!
-        const remoteClientId = payload.new?.client_id;
-        if (remoteClientId && remoteClientId !== clientId) {
+        const remoteClientId = (payload.new as any)?.client_id;
+        if (!remoteClientId || remoteClientId !== clientId) {
           console.log('Detected remote change from another device. Syncing...');
-          syncWithCloud({ onMerged: onRemoteUpdate });
+          syncWithCloud({
+            onMerged: () => {
+              if (onRemoteUpdate) onRemoteUpdate();
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('orbit-sync-updated'));
+              }
+            },
+          });
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        console.warn('Realtime channel status:', status);
+      }
+    });
 
   return () => {
     if (realtimeChannel) {

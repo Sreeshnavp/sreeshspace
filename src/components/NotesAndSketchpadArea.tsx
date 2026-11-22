@@ -43,6 +43,7 @@ import type { NoteItem, SketchItem, Attachment, WorkspaceView } from '../types';
 import { formatDate } from '../utils/urlHelper';
 import { triggerPartyPop, playPopSound } from '../utils/delight';
 import { useScrollVisibility } from '../utils/useScrollVisibility';
+import { triggerAutoSync } from '../services/syncService';
 import { NoteModal } from './NoteModal';
 import avatarImg from '../assets/avatar.jpg';
 import './notes.css';
@@ -155,6 +156,18 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
     return [];
   });
 
+  // Live reload when remote cloud sync merges updated notes folders
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem('sreesh-notes-vault-folders-v2');
+        if (saved) setVaultFolders(JSON.parse(saved));
+      } catch {}
+    };
+    window.addEventListener('orbit-sync-updated', handleSync);
+    return () => window.removeEventListener('orbit-sync-updated', handleSync);
+  }, []);
+
   const handleDeleteVaultFolder = (id: string) => {
     playPopSound();
     setVaultFolders((prev) => {
@@ -162,6 +175,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
       try { localStorage.setItem('sreesh-notes-vault-folders-v2', JSON.stringify(next)); } catch {}
       return next;
     });
+    triggerAutoSync();
     if (selectedFolder) setSelectedFolder(null);
   };
 
@@ -192,6 +206,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
     setNewFolderName('');
     setNewFolderDesc('');
     setIsAddingVaultFolder(false);
+    triggerAutoSync();
     triggerCelebration();
   };
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
