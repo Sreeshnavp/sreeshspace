@@ -517,12 +517,13 @@
 }
 
 /* Automatically hide bottom 6 selection navigation dock when ANY popup, modal, or overlay dialog is open in ANY tab */
-body:has([role="dialog"]),
-body:has([aria-modal="true"]),
-body:has([data-modal="true"]),
-body:has(.fixed.inset-0.z-50),
-body:has(.fixed.inset-0[class*="z-["]),
-body:has(.fixed.inset-0[class*="backdrop"]),
+body:has([role="dialog"]) [data-nav-dock],
+body:has([aria-modal="true"]) [data-nav-dock],
+body:has([data-modal="true"]) [data-nav-dock],
+body:has(#reel-fullscreen-player) [data-nav-dock],
+body:has(.fixed.inset-0.z-50) [data-nav-dock],
+body:has(.fixed.inset-0[class*="z-["]) [data-nav-dock],
+body:has(.fixed.inset-0[class*="backdrop"]) [data-nav-dock],
 body:has(.fixed.inset-0[class*="bg-black"]) [data-nav-dock] {
   transform: translateY(160%) !important;
   opacity: 0 !important;

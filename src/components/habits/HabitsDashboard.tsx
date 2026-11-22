@@ -1023,7 +1023,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const newP: PriorityTaskDef = {
         id: 'p-' + Date.now(),
         priority: newTaskPriority === 'low' ? 'gentle' : newTaskPriority,
-        time: newTaskTime.trim() || (targetDate === TODAY ? 'Today' : formatDisplayDate(targetDate)),
+        time: targetDate === TODAY ? 'Today' : formatDisplayDate(targetDate),
         text,
         completed: false,
         date: targetDate,
@@ -2501,17 +2501,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       value={newTaskDate}
                       onChange={(e) => setNewTaskDate(e.target.value)}
                       className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest font-medium text-on-surface"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Scheduled Time / Note</label>
-                    <input
-                      type="text"
-                      value={newTaskTime}
-                      onChange={(e) => setNewTaskTime(e.target.value)}
-                      placeholder="e.g., 4:00 PM, Morning, High Energy"
-                      className="w-full px-3.5 py-2 rounded-2xl border border-border-subtle text-xs bg-surface-container-lowest"
                     />
                   </div>
                 </div>

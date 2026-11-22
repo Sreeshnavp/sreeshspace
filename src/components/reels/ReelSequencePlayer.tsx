@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronUp, ChevronDown, Folder, Star, ExternalLink } from 'lucide-react';
 import type { ReelItem } from '../../types/reels';
 import { getInstagramEmbedUrl, getInstagramDirectUrl } from '../../utils/instagramHelper';
@@ -81,8 +82,14 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
   };
 
   if (!reels || reels.length === 0) {
-    return (
-      <div className="fixed inset-0 z-[99999] bg-black text-white flex flex-col items-center justify-center p-6 select-none">
+    return createPortal(
+      <div 
+        role="dialog" 
+        aria-modal="true" 
+        data-modal="true" 
+        id="reel-fullscreen-player"
+        className="fixed inset-0 z-[99999] bg-black text-white flex flex-col items-center justify-center p-6 select-none"
+      >
         <button
           type="button"
           onClick={onClose}
@@ -102,7 +109,8 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
         >
           Return to Reels Vault
         </button>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -110,8 +118,12 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
   const embedUrl = getInstagramEmbedUrl(currentReel.shortcode);
   const directInstagramUrl = getInstagramDirectUrl(currentReel.shortcode);
 
-  return (
+  return createPortal(
     <div 
+      role="dialog"
+      aria-modal="true"
+      data-modal="true"
+      id="reel-fullscreen-player"
       className="fixed inset-0 z-[99999] bg-black text-white flex items-center justify-center select-none overflow-hidden animate-in fade-in duration-150"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -198,20 +210,25 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
           className="border-0 pointer-events-auto bg-black"
           style={{
             position: 'absolute',
-            top: '-58px',
+            top: '-64px',
             left: '50%',
-            transform: 'translateX(-50%) scale(1.24)',
+            transform: 'translateX(-50%) scale(1.36)',
             transformOrigin: 'top center',
             width: '100%',
-            height: 'calc(100% + 180px)',
+            height: 'calc(100% + 200px)',
           }}
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
           allowFullScreen
         />
 
-        {/* Bottom Blackout Guard: Guarantees no white caption / footer can ever show */}
+        {/* Solid Blackout Base Guard: Completely covers the white Instagram caption / footer card */}
         <div 
-          className="absolute -bottom-1 left-0 right-0 h-16 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none z-20" 
+          className="absolute bottom-0 left-0 right-0 h-28 bg-black pointer-events-none z-20" 
+          aria-hidden="true"
+        />
+        {/* Smooth Gradient Transition into black base */}
+        <div 
+          className="absolute bottom-28 left-0 right-0 h-16 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none z-20" 
           aria-hidden="true"
         />
       </div>
@@ -242,6 +259,7 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
         </div>
       )}
 
-    </div>
+    </div>,
+    document.body
   );
 };
