@@ -177,8 +177,9 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
 
       {/* ======================================================== */}
       {/* 2. PURE FULL SCREEN REEL VIEWPORT (VIDEO ONLY)            */}
-      {/* Exact 9:16 aspect ratio: completely cuts off top header   */}
-      {/* and bottom white caption bar. Only video is visible!       */}
+      {/* Scales & crops iframe: completely eliminates top header   */}
+      {/* and bottom white caption card ("View more on Instagram"). */}
+      {/* Only the clean reel video is visible!                     */}
       {/* ======================================================== */}
       <div 
         className="relative overflow-hidden bg-black flex items-center justify-center shadow-2xl rounded-2xl"
@@ -194,17 +195,24 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
           key={currentReel.shortcode || currentReel.id}
           src={embedUrl}
           title={currentReel.headline || 'Instagram Reel'}
-          className="border-0 pointer-events-auto"
+          className="border-0 pointer-events-auto bg-black"
           style={{
             position: 'absolute',
-            top: '-56px',
+            top: '-58px',
             left: '50%',
-            transform: 'translateX(-50%)',
+            transform: 'translateX(-50%) scale(1.24)',
+            transformOrigin: 'top center',
             width: '100%',
-            height: 'calc(100% + 160px)',
+            height: 'calc(100% + 180px)',
           }}
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
           allowFullScreen
+        />
+
+        {/* Bottom Blackout Guard: Guarantees no white caption / footer can ever show */}
+        <div 
+          className="absolute -bottom-1 left-0 right-0 h-16 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none z-20" 
+          aria-hidden="true"
         />
       </div>
 
