@@ -27,7 +27,45 @@ export interface FinanceDashboardProps {
 
 const FINANCE_TX_KEY = 'orbit_finance_transactions_v1';
 const CATEGORIES_KEY = 'sreesh-finance-categories-v2';
+const INCOME_CATEGORIES_KEY = 'sreesh-finance-income-categories-v2';
 const GOALS_KEY = 'sreesh-goals-list-v2';
+
+export const CATEGORY_PALETTE_COLORS = [
+  '#8B5CF6', // Purple
+  '#F59E0B', // Amber
+  '#0284C7', // Sky Blue
+  '#EC4899', // Pink
+  '#10B981', // Emerald
+  '#F97316', // Orange
+  '#6366F1', // Indigo
+  '#14B8A6', // Teal
+  '#EF4444', // Red
+  '#84CC16', // Lime
+  '#A855F7', // Fuchsia
+  '#06B6D4', // Cyan
+  '#F43F5E', // Rose
+  '#EAB308', // Yellow
+  '#3B82F6', // Royal Blue
+  '#D946EF', // Magenta
+];
+
+export function getCategoryDistinctColor(name: string, index: number, explicitColor?: string): string {
+  if (explicitColor && explicitColor.startsWith('#')) return explicitColor;
+  const lower = name.toLowerCase().trim();
+  if (lower.includes('food') || lower.includes('dine') || lower.includes('cafe') || lower.includes('snack')) return '#F59E0B';
+  if (lower.includes('tech') || lower.includes('software') || lower.includes('cloud') || lower.includes('app')) return '#0284C7';
+  if (lower.includes('shop') || lower.includes('cloth') || lower.includes('wear') || lower.includes('mall')) return '#EC4899';
+  if (lower.includes('know') || lower.includes('book') || lower.includes('study') || lower.includes('course')) return '#8B5CF6';
+  if (lower.includes('health') || lower.includes('fit') || lower.includes('gym') || lower.includes('med')) return '#10B981';
+  if (lower.includes('travel') || lower.includes('commute') || lower.includes('flight') || lower.includes('fuel') || lower.includes('gas')) return '#F97316';
+  if (lower.includes('bill') || lower.includes('rent') || lower.includes('util') || lower.includes('wifi')) return '#6366F1';
+  if (lower.includes('salary') || lower.includes('wage') || lower.includes('job') || lower.includes('paycheck')) return '#10B981';
+  if (lower.includes('freelance') || lower.includes('gig') || lower.includes('client') || lower.includes('project')) return '#0284C7';
+  if (lower.includes('invest') || lower.includes('stock') || lower.includes('crypto') || lower.includes('dividend')) return '#8B5CF6';
+  if (lower.includes('gift') || lower.includes('reward') || lower.includes('bonus') || lower.includes('cashback')) return '#F59E0B';
+  if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat')) return '#14B8A6';
+  return CATEGORY_PALETTE_COLORS[index % CATEGORY_PALETTE_COLORS.length];
+}
 
 interface FinancialGoalDef {
   id: string;
@@ -52,9 +90,22 @@ interface ExpenseCategoryDef {
   bg: string;
   iconColor: string;
   barColor: string;
+  color?: string;
+}
+
+export interface IncomeCategoryDef {
+  id: string;
+  key: string;
+  name: string;
+  emoji: string;
+  icon: string;
+  bg?: string;
+  iconColor?: string;
+  color?: string;
 }
 
 const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [];
+const DEFAULT_INCOME_CATEGORIES: IncomeCategoryDef[] = [];
 
 const DEFAULT_INITIAL_TRANSACTIONS: FinanceTransaction[] = [];
 
@@ -185,6 +236,36 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     } catch {}
   };
 
+  // 2b. DYNAMIC INCOME CATEGORIES LIST (SEPARATE FROM EXPENSES)
+  const [incomeCategoriesList, setIncomeCategoriesList] = useState<IncomeCategoryDef[]>(() => {
+    try {
+      const saved = localStorage.getItem(INCOME_CATEGORIES_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c, idx) => ({
+            id: c.id || 'inc-cat-' + Math.random(),
+            key: c.key || c.name.toLowerCase().replace(/\s+/g, '-'),
+            name: c.name,
+            emoji: c.emoji || '🌱',
+            icon: c.icon || 'payments',
+            bg: c.bg || 'bg-mint-subtle/80',
+            iconColor: c.iconColor || 'text-secondary',
+            color: c.color || getCategoryDistinctColor(c.name, idx),
+          }));
+        }
+      }
+    } catch {}
+    return DEFAULT_INCOME_CATEGORIES;
+  });
+
+  const saveIncomeCategoriesList = (next: IncomeCategoryDef[]) => {
+    setIncomeCategoriesList(next);
+    try {
+      localStorage.setItem(INCOME_CATEGORIES_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
   // 3. FINANCIAL GOALS STATE WITH ACTUAL DATE AND REMAINING CALCULATION
   const [goalsList, setGoalsList] = useState<FinancialGoalDef[]>(() => {
     try {
@@ -235,24 +316,53 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [rawDigits, setRawDigits] = useState('0');
   const [logNote, setLogNote] = useState('');
 
-  // Keep logCategory synchronized to available categories
-  useEffect(() => {
-    if (categoriesList.length > 0) {
-      if (!logCategory || !categoriesList.some((c) => c.name === logCategory)) {
-        setLogCategory(categoriesList[0].name);
-      }
-    } else {
-      setLogCategory('');
-    }
-  }, [categoriesList, logCategory]);
+  // Breakdown tabs: expense vs income
+  const [breakdownViewTab, setBreakdownViewTab] = useState<'expense' | 'income'>('expense');
+  const [analyticsBreakdownType, setAnalyticsBreakdownType] = useState<'expense' | 'income'>('expense');
 
-  // Add Category form state (WITH CAP)
+  // Keep logCategory synchronized to available categories depending on logType
+  useEffect(() => {
+    if (logType === 'expense') {
+      if (categoriesList.length > 0) {
+        if (!logCategory || !categoriesList.some((c) => c.name === logCategory)) {
+          setLogCategory(categoriesList[0].name);
+        }
+      } else {
+        setLogCategory('');
+      }
+    } else if (logType === 'income') {
+      if (incomeCategoriesList.length > 0) {
+        if (!logCategory || !incomeCategoriesList.some((c) => c.name === logCategory)) {
+          setLogCategory(incomeCategoriesList[0].name);
+        }
+      } else {
+        setLogCategory('');
+      }
+    } else if (logType === 'goal') {
+      if (goalsList.length > 0) {
+        if (!logCategory || !goalsList.some((g) => g.title === logCategory)) {
+          setLogCategory(goalsList[0].title);
+        }
+      } else {
+        setLogCategory('');
+      }
+    }
+  }, [logType, categoriesList, incomeCategoriesList, goalsList, logCategory]);
+
+  // Manage Categories modal state (Tabs: expense vs income)
+  const [categoryModalTab, setCategoryModalTab] = useState<'expense' | 'income'>('expense');
+
+  // Add Expense Category form state (WITH CAP)
   const [newCatName, setNewCatName] = useState('');
   const [newCatEmoji, setNewCatEmoji] = useState('✨');
   const [newCatCap, setNewCatCap] = useState('500');
   const [isAddingNewCat, setIsAddingNewCat] = useState(false);
   const [editingCapId, setEditingCapId] = useState<string | null>(null);
   const [editingCapValue, setEditingCapValue] = useState('');
+
+  // Add Income Category form state
+  const [newIncCatName, setNewIncCatName] = useState('');
+  const [newIncCatEmoji, setNewIncCatEmoji] = useState('🌱');
 
   // New goal form state (Actual date input)
   const [newGoalTitle, setNewGoalTitle] = useState('');
@@ -323,9 +433,58 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     const intAmt = parseInt(rawDigits || '0', 10);
     if (intAmt <= 0) return;
 
+    if (logType === 'income') {
+      if (incomeCategoriesList.length === 0) {
+        alert('Please create an income category first before adding income!');
+        setIsManageCategoriesModalOpen(true);
+        setCategoryModalTab('income');
+        setIsAddingNewCat(true);
+        return;
+      }
+
+      const chosenCat = incomeCategoriesList.find((c) => c.name === logCategory) || incomeCategoriesList[0];
+      const catName = chosenCat?.name || logCategory || 'General Income';
+      const catIcon = chosenCat?.emoji || '🌱';
+
+      const newTx: FinanceTransaction = {
+        id: 'tx-' + Date.now(),
+        type: 'income',
+        amount: intAmt,
+        category: catName,
+        categoryIcon: catIcon,
+        note: logNote.trim() || catName,
+        merchant: catName,
+        date: TODAY,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const nextTxs = [newTx, ...localTransactions];
+      saveTransactionsState(nextTxs);
+
+      if (onQuickAdd) {
+        onQuickAdd({
+          type: newTx.type,
+          amount: newTx.amount,
+          category: newTx.category,
+          categoryIcon: newTx.categoryIcon,
+          note: newTx.note,
+          date: newTx.date,
+          merchant: newTx.merchant,
+        });
+      }
+
+      triggerCelebration();
+      setRawDigits('0');
+      setLogNote('');
+      setIsQuickLogOpen(false);
+      return;
+    }
+
     if (categoriesList.length === 0) {
-      alert('Please create a category first before adding an expense or income!');
+      alert('Please create an expense category first before adding an expense!');
       setIsManageCategoriesModalOpen(true);
+      setCategoryModalTab('expense');
       setIsAddingNewCat(true);
       return;
     }
@@ -336,7 +495,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
     const newTx: FinanceTransaction = {
       id: 'tx-' + Date.now(),
-      type: logType === 'income' ? 'income' : 'expense',
+      type: 'expense',
       amount: intAmt,
       category: catName,
       categoryIcon: catIcon,
@@ -472,6 +631,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       { bg: 'bg-mint-subtle/80', iconColor: 'text-secondary/15', barColor: 'bg-secondary', icon: 'eco' },
     ];
     const theme = colorThemes[categoriesList.length % colorThemes.length];
+    const color = getCategoryDistinctColor(newCatName.trim(), categoriesList.length);
 
     const newCat: ExpenseCategoryDef = {
       id: 'cat-' + Date.now(),
@@ -483,6 +643,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       bg: theme.bg,
       iconColor: theme.iconColor,
       barColor: theme.barColor,
+      color,
     };
     const next = [...categoriesList, newCat];
     saveCategoriesList(next);
@@ -490,6 +651,58 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     setNewCatName('');
     setNewCatCap('500');
     setIsAddingNewCat(false);
+    triggerCelebration();
+  };
+
+  // Income Category Handlers
+  const handleDeleteIncomeCategory = (id: string) => {
+    playPopSound();
+    const next = incomeCategoriesList.filter((a) => a.id !== id);
+    saveIncomeCategoriesList(next);
+  };
+
+  const handleAddNewIncomeCategory = () => {
+    if (!newIncCatName.trim()) return;
+    playPopSound();
+    const color = getCategoryDistinctColor(newIncCatName.trim(), incomeCategoriesList.length);
+    const newCat: IncomeCategoryDef = {
+      id: 'inc-cat-' + Date.now(),
+      key: newIncCatName.toLowerCase().replace(/\s+/g, '-'),
+      name: newIncCatName.trim(),
+      emoji: newIncCatEmoji.trim() || '🌱',
+      icon: 'payments',
+      bg: 'bg-mint-subtle/80',
+      iconColor: 'text-secondary',
+      color,
+    };
+    const next = [...incomeCategoriesList, newCat];
+    saveIncomeCategoriesList(next);
+    setLogCategory(newCat.name);
+    setNewIncCatName('');
+    setIsAddingNewCat(false);
+    triggerCelebration();
+  };
+
+  const handleQuickAddIncomePreset = (name: string, emoji: string) => {
+    playPopSound();
+    if (incomeCategoriesList.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      setLogCategory(name);
+      return;
+    }
+    const color = getCategoryDistinctColor(name, incomeCategoriesList.length);
+    const newCat: IncomeCategoryDef = {
+      id: 'inc-cat-' + Date.now(),
+      key: name.toLowerCase().replace(/\s+/g, '-'),
+      name,
+      emoji,
+      icon: 'payments',
+      bg: 'bg-mint-subtle/80',
+      iconColor: 'text-secondary',
+      color,
+    };
+    const next = [...incomeCategoriesList, newCat];
+    saveIncomeCategoriesList(next);
+    setLogCategory(name);
     triggerCelebration();
   };
 
@@ -514,9 +727,6 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       const weekAgo = now.getTime() - 7 * 86400000;
       return txTime >= weekAgo;
     });
-
-    const expensesOnly = filtered.filter((tx) => (tx.type as string) !== 'income');
-    const totalExpPeriod = expensesOnly.reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
 
     // Days of the week: Mon - Sun
     const daysLabel = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -548,22 +758,28 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
     const maxPaceVal = Math.max(10, ...weeklyData.map((d) => Math.max(d.spent, d.inflow)));
 
-    // Category Breakdown (Donut & Legends)
+    // Category Breakdown (Donut & Legends) - Supports both 'expense' and 'income'
+    const isIncome = analyticsBreakdownType === 'income';
+    const targetPeriodTxs = filtered.filter((tx) => isIncome ? tx.type === 'income' : (tx.type as string) !== 'income');
+    const totalPeriodAmt = targetPeriodTxs.reduce((s, tx) => s + (Number(tx.amount) || 0), 0);
+    const targetCategories = isIncome ? incomeCategoriesList : categoriesList;
+
     const categoryTotals: Record<string, { name: string; emoji: string; amount: number; color: string }> = {};
 
-    categoriesList.forEach((cat) => {
+    targetCategories.forEach((cat, idx) => {
       categoryTotals[cat.name] = {
         name: cat.name,
         emoji: cat.emoji,
         amount: 0,
-        color: cat.barColor.replace('bg-', '') || '#6b38d4',
+        color: cat.color || getCategoryDistinctColor(cat.name, idx),
       };
     });
 
-    expensesOnly.forEach((tx) => {
+    targetPeriodTxs.forEach((tx) => {
       const amt = Number(tx.amount) || 0;
       let matched = false;
-      for (const cat of categoriesList) {
+      for (let i = 0; i < targetCategories.length; i++) {
+        const cat = targetCategories[i];
         if (matchesCategory(tx, cat)) {
           categoryTotals[cat.name].amount += amt;
           matched = true;
@@ -575,35 +791,32 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         if (!categoryTotals[otherKey]) {
           categoryTotals[otherKey] = {
             name: otherKey,
-            emoji: '✨',
+            emoji: isIncome ? '🌱' : '✨',
             amount: 0,
-            color: '#8b5cf6',
+            color: getCategoryDistinctColor(otherKey, Object.keys(categoryTotals).length),
           };
         }
         categoryTotals[otherKey].amount += amt;
       }
     });
 
-    const categoriesArray = Object.values(categoryTotals).map((cat) => {
-      const pct = totalExpPeriod > 0 ? Math.round((cat.amount / totalExpPeriod) * 100) : 0;
+    const categoriesArray = Object.values(categoryTotals).map((cat, idx) => {
+      const pct = totalPeriodAmt > 0 ? Math.round((cat.amount / totalPeriodAmt) * 100) : 0;
+      const hexColor = cat.color || getCategoryDistinctColor(cat.name, idx);
       return {
         ...cat,
         pct,
+        hexColor,
       };
     }).sort((a, b) => b.amount - a.amount);
 
-    // Compute SVG donut strokes
+    // Compute SVG donut strokes with distinct color for every slice
     let cumulativePct = 0;
-    const donutSlices = categoriesArray.filter((c) => c.pct > 0).map((c) => {
+    const donutSlices = categoriesArray.filter((c) => c.pct > 0).map((c, idx) => {
       const strokeDasharray = `${c.pct} ${100 - c.pct}`;
       const strokeDashoffset = -cumulativePct;
       cumulativePct += c.pct;
-
-      let hexColor = '#8b5cf6';
-      if (c.name.toLowerCase().includes('food')) hexColor = '#F59E0B';
-      else if (c.name.toLowerCase().includes('tech')) hexColor = '#0284C7';
-      else if (c.name.toLowerCase().includes('shop')) hexColor = '#dc2c4f';
-      else if (c.name.toLowerCase().includes('know')) hexColor = '#6b38d4';
+      const hexColor = c.hexColor || getCategoryDistinctColor(c.name, idx);
 
       return {
         ...c,
@@ -614,10 +827,12 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     });
 
     const topCategory = categoriesArray[0];
-    const avgDaily = Math.round(totalExpPeriod / 7);
+    const avgDaily = Math.round(totalPeriodAmt / 7);
 
     return {
-      totalExpPeriod: Math.round(totalExpPeriod),
+      totalExpPeriod: Math.round(totalPeriodAmt),
+      totalPeriodAmt: Math.round(totalPeriodAmt),
+      isIncome,
       weeklyData,
       maxPaceVal,
       categoriesArray,
@@ -625,7 +840,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       topCategory,
       avgDaily,
     };
-  }, [localTransactions, categoriesList, timeframe]);
+  }, [localTransactions, categoriesList, incomeCategoriesList, timeframe, analyticsBreakdownType]);
 
   // Selected Category's expenses for Full Breakdown Modal
   const categoryExpensesForModal = useMemo(() => {
@@ -987,8 +1202,34 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
                 {/* Dynamic Category Breakdown Donut / Pie & Legends */}
                 <div className="pt-space-xs border-t border-border-subtle space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-label-md text-label-md text-on-surface font-semibold">Category Breakdown</span>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-label-md text-label-md text-on-surface font-semibold">Category Breakdown</span>
+                      <div className="flex p-0.5 rounded-xl bg-canvas-bg border border-border-subtle">
+                        <button
+                          type="button"
+                          onClick={() => { playPopSound(); setAnalyticsBreakdownType('expense'); }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            analyticsBreakdownType === 'expense'
+                              ? 'bg-surface-card text-tertiary shadow-xs'
+                              : 'text-on-surface-variant hover:text-on-surface'
+                          }`}
+                        >
+                          💸 Expense
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { playPopSound(); setAnalyticsBreakdownType('income'); }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            analyticsBreakdownType === 'income'
+                              ? 'bg-surface-card text-secondary shadow-xs'
+                              : 'text-on-surface-variant hover:text-on-surface'
+                          }`}
+                        >
+                          🌱 Income
+                        </button>
+                      </div>
+                    </div>
                     <div className="relative">
                       <select 
                         value={categoryFilter}
@@ -1013,7 +1254,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                   </div>
 
                   <div className="flex items-center gap-space-md pt-1">
-                    {/* SVG Donut Chart with Dynamic Percentages */}
+                    {/* SVG Donut Chart with Dynamic Percentages and Different Colors for Every Category */}
                     <div className="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
                       <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
                         <circle cx="21" cy="21" fill="transparent" r="15.91549430918954" stroke="#F1EBFB" strokeWidth="5.5"></circle>
@@ -1033,29 +1274,25 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                         <span className="font-headline-sm text-[15px] font-bold text-on-surface leading-none font-fraunces">
-                          {currency}{analyticsData.totalExpPeriod.toLocaleString('en-IN')}
+                          {currency}{analyticsData.totalPeriodAmt.toLocaleString('en-IN')}
                         </span>
-                        <span className="font-label-sm text-[10px] text-on-surface-variant mt-0.5">Total</span>
+                        <span className="font-label-sm text-[10px] text-on-surface-variant mt-0.5">
+                          {analyticsData.isIncome ? 'Total Income' : 'Total Spent'}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Dynamic Legends Grid */}
-                    <div className="flex-1 grid grid-cols-2 gap-y-2 gap-x-1">
-                      {analyticsData.categoriesArray.slice(0, 4).map((c) => (
-                        <div key={c.name} className="flex items-center gap-1.5">
+                    {/* Dynamic Legends Grid with distinct category colors */}
+                    <div className="flex-1 grid grid-cols-2 gap-y-2 gap-x-1.5">
+                      {analyticsData.categoriesArray.slice(0, 6).map((c) => (
+                        <div key={c.name} className="flex items-center gap-1.5 min-w-0">
                           <span 
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-xs"
                             style={{
-                              backgroundColor: c.name.toLowerCase().includes('food') 
-                                ? '#F59E0B' 
-                                : c.name.toLowerCase().includes('tech') 
-                                ? '#0284C7' 
-                                : c.name.toLowerCase().includes('shop') 
-                                ? '#dc2c4f' 
-                                : '#6b38d4'
+                              backgroundColor: c.hexColor,
                             }}
                           ></span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-label-sm text-label-sm text-on-surface font-semibold leading-tight truncate">{c.name}</p>
                             <p className="font-body-sm text-[11px] text-on-surface-variant">{c.pct}% · {currency}{c.amount.toLocaleString('en-IN')}</p>
                           </div>
@@ -1167,103 +1404,217 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           </div>
 
           {/* ======================================================== */}
-          {/* 5. CATEGORY-WISE EXPENSE BREAKDOWN (NO CAP SYSTEM)       */}
+          {/* 5. CATEGORY-WISE BREAKDOWN (EXPENSES & INCOME)           */}
           {/* ======================================================== */}
           <div className="flex flex-col space-y-space-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-[16px]">🌿</span>
-                <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Category-wise Expense Breakdown</h2>
+                <span className="text-[16px]">{breakdownViewTab === 'expense' ? '🌿' : '🌱'}</span>
+                <h2 className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
+                  {breakdownViewTab === 'expense' ? 'Category-wise Expense Breakdown' : 'Category-wise Income Breakdown'}
+                </h2>
               </div>
-              <button 
-                onClick={() => {
-                  playPopSound();
-                  setIsManageCategoriesModalOpen(true);
-                }}
-                className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer font-bold"
-              >
-                <span>Manage Categories</span>
-                <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-              </button>
-            </div>
-
-            {/* Dynamic Category Cards Grid (WITH CAP SYSTEM) */}
-            <div className="grid grid-cols-2 gap-space-sm">
-              {categoriesList.length === 0 && (
-                <div className="col-span-2 p-6 rounded-3xl bg-surface-card border border-dashed border-border-subtle text-center space-y-2">
-                  <div className="text-2xl">🌱</div>
-                  <p className="font-semibold text-xs text-on-surface">No expense categories yet</p>
-                  <p className="text-[11px] text-on-surface-variant">Create your first custom category with monthly cap!</p>
+              <div className="flex items-center gap-2">
+                <div className="flex p-0.5 rounded-xl bg-canvas-bg border border-border-subtle">
                   <button
-                    onClick={() => {
-                      playPopSound();
-                      setIsManageCategoriesModalOpen(true);
-                      setIsAddingNewCat(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs cursor-pointer shadow-xs"
+                    type="button"
+                    onClick={() => { playPopSound(); setBreakdownViewTab('expense'); }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      breakdownViewTab === 'expense'
+                        ? 'bg-surface-card text-tertiary shadow-xs'
+                        : 'text-on-surface-variant'
+                    }`}
                   >
-                    <span>+ Add Category</span>
+                    💸 Expenses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { playPopSound(); setBreakdownViewTab('income'); }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      breakdownViewTab === 'income'
+                        ? 'bg-surface-card text-secondary shadow-xs'
+                        : 'text-on-surface-variant'
+                    }`}
+                  >
+                    🌱 Income
                   </button>
                 </div>
-              )}
-              {categoriesList.map((c) => {
-                const catSpent = localTransactions
-                  .filter((tx) => (tx.type as string) !== 'income' && matchesCategory(tx, c))
-                  .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+                <button 
+                  onClick={() => {
+                    playPopSound();
+                    setIsManageCategoriesModalOpen(true);
+                    setCategoryModalTab(breakdownViewTab);
+                  }}
+                  className="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline cursor-pointer font-bold"
+                >
+                  <span>Manage</span>
+                  <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                </button>
+              </div>
+            </div>
 
-                const capVal = c.cap || 500;
-                const pct = capVal > 0 ? Math.min(100, Math.round((catSpent / capVal) * 100)) : 0;
-                const isOverCap = capVal > 0 && catSpent > capVal;
-
-                return (
-                  <div 
-                    key={c.id || c.name}
-                    onClick={() => {
-                      playPopSound();
-                      setSelectedCategoryForSpendView(c);
-                    }}
-                    className={`relative overflow-hidden p-space-md rounded-3xl ${c.bg || 'bg-lavender-subtle/80'} flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle hover:shadow-md hover:border-primary/40 transition-all cursor-pointer active:scale-98`}
-                    title="Click to view full expenses of this category"
-                  >
-                    <span 
-                      className={`material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] ${c.iconColor || 'text-primary/15'} select-none pointer-events-none`} 
-                      style={{ fontVariationSettings: '"FILL" 1' }}
+            {/* Dynamic Category Cards Grid (Expenses vs Income) */}
+            {breakdownViewTab === 'expense' ? (
+              <div className="grid grid-cols-2 gap-space-sm">
+                {categoriesList.length === 0 && (
+                  <div className="col-span-2 p-6 rounded-3xl bg-surface-card border border-dashed border-border-subtle text-center space-y-2">
+                    <div className="text-2xl">🌱</div>
+                    <p className="font-semibold text-xs text-on-surface">No expense categories yet</p>
+                    <p className="text-[11px] text-on-surface-variant">Create your first custom category with monthly cap!</p>
+                    <button
+                      onClick={() => {
+                        playPopSound();
+                        setIsManageCategoriesModalOpen(true);
+                        setCategoryModalTab('expense');
+                        setIsAddingNewCat(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs cursor-pointer shadow-xs"
                     >
-                      {c.icon || 'category'}
-                    </span>
-                    <div className="flex items-center justify-between">
-                      <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
-                        <span className="text-[18px]">{c.emoji}</span>
-                      </div>
-                      <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${
-                        isOverCap
-                          ? 'bg-peach-subtle text-tertiary'
-                          : 'bg-surface-card/80 text-on-surface'
-                      }`}>
-                        {pct}%
+                      <span>+ Add Category</span>
+                    </button>
+                  </div>
+                )}
+                {categoriesList.map((c) => {
+                  const catSpent = localTransactions
+                    .filter((tx) => (tx.type as string) !== 'income' && matchesCategory(tx, c))
+                    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+                  const capVal = c.cap || 500;
+                  const pct = capVal > 0 ? Math.min(100, Math.round((catSpent / capVal) * 100)) : 0;
+                  const isOverCap = capVal > 0 && catSpent > capVal;
+
+                  return (
+                    <div 
+                      key={c.id || c.name}
+                      onClick={() => {
+                        playPopSound();
+                        setSelectedCategoryForSpendView(c);
+                      }}
+                      className={`relative overflow-hidden p-space-md rounded-3xl ${c.bg || 'bg-lavender-subtle/80'} flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle hover:shadow-md hover:border-primary/40 transition-all cursor-pointer active:scale-98`}
+                      title="Click to view full expenses of this category"
+                    >
+                      <span 
+                        className={`material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] ${c.iconColor || 'text-primary/15'} select-none pointer-events-none`} 
+                        style={{ fontVariationSettings: '"FILL" 1' }}
+                      >
+                        {c.icon || 'category'}
                       </span>
+                      <div className="flex items-center justify-between">
+                        <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
+                          <span className="text-[18px]">{c.emoji}</span>
+                        </div>
+                        <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${
+                          isOverCap
+                            ? 'bg-peach-subtle text-tertiary'
+                            : 'bg-surface-card/80 text-on-surface'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
+                        <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
+                          <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
+                            {currency}{Math.round(catSpent).toLocaleString('en-IN')}
+                          </span>
+                          <span className="font-body-sm text-body-sm text-on-surface-variant font-medium">
+                            / {currency}{Math.round(capVal).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-500 ${isOverCap ? 'bg-tertiary' : c.barColor || 'bg-primary'}`} 
+                            style={{ width: `${pct}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
-                      <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
-                        <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
-                          {currency}{Math.round(catSpent).toLocaleString('en-IN')}
-                        </span>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant font-medium">
-                          / {currency}{Math.round(capVal).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${isOverCap ? 'bg-tertiary' : c.barColor || 'bg-primary'}`} 
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-space-sm">
+                {incomeCategoriesList.length === 0 && (
+                  <div className="col-span-2 p-6 rounded-3xl bg-surface-card border border-dashed border-border-subtle text-center space-y-2">
+                    <div className="text-2xl">💰</div>
+                    <p className="font-semibold text-xs text-on-surface">No income categories yet</p>
+                    <p className="text-[11px] text-on-surface-variant">Create your income categories to organize your earnings!</p>
+                    <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleQuickAddIncomePreset('Salary', '💼')}
+                        className="px-2.5 py-1 rounded-xl bg-canvas-bg hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95"
+                      >
+                        + 💼 Salary
+                      </button>
+                      <button
+                        onClick={() => handleQuickAddIncomePreset('Freelance', '💻')}
+                        className="px-2.5 py-1 rounded-xl bg-canvas-bg hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95"
+                      >
+                        + 💻 Freelance
+                      </button>
+                      <button
+                        onClick={() => handleQuickAddIncomePreset('Investments', '📈')}
+                        className="px-2.5 py-1 rounded-xl bg-canvas-bg hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95"
+                      >
+                        + 📈 Investments
+                      </button>
+                      <button
+                        onClick={() => handleQuickAddIncomePreset('Gifts', '🎁')}
+                        className="px-2.5 py-1 rounded-xl bg-canvas-bg hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95"
+                      >
+                        + 🎁 Gifts
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                )}
+                {incomeCategoriesList.map((c) => {
+                  const catIncome = localTransactions
+                    .filter((tx) => tx.type === 'income' && matchesCategory(tx, c))
+                    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+                  const pct = totalInflow > 0 ? Math.round((catIncome / totalInflow) * 100) : 0;
+                  const catColor = c.color || '#10B981';
+
+                  return (
+                    <div
+                      key={c.id || c.name}
+                      className={`relative overflow-hidden p-space-md rounded-3xl ${c.bg || 'bg-mint-subtle/80'} flex flex-col justify-between shadow-sm space-y-space-md border border-border-subtle hover:shadow-md transition-all active:scale-98`}
+                    >
+                      <span 
+                        className="material-symbols-outlined absolute -bottom-3 -right-2 text-[64px] text-secondary/15 select-none pointer-events-none" 
+                        style={{ fontVariationSettings: '"FILL" 1' }}
+                      >
+                        payments
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <div className="w-9 h-9 rounded-2xl bg-surface-card flex items-center justify-center shadow-xs">
+                          <span className="text-[18px]">{c.emoji}</span>
+                        </div>
+                        <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold bg-surface-card/80 text-secondary">
+                          {pct}%
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-label-md text-label-md text-on-surface block font-bold">{c.name}</span>
+                        <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
+                          <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
+                            {currency}{Math.round(catIncome).toLocaleString('en-IN')}
+                          </span>
+                          <span className="font-body-sm text-body-sm text-on-surface-variant font-medium">
+                            earned
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-surface-card/60 overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500" 
+                            style={{ width: `${pct}%`, backgroundColor: catColor }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1584,16 +1935,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* 9. MANAGE CATEGORIES MODAL (WITH CAP)                    */}
+      {/* 9. MANAGE CATEGORIES MODAL (EXPENSES & INCOME TABS)      */}
       {/* ======================================================== */}
       {isManageCategoriesModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🌿</span>
+                <span className="text-xl">{categoryModalTab === 'expense' ? '🌿' : '🌱'}</span>
                 <h3 className="font-headline-sm text-base text-on-surface font-bold font-fraunces">
-                  Manage Categories & Caps
+                  Manage Categories
                 </h3>
               </div>
               <button 
@@ -1604,128 +1955,257 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Existing Categories List */}
-            <div className="space-y-2">
-              {categoriesList.length === 0 ? (
-                <div className="p-4 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
-                  No categories created yet. Click "+ Add New Category" below to create one!
-                </div>
-              ) : (
-                categoriesList.map((c) => (
-                  <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle space-y-2">
-                    <div className="flex items-center justify-between">
+            {/* Category Type Tabs: Expense Categories vs Income Categories */}
+            <div className="flex p-1 rounded-2xl bg-canvas-bg border border-border-subtle">
+              <button
+                type="button"
+                onClick={() => { playPopSound(); setCategoryModalTab('expense'); setIsAddingNewCat(false); }}
+                className={`flex-1 py-1.5 text-center font-label-sm text-xs rounded-xl font-bold transition-all cursor-pointer ${
+                  categoryModalTab === 'expense'
+                    ? 'bg-surface-card text-tertiary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                💸 Expenses ({categoriesList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => { playPopSound(); setCategoryModalTab('income'); setIsAddingNewCat(false); }}
+                className={`flex-1 py-1.5 text-center font-label-sm text-xs rounded-xl font-bold transition-all cursor-pointer ${
+                  categoryModalTab === 'income'
+                    ? 'bg-surface-card text-secondary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                🌱 Income ({incomeCategoriesList.length})
+              </button>
+            </div>
+
+            {/* EXPENSE CATEGORIES TAB */}
+            {categoryModalTab === 'expense' ? (
+              <div className="space-y-2">
+                {categoriesList.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
+                    No expense categories created yet. Click "+ Add Expense Category" below to create one!
+                  </div>
+                ) : (
+                  categoriesList.map((c) => (
+                    <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">{c.emoji}</span>
+                          <div>
+                            <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
+                            <span className="text-[11px] text-on-surface-variant">
+                              Cap: <strong className="text-on-surface">{currency}{c.cap || 500}</strong> / mo
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              if (editingCapId === c.id) {
+                                setEditingCapId(null);
+                              } else {
+                                setEditingCapId(c.id);
+                                setEditingCapValue(String(c.cap || 500));
+                              }
+                            }}
+                            className="px-2 py-1 rounded-lg bg-surface-card hover:bg-lavender-subtle text-primary text-[11px] font-bold border border-border-subtle transition-colors cursor-pointer"
+                            title="Edit category monthly cap"
+                          >
+                            {editingCapId === c.id ? 'Close' : 'Edit Cap'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(c.id)}
+                            className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                            title="Delete category"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Inline Cap Editor */}
+                      {editingCapId === c.id && (
+                        <div className="pt-2 border-t border-border-subtle flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-on-surface-variant">Monthly Cap: {currency}</span>
+                          <input
+                            type="number"
+                            value={editingCapValue}
+                            onChange={(e) => setEditingCapValue(e.target.value)}
+                            className="w-24 px-2 py-1 rounded-xl bg-surface-card border border-primary text-xs font-bold text-on-surface"
+                            autoFocus
+                            placeholder="500"
+                          />
+                          <button
+                            onClick={() => handleUpdateCap(c.id, Number(editingCapValue) || 500)}
+                            className="px-3 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+
+                {/* Add New Expense Category */}
+                {isAddingNewCat ? (
+                  <div className="p-3.5 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2.5">
+                    <span className="font-bold text-xs text-primary block">+ New Expense Category with Cap</span>
+                    <input 
+                      type="text"
+                      placeholder="Category Name (e.g. Travel, Gym, Dining)"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                      autoFocus
+                    />
+                    <input 
+                      type="text"
+                      placeholder="Emoji Icon (e.g. ✈️, 🏋️, 🍔)"
+                      value={newCatEmoji}
+                      onChange={(e) => setNewCatEmoji(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                    />
+                    <div>
+                      <label className="block text-[10px] font-semibold text-on-surface-variant uppercase mb-1">
+                        Monthly Cap ({currency})
+                      </label>
+                      <input 
+                        type="number"
+                        placeholder="Monthly Cap (e.g. 500)"
+                        value={newCatCap}
+                        onChange={(e) => setNewCatCap(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={handleAddNewCategory}
+                        className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        Add Category
+                      </button>
+                      <button
+                        onClick={() => setIsAddingNewCat(false)}
+                        className="px-3 py-1.5 rounded-xl bg-surface-container text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsAddingNewCat(true)}
+                    className="w-full py-2.5 rounded-2xl border border-dashed border-primary text-primary font-bold text-xs hover:bg-lavender-subtle transition-all cursor-pointer"
+                  >
+                    + Add Expense Category
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* INCOME CATEGORIES TAB */
+              <div className="space-y-2">
+                {incomeCategoriesList.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle text-center text-xs text-on-surface-variant space-y-2">
+                    <p>No income categories created yet. Click "+ Add Income Category" or pick a preset below!</p>
+                    <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Salary', '💼')}
+                        className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 💼 Salary
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Freelance', '💻')}
+                        className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 💻 Freelance
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Investments', '📈')}
+                        className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 📈 Investments
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Gifts', '🎁')}
+                        className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-mint-subtle text-xs font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 🎁 Gifts
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  incomeCategoriesList.map((c) => (
+                    <div key={c.id} className="p-3 rounded-2xl bg-canvas-bg border border-border-subtle flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <span className="text-xl">{c.emoji}</span>
                         <div>
                           <h4 className="font-bold text-xs text-on-surface">{c.name}</h4>
-                          <span className="text-[11px] text-on-surface-variant">
-                            Cap: <strong className="text-on-surface">{currency}{c.cap || 500}</strong> / mo
-                          </span>
+                          <span className="text-[11px] text-secondary font-medium">Income source</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            if (editingCapId === c.id) {
-                              setEditingCapId(null);
-                            } else {
-                              setEditingCapId(c.id);
-                              setEditingCapValue(String(c.cap || 500));
-                            }
-                          }}
-                          className="px-2 py-1 rounded-lg bg-surface-card hover:bg-lavender-subtle text-primary text-[11px] font-bold border border-border-subtle transition-colors cursor-pointer"
-                          title="Edit category monthly cap"
-                        >
-                          {editingCapId === c.id ? 'Close' : 'Edit Cap'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(c.id)}
-                          className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
-                          title="Delete category"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">delete</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleDeleteIncomeCategory(c.id)}
+                        className="w-8 h-8 rounded-lg hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                        title="Delete category"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
                     </div>
+                  ))
+                )}
 
-                    {/* Inline Cap Editor */}
-                    {editingCapId === c.id && (
-                      <div className="pt-2 border-t border-border-subtle flex items-center gap-2">
-                        <span className="text-[11px] font-semibold text-on-surface-variant">Monthly Cap: {currency}</span>
-                        <input
-                          type="number"
-                          value={editingCapValue}
-                          onChange={(e) => setEditingCapValue(e.target.value)}
-                          className="w-24 px-2 py-1 rounded-xl bg-surface-card border border-primary text-xs font-bold text-on-surface"
-                          autoFocus
-                          placeholder="500"
-                        />
-                        <button
-                          onClick={() => handleUpdateCap(c.id, Number(editingCapValue) || 500)}
-                          className="px-3 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    )}
+                {/* Add New Income Category */}
+                {isAddingNewCat ? (
+                  <div className="p-3.5 rounded-2xl bg-canvas-bg border border-secondary/40 space-y-2.5">
+                    <span className="font-bold text-xs text-secondary block">+ New Income Category</span>
+                    <input 
+                      type="text"
+                      placeholder="Category Name (e.g. Salary, Freelance, Side Gig)"
+                      value={newIncCatName}
+                      onChange={(e) => setNewIncCatName(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                      autoFocus
+                    />
+                    <input 
+                      type="text"
+                      placeholder="Emoji Icon (e.g. 💼, 💻, 📈, 🎁)"
+                      value={newIncCatEmoji}
+                      onChange={(e) => setNewIncCatEmoji(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={handleAddNewIncomeCategory}
+                        className="flex-1 py-1.5 rounded-xl bg-secondary text-on-secondary font-bold text-xs shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        Add Income Category
+                      </button>
+                      <button
+                        onClick={() => setIsAddingNewCat(false)}
+                        className="px-3 py-1.5 rounded-xl bg-surface-container text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
-
-            {/* Add New Category Section */}
-            {isAddingNewCat ? (
-              <div className="p-3.5 rounded-2xl bg-canvas-bg border border-primary/40 space-y-2.5">
-                <span className="font-bold text-xs text-primary block">+ New Category with Cap</span>
-                <input 
-                  type="text"
-                  placeholder="Category Name (e.g. Travel, Gym, Dining)"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
-                  autoFocus
-                />
-                <input 
-                  type="text"
-                  placeholder="Emoji Icon (e.g. ✈️, 🏋️, 🍔)"
-                  value={newCatEmoji}
-                  onChange={(e) => setNewCatEmoji(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
-                />
-                <div>
-                  <label className="block text-[10px] font-semibold text-on-surface-variant uppercase mb-1">
-                    Monthly Cap ({currency})
-                  </label>
-                  <input 
-                    type="number"
-                    placeholder="Monthly Cap (e.g. 500)"
-                    value={newCatCap}
-                    onChange={(e) => setNewCatCap(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-xs"
-                  />
-                </div>
-                <div className="flex gap-2 pt-1">
+                ) : (
                   <button
-                    onClick={handleAddNewCategory}
-                    className="flex-1 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs active:scale-95 cursor-pointer"
+                    onClick={() => setIsAddingNewCat(true)}
+                    className="w-full py-2.5 rounded-2xl border border-dashed border-secondary text-secondary font-bold text-xs hover:bg-mint-subtle transition-all cursor-pointer"
                   >
-                    Add Category
+                    + Add Income Category
                   </button>
-                  <button
-                    onClick={() => setIsAddingNewCat(false)}
-                    className="px-3 py-1.5 rounded-xl bg-surface-container text-xs cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                )}
               </div>
-            ) : (
-              <button
-                onClick={() => setIsAddingNewCat(true)}
-                className="w-full py-2.5 rounded-2xl border border-dashed border-primary text-primary font-bold text-xs hover:bg-lavender-subtle transition-all cursor-pointer"
-              >
-                + Add New Category
-              </button>
             )}
 
             <button 
@@ -1790,58 +2270,164 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
               </button>
             </div>
 
-            {/* Category Selector Dropdown (ONLY USER CREATED CATEGORIES) */}
+            {/* Category Selector Dropdown (Different categories for Income vs Expense) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block font-label-sm text-label-sm text-on-surface-variant font-semibold">
-                  Select Category
+                  {logType === 'income' ? 'Select Income Category' : logType === 'expense' ? 'Select Expense Category' : 'Select Goal Target'}
                 </label>
                 <button
                   type="button"
                   onClick={() => {
                     playPopSound();
                     setIsManageCategoriesModalOpen(true);
+                    setCategoryModalTab(logType === 'income' ? 'income' : 'expense');
                     setIsAddingNewCat(true);
                   }}
                   className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-0.5"
                 >
                   <span className="material-symbols-outlined text-[13px]">add</span>
-                  <span>New Category</span>
+                  <span>New {logType === 'income' ? 'Income' : 'Expense'} Category</span>
                 </button>
               </div>
 
-              {categoriesList.length === 0 ? (
-                <div className="p-3 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle flex items-center justify-between">
-                  <span className="text-xs text-on-surface-variant font-medium">No categories created yet</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playPopSound();
-                      setIsManageCategoriesModalOpen(true);
-                      setIsAddingNewCat(true);
-                    }}
-                    className="px-2.5 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs"
-                  >
-                    + Create One
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <select 
-                    value={logCategory}
-                    onChange={(e) => setLogCategory(e.target.value)}
-                    className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
-                  >
-                    {categoriesList.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.emoji} {cat.name} (Cap: {currency}{cat.cap || 500})
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[20px]">expand_more</span>
+              {logType === 'income' ? (
+                incomeCategoriesList.length === 0 ? (
+                  <div className="p-3 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-on-surface-variant font-medium">No income categories created yet</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playPopSound();
+                          setIsManageCategoriesModalOpen(true);
+                          setCategoryModalTab('income');
+                          setIsAddingNewCat(true);
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-secondary text-on-secondary font-bold text-xs cursor-pointer shadow-xs"
+                      >
+                        + Create One
+                      </button>
+                    </div>
+                    {/* Quick suggestion chips */}
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border-subtle/50">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Salary', '💼')}
+                        className="px-2 py-0.5 rounded-lg bg-surface-card hover:bg-mint-subtle text-[11px] font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 💼 Salary
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Freelance', '💻')}
+                        className="px-2 py-0.5 rounded-lg bg-surface-card hover:bg-mint-subtle text-[11px] font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 💻 Freelance
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Investments', '📈')}
+                        className="px-2 py-0.5 rounded-lg bg-surface-card hover:bg-mint-subtle text-[11px] font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 📈 Investments
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddIncomePreset('Gifts', '🎁')}
+                        className="px-2 py-0.5 rounded-lg bg-surface-card hover:bg-mint-subtle text-[11px] font-bold text-on-surface border border-border-subtle cursor-pointer active:scale-95 transition-all"
+                      >
+                        + 🎁 Gifts
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative">
+                    <select 
+                      value={logCategory}
+                      onChange={(e) => setLogCategory(e.target.value)}
+                      className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
+                    >
+                      {incomeCategoriesList.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.emoji} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                    </div>
+                  </div>
+                )
+              ) : logType === 'expense' ? (
+                categoriesList.length === 0 ? (
+                  <div className="p-3 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle flex items-center justify-between">
+                    <span className="text-xs text-on-surface-variant font-medium">No expense categories created yet</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playPopSound();
+                        setIsManageCategoriesModalOpen(true);
+                        setCategoryModalTab('expense');
+                        setIsAddingNewCat(true);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs"
+                    >
+                      + Create One
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select 
+                      value={logCategory}
+                      onChange={(e) => setLogCategory(e.target.value)}
+                      className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
+                    >
+                      {categoriesList.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.emoji} {cat.name} (Cap: {currency}{cat.cap || 500})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                /* Goal Target selector */
+                goalsList.length === 0 ? (
+                  <div className="p-3 rounded-2xl bg-canvas-bg border border-dashed border-border-subtle flex items-center justify-between">
+                    <span className="text-xs text-on-surface-variant font-medium">No financial goals created yet</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playPopSound();
+                        setIsAddGoalModalOpen(true);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-primary text-on-primary font-bold text-xs"
+                    >
+                      + New Goal
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select 
+                      value={logCategory}
+                      onChange={(e) => setLogCategory(e.target.value)}
+                      className="w-full appearance-none pl-3.5 pr-10 py-2.5 rounded-2xl bg-canvas-bg border border-border-subtle font-label-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-xs transition-all cursor-pointer" 
+                    >
+                      {goalsList.map((g) => (
+                        <option key={g.id} value={g.title}>
+                          {g.emoji} {g.title} ({currency}{g.current} / {currency}{g.target})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                    </div>
+                  </div>
+                )
               )}
             </div>
 
