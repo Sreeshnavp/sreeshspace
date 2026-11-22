@@ -82,7 +82,7 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
 
   if (!reels || reels.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center p-6 select-none">
+      <div className="fixed inset-0 z-[99999] bg-black text-white flex flex-col items-center justify-center p-6 select-none">
         <button
           type="button"
           onClick={onClose}
@@ -112,7 +112,7 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black text-white flex items-center justify-center select-none overflow-hidden animate-in fade-in duration-150"
+      className="fixed inset-0 z-[99999] bg-black text-white flex items-center justify-center select-none overflow-hidden animate-in fade-in duration-150"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -177,14 +177,17 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
 
       {/* ======================================================== */}
       {/* 2. PURE FULL SCREEN REEL VIEWPORT (VIDEO ONLY)            */}
-      {/* Scales & crops iframe: completely hides top header &      */}
-      {/* bottom caption/white area! Only video visible.           */}
+      {/* Exact 9:16 aspect ratio: completely cuts off top header   */}
+      {/* and bottom white caption bar. Only video is visible!       */}
       {/* ======================================================== */}
       <div 
-        className="relative h-full overflow-hidden bg-black flex items-center justify-center shadow-2xl"
+        className="relative overflow-hidden bg-black flex items-center justify-center shadow-2xl rounded-2xl"
         style={{
-          width: 'min(100vw, calc((100dvh + 220px) * 9 / 16))',
-          maxHeight: '100dvh',
+          width: 'min(100vw, calc((100dvh - 36px) * 9 / 16))',
+          height: 'calc(min(calc(100dvh - 36px), calc(100vw * 16 / 9)) - 8px)',
+          aspectRatio: '9 / 16',
+          maxHeight: 'calc(100dvh - 36px)',
+          maxWidth: '100vw',
         }}
       >
         <iframe
@@ -194,12 +197,11 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
           className="border-0 pointer-events-auto"
           style={{
             position: 'absolute',
-            top: '-64px',
+            top: '-56px',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: 'calc((100dvh + 220px) * 9 / 16)',
-            minWidth: '100%',
-            height: 'calc(100dvh + 500px)',
+            width: '100%',
+            height: 'calc(100% + 160px)',
           }}
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
           allowFullScreen

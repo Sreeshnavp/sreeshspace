@@ -94,17 +94,8 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const [folderModalCategory, setFolderModalCategory] = useState<CategoryInfo | null>(null);
   const [editingCategoryTarget, setEditingCategoryTarget] = useState<CategoryInfo | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [hasAutoOpenedFeed, setHasAutoOpenedFeed] = useState(false);
   const [isFeedFullscreen, setIsFeedFullscreen] = useState(false);
   const [feedInitialId, setFeedInitialId] = useState<string | undefined>(undefined);
-
-  // Automatically default to fullscreen reels feed when entering reels if reels exist
-  useEffect(() => {
-    if (!hasAutoOpenedFeed && effectiveReels && effectiveReels.length > 0) {
-      setIsFeedFullscreen(true);
-      setHasAutoOpenedFeed(true);
-    }
-  }, [hasAutoOpenedFeed, effectiveReels]);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const isHeaderVisible = useScrollVisibility();
 
