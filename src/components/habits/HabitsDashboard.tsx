@@ -20,6 +20,7 @@ import {
   startOfWeek,
   isAfter,
   isBefore,
+  getWeekNumber,
 } from '../../utils/dates';
 
 export interface HabitsDashboardProps {
@@ -161,6 +162,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 }) => {
   const isHeaderVisible = useScrollVisibility();
   const TODAY = useMemo(() => todayKey(), []);
+  const currentWeekNumber = useMemo(() => getWeekNumber(TODAY), [TODAY]);
 
   // Compute Monday of current week for 7-day strip
   const weekStart = useMemo(() => startOfWeek(TODAY, 1), [TODAY]);
@@ -1085,7 +1087,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             {/* Section 2: Week at a Glance mini calendar pills */}
             <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between">
               <div className="flex items-center justify-between mb-space-sm px-1">
-                <span className="font-label-md text-label-md text-on-surface-variant">Week 28 · Habit Journey</span>
+                <span className="font-label-md text-label-md text-on-surface-variant">Week {currentWeekNumber} · Habit Journey</span>
                 <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
                   <span>★</span> {daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu'}
                 </span>
@@ -1190,9 +1192,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               {habitsList.map((habit) => (
                 <div 
                   key={habit.id}
-                  className={`habit-item relative ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle ${
+                  onClick={() => handleToggleHabit(habit.id)}
+                  className={`habit-item relative ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle cursor-pointer select-none active:scale-[0.99] hover:shadow-md ${
                     activeHabitMenuId === habit.id ? 'z-50' : 'z-0'
                   }`}
+                  title={habit.completed ? 'Click anywhere to mark pending' : 'Click anywhere to mark completed!'}
                 >
                   {/* Isolated Watermark container with overflow-hidden so the dropdown never gets clipped */}
                   <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none select-none">
@@ -1224,10 +1228,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     
                     <div className="flex items-center gap-2 shrink-0">
                       {/* Combined Edit & Delete dropdown trigger (small single button) */}
-                      <div className="relative">
+                      <div className="relative" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             playPopSound();
                             setActiveHabitMenuId(activeHabitMenuId === habit.id ? null : habit.id);
                           }}
@@ -1243,7 +1248,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                             <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[140px] text-xs space-y-1 animate-in fade-in zoom-in-95">
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   playPopSound();
                                   setActiveHabitMenuId(null);
                                   setEditingHabit(habit);
@@ -1260,7 +1266,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   playPopSound();
                                   setActiveHabitMenuId(null);
                                   handleDeleteHabit(habit.id);
@@ -1278,7 +1285,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       {/* Tick / Mark complete button at the very END */}
                       <button 
                         type="button"
-                        onClick={() => handleToggleHabit(habit.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleHabit(habit.id);
+                        }}
                         className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
                           habit.completed 
                             ? habit.btnBgDone 
@@ -1382,16 +1392,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               {displayPriorities.map((task) => (
                 <div 
                   key={task.id}
-                  className={`task-card relative flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle ${
+                  onClick={() => handleTogglePriority(task.id, task.isExternalTodo)}
+                  className={`task-card relative flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle cursor-pointer select-none active:scale-[0.99] hover:shadow-md ${
                     activePriorityMenuId === task.id ? 'z-50' : 'z-0'
                   } ${
                     task.completed 
                       ? 'bg-surface-container-low opacity-75' 
                       : 'bg-surface-card'
                   }`}
+                  title={task.completed ? 'Click anywhere to mark pending' : 'Click anywhere to mark completed!'}
                 >
                   <button 
-                    onClick={() => handleTogglePriority(task.id, task.isExternalTodo)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTogglePriority(task.id, task.isExternalTodo);
+                    }}
                     className={`task-checkbox mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center active:scale-95 shrink-0 transition-colors cursor-pointer ${
                       task.completed 
                         ? 'bg-secondary text-on-secondary' 
@@ -1428,9 +1444,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       {task.text}
                     </p>
                   </div>
-                  <div className="relative">
+                  <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <button 
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         playPopSound();
                         setActivePriorityMenuId(activePriorityMenuId === task.id ? null : task.id);
                       }}
@@ -1441,8 +1459,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     </button>
                     {activePriorityMenuId === task.id && (
                       <>
-                        <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActivePriorityMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                        <div className="fixed inset-0 z-40 cursor-default" onClick={(e) => { e.stopPropagation(); setActivePriorityMenuId(null); }} />
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => {
                             handleTogglePriority(task.id, task.isExternalTodo);

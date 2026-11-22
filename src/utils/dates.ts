@@ -242,7 +242,7 @@ export function generateIcsCalendar(title: string, dateKey: string, description 
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//SreeshSpace//Habit & Goal Vault//EN',
+    'PRODID:-//Orbit//Habit & Goal Vault//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
@@ -256,4 +256,18 @@ export function generateIcsCalendar(title: string, dateKey: string, description 
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
+}
+
+/**
+ * Returns ISO week number for a given date key or Date object.
+ */
+export function getWeekNumber(dateInput?: string | Date): number {
+  const d = dateInput 
+    ? (typeof dateInput === 'string' ? parseLocalDateKey(dateInput) : new Date(dateInput.getTime()))
+    : new Date();
+  const dUtc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = dUtc.getUTCDay() || 7;
+  dUtc.setUTCDate(dUtc.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(dUtc.getUTCFullYear(), 0, 1));
+  return Math.ceil((((dUtc.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
