@@ -56,9 +56,20 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-[#fff9f6] text-stone-800 font-sans antialiased flex flex-col justify-between items-center relative overflow-hidden select-none px-4 sm:px-6 py-6 sm:py-10 min-h-[100dvh] max-h-[100dvh] transition-opacity duration-300 ease-in-out ${
+      className={`fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen w-full h-screen h-[100dvh] z-[99999] bg-[#fff9f6] text-stone-800 font-sans antialiased flex flex-col justify-between items-center overflow-hidden select-none px-4 sm:px-6 py-6 sm:py-10 transition-opacity duration-300 ease-in-out ${
         fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh',
+        zIndex: 99999,
+        margin: 0,
+      }}
     >
       {/* Ambient Whimsical Background Glows & Floating Sparkles */}
       <div className="absolute -top-24 -left-20 w-80 h-80 rounded-full bg-violet-200/40 blur-3xl pointer-events-none" />
@@ -87,7 +98,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           <div className="relative p-1.5 rounded-full bg-white shadow-xl shadow-violet-500/10 ring-4 ring-violet-100/80">
             <img
               src={avatarImg}
-              alt="Sreeshnav's Space Logo"
+              alt="Orbit Logo"
               className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full object-cover shadow-inner"
             />
             {/* Mini Floating Status Badge */}
@@ -99,7 +110,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
         {/* Title & Subtitle */}
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 font-serif mb-1.5 sm:mb-2">
-          Sreeshnav's Space
+          Orbit
         </h1>
 
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] sm:text-xs font-semibold border border-amber-200/60 mb-3 sm:mb-4 shadow-sm">

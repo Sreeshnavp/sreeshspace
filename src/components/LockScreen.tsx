@@ -109,7 +109,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
 
         {/* Space Name & Subtitle */}
         <h1 className="font-head font-black text-xl sm:text-2xl text-main tracking-tight">
-          Sreeshnav's Space
+          Orbit
         </h1>
         <p className="text-xs text-muted mt-1 font-medium flex items-center justify-center gap-1">
           <Sparkles size={11} className="text-accent" />

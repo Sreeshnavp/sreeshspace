@@ -541,7 +541,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-space-xs">
                 <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none font-fraunces">
-                  Sreeshnav's Space
+                  Orbit
                 </span>
               </div>
               <div className="flex items-center gap-space-xs mt-space-xs">
