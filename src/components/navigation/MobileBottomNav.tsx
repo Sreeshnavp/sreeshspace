@@ -42,19 +42,19 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   return (
     <nav
-      className={`fixed bottom-0 w-full z-50 pb-safe bg-surface-card/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(139,92,246,0.08)] border-t border-border-subtle transition-transform duration-300 ease-in-out ${
+      className={`fixed z-50 transition-all duration-300 ease-in-out bottom-0 w-full pb-safe md:bottom-5 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[560px] md:max-w-2xl md:rounded-3xl md:pb-0 bg-surface-card/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(139,92,246,0.08)] md:shadow-[0_8px_32px_rgba(139,92,246,0.18)] border-t md:border border-border-subtle ${
         isVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
       }`}
       aria-label="Navigation Dock"
     >
-      <div className="flex items-center justify-around h-20 px-space-xs max-w-xl mx-auto">
+      <div className="flex items-center justify-around h-20 md:h-18 px-space-xs md:px-4 max-w-xl md:max-w-2xl mx-auto gap-1">
         {tabs.map((tab) => {
           const isActive = currentView === tab.view || (tab.view === 'notebook' && currentView === 'both');
           return (
             <button
               key={tab.view}
               type="button"
-              className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-14 rounded-2xl px-1 transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-14 md:h-12 rounded-2xl md:rounded-xl px-1 md:px-3 transition-all duration-200 cursor-pointer ${
                 isActive
                   ? 'bg-primary text-on-primary font-bold shadow-[0_4px_16px_rgba(107,56,212,0.35)] scale-105'
                   : 'text-on-surface-variant hover:text-on-surface hover:bg-lavender-subtle/50 active:scale-95'

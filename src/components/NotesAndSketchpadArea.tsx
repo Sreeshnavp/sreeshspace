@@ -526,7 +526,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
       <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-md mx-auto">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-space-md">
             <div className="relative flex items-center justify-center">
               <img 
@@ -581,8 +581,8 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
       {/* ======================================================== */}
       {/* 2. MAIN CONTENT AREA (STITCH 1:1)                        */}
       {/* ======================================================== */}
-      <main className="flex flex-col relative w-full pt-20 pb-28 bg-canvas-bg min-h-screen">
-        <div className="flex flex-col w-full max-w-md mx-auto px-margin-mobile space-y-space-lg">
+      <main className="flex flex-col relative w-full pt-20 pb-32 bg-canvas-bg min-h-screen">
+        <div className="flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 space-y-space-lg">
           
           {/* Top Header Card (Inspired by reference aesthetic) */}
           <div className="w-full bg-surface-card rounded-lg p-space-lg shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08),0_2px_6px_-1px_rgba(21,19,17,0.04)] relative overflow-hidden">
@@ -704,7 +704,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md">
               {vaultFolders.length === 0 && (
                 <div className="col-span-1 sm:col-span-2 p-4 bg-surface-container-low rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
                   No note categories yet. Tap <span className="font-semibold text-primary">+ New Category</span> to organize your ideas!
@@ -790,7 +790,7 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
           </div>
 
           {/* Independent / Unfiled Notes Section */}
-          <div className="space-y-space-sm pt-space-xs">
+          <div className="pt-space-xs">
             {displayedNotes.length === 0 ? (
               <div className="bg-surface-card rounded-lg p-space-lg border border-border-subtle text-center flex flex-col items-center">
                 <span className="text-3xl mb-2">📝</span>
@@ -802,7 +802,8 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
                 </p>
               </div>
             ) : (
-              displayedNotes.map((note) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedNotes.map((note) => {
                 const isCard1Checklist = note.id === 'note-showcase-1' || note.title.toLowerCase().includes('design system');
                 const isCard2Quote = note.id === 'note-showcase-2' || note.title.toLowerCase().includes('quick coffee');
                 const isCard3Doodle = note.id === 'note-showcase-3' || Boolean(note.drawing) || note.title.toLowerCase().includes('weekend coding');
@@ -992,7 +993,8 @@ export const NotesAndSketchpadArea: React.FC<NotesAndSketchpadAreaProps> = ({
                     </div>
                   </div>
                 );
-              })
+              })}
+              </div>
             )}
           </div>
 

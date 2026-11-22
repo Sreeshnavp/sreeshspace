@@ -263,7 +263,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
         {/* Top Bar with User Avatar, Mood Pill & Actions */}
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-md mx-auto w-full">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-2.5">
             {/* Avatar with Emerald Online Dot */}
             <div className="relative">
@@ -321,7 +321,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
       {/* ======================================================== */}
       {/* 2. MAIN CONTENT AREA                                     */}
       {/* ======================================================== */}
-      <main className="pt-24 px-4 pb-3 max-w-md mx-auto w-full space-y-4">
+      <main className="pt-24 px-4 sm:px-6 lg:px-10 pb-32 max-w-7xl mx-auto w-full space-y-6">
         {/* Screen Title Banner with Film Badge & Subtitle */}
         <div className="bg-white rounded-3xl p-4 shadow-soft border border-stone-100 flex flex-col gap-3.5">
           <div className="flex items-center gap-3">
@@ -472,7 +472,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
           </div>
 
           {/* Compact Vertical Stack of Folders ("just below below", no horizontal swipe) */}
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {effectiveCategories.length === 0 && (
               <div className="p-4 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-center text-xs text-stone-400">
                 No folders yet. Click <span className="font-semibold text-primary">+ New Folder</span> above to create one.
@@ -574,7 +574,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
         {/* 4. INDEPENDENT REELS DOCK                                */}
         {/* ======================================================== */}
         <section className="space-y-3" data-purpose="unfiled-independent-reels">
-          <div className="space-y-2.5" id="independent-reels-list">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5" id="independent-reels-list">
             {independentReels.length === 0 && (
               <div className="p-6 bg-white/70 rounded-2xl border border-dashed border-stone-200 text-center text-xs text-stone-400 space-y-1">
                 <Film size={24} className="mx-auto text-stone-300 mb-1" />

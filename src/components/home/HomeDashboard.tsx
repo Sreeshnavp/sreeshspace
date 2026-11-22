@@ -174,7 +174,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] border-b border-border-subtle transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto w-full">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           {/* Left: Avatar with Sparkle + Name + Status Pill */}
           <div className="flex items-center gap-space-md">
             <div 
@@ -245,7 +245,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* 2. MAIN FEED CONTAINER (STITCH EXACT 1:1)                */}
       {/* ======================================================== */}
       <main className="flex flex-col relative w-full pt-20 pb-28 bg-canvas-bg min-h-screen">
-        <div className="flex flex-col w-full max-w-lg mx-auto px-margin-mobile space-y-space-xl">
+        <div className="flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 space-y-space-xl">
           
           {/* SECTION 1: Cute Welcome Banner & Whimsical Illustration Card */}
           <section className="relative w-full rounded-3xl bg-lavender-subtle/70 p-space-xl overflow-hidden shadow-[0_8px_24px_-4px_rgba(139,92,246,0.08)]">
@@ -369,6 +369,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <span className="font-label-sm text-label-sm text-on-surface-variant">5 Categories Active</span>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 1. Links (Lavender) */}
             <div 
               onClick={() => {
@@ -523,6 +524,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 brush
               </span>
             </div>
+            </div>
           </section>
 
           {/* SECTION 3: Quick Access Grid */}
@@ -557,7 +559,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
             
             {/* Dynamic Grid of Cute Rounded App Tiles */}
-            <div className="grid grid-cols-3 gap-space-sm pt-space-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-space-sm pt-space-xs">
               {quickAccessLinks.map((item) => (
                 <a
                   key={item.id}

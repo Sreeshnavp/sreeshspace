@@ -207,7 +207,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
       <header className={`fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] border-b border-border-subtle transition-transform duration-300 ease-in-out ${
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
       }`}>
-        <div className="h-20 px-space-lg flex items-center justify-between gap-space-sm max-w-lg mx-auto w-full">
+        <div className="h-20 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-space-sm w-full max-w-7xl mx-auto">
           {/* Left: Avatar with Sparkle + Name + Status Pill */}
           <div className="flex items-center gap-space-md">
             <div 
@@ -268,7 +268,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
       {/* 2. MAIN FEED CONTAINER (STITCH EXACT 1:1)                */}
       {/* ======================================================== */}
       <main className="flex flex-col relative w-full pt-20 pb-28 bg-canvas-bg min-h-screen">
-        <div className="flex flex-col w-full px-space-md max-w-lg mx-auto pb-12 gap-space-md">
+        <div className="flex flex-col w-full px-4 sm:px-6 lg:px-10 max-w-7xl mx-auto pb-12 gap-space-md">
           
           {/* Toolbar matching Google Stitch: Links Title + View Tabs + New Folder / Add Link Buttons */}
           <div className="flex items-center justify-between gap-2 pt-1 overflow-x-auto pb-1">
@@ -356,7 +356,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {starredLinks.map((link) => {
                     const iconConfig = getUnfiledIcon(link.url, link.title);
                     return (
@@ -415,7 +415,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {links.map((link) => {
                     const iconConfig = getUnfiledIcon(link.url, link.title);
                     return (
@@ -457,7 +457,7 @@ export const LinksArea: React.FC<LinksAreaProps> = ({
             </div>
           ) : (
             /* Folders View (Matching stitch dd9daaa0d6d44b3697e5791b55fd4b30 1:1) */
-            <div className="grid grid-cols-1 gap-4 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
               {uniqueCategories.map((category, idx) => {
                 const folderLinks = categorizedMap.get(category.name) || [];
                 const style = getFolderStyle(idx, category);
