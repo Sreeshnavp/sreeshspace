@@ -1190,10 +1190,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               {habitsList.map((habit) => (
                 <div 
                   key={habit.id}
-                  className={`habit-item relative overflow-hidden ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle`}
+                  className={`habit-item relative ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle ${
+                    activeHabitMenuId === habit.id ? 'z-50' : 'z-0'
+                  }`}
                 >
-                  <div className={`absolute -right-3 -bottom-4 ${habit.watermarkColor} pointer-events-none select-none`}>
-                    <span className="material-symbols-outlined text-[80px]">{habit.watermark}</span>
+                  {/* Isolated Watermark container with overflow-hidden so the dropdown never gets clipped */}
+                  <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none select-none">
+                    <div className={`absolute -right-3 -bottom-4 ${habit.watermarkColor}`}>
+                      <span className="material-symbols-outlined text-[80px]">{habit.watermark}</span>
+                    </div>
                   </div>
                   <div className="relative z-10 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -1234,8 +1239,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
                         {activeHabitMenuId === habit.id && (
                           <>
-                            <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveHabitMenuId(null)} />
-                            <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[130px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                            <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActiveHabitMenuId(null)} />
+                            <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[140px] text-xs space-y-1 animate-in fade-in zoom-in-95">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1377,7 +1382,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               {displayPriorities.map((task) => (
                 <div 
                   key={task.id}
-                  className={`task-card flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle ${
+                  className={`task-card relative flex items-start gap-3.5 p-space-md rounded-2xl shadow-sm transition-all duration-200 border border-border-subtle ${
+                    activePriorityMenuId === task.id ? 'z-50' : 'z-0'
+                  } ${
                     task.completed 
                       ? 'bg-surface-container-low opacity-75' 
                       : 'bg-surface-card'
@@ -1434,8 +1441,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     </button>
                     {activePriorityMenuId === task.id && (
                       <>
-                        <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActivePriorityMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                        <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActivePriorityMenuId(null)} />
+                        <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
                         <button
                           onClick={() => {
                             handleTogglePriority(task.id, task.isExternalTodo);
