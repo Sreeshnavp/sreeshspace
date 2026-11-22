@@ -110,6 +110,36 @@ export const DEFAULT_POINT_RATES: PointRatesConfig = {
   dailyBonusPts: 50,
 };
 
+export function getSeedPriorities(today: string): PriorityTaskDef[] {
+  const prevWeekMonday = addDays(startOfWeek(today, 1), -7);
+  return [
+    // Monday
+    { id: 'seed-pw-mon-1', priority: 'high', time: '09:30 AM', text: 'Finish quarterly systems roadmap & architecture spec', completed: true, date: addDays(prevWeekMonday, 0) },
+    { id: 'seed-pw-mon-2', priority: 'medium', time: '02:00 PM', text: 'Review LinkVault vault sync & state integrity', completed: true, date: addDays(prevWeekMonday, 0) },
+    { id: 'seed-pw-mon-3', priority: 'gentle', time: '06:30 PM', text: 'Evening 30-min mindful recharge walk', completed: true, date: addDays(prevWeekMonday, 0) },
+    // Tuesday
+    { id: 'seed-pw-tue-1', priority: 'high', time: '10:00 AM', text: 'Refactor responsive shell navigation and touch feedback', completed: true, date: addDays(prevWeekMonday, 1) },
+    { id: 'seed-pw-tue-2', priority: 'medium', time: '03:15 PM', text: 'Organize design tokens and typography hierarchy', completed: true, date: addDays(prevWeekMonday, 1) },
+    // Wednesday
+    { id: 'seed-pw-wed-1', priority: 'high', time: '09:00 AM', text: 'Weekly finance reconciliation & expense audit', completed: true, date: addDays(prevWeekMonday, 2) },
+    { id: 'seed-pw-wed-2', priority: 'medium', time: '01:30 PM', text: 'Back up workspace bookmarks & clean archived tags', completed: true, date: addDays(prevWeekMonday, 2) },
+    { id: 'seed-pw-wed-3', priority: 'gentle', time: '08:00 PM', text: 'Read 2 chapters of cognitive architecture paper', completed: true, date: addDays(prevWeekMonday, 2) },
+    // Thursday
+    { id: 'seed-pw-thu-1', priority: 'high', time: '10:30 AM', text: 'Optimize media preloader and feed scroll FPS', completed: true, date: addDays(prevWeekMonday, 3) },
+    { id: 'seed-pw-thu-2', priority: 'medium', time: '04:00 PM', text: 'Prepare presentation notes for team sync', completed: true, date: addDays(prevWeekMonday, 3) },
+    // Friday
+    { id: 'seed-pw-fri-1', priority: 'high', time: '11:00 AM', text: 'Complete weekly sprint retro and wrap-up', completed: true, date: addDays(prevWeekMonday, 4) },
+    { id: 'seed-pw-fri-2', priority: 'medium', time: '04:30 PM', text: 'Archive completed priorities and clean habit log', completed: true, date: addDays(prevWeekMonday, 4) },
+    { id: 'seed-pw-fri-3', priority: 'gentle', time: '07:00 PM', text: 'Order weekly pantry essentials & restock', completed: true, date: addDays(prevWeekMonday, 4) },
+    // Saturday
+    { id: 'seed-pw-sat-1', priority: 'high', time: '08:00 AM', text: 'Long weekend trail hike & nature photography', completed: true, date: addDays(prevWeekMonday, 5) },
+    { id: 'seed-pw-sat-2', priority: 'medium', time: '03:00 PM', text: 'Curate inspiration reels & moodboard bookmarks', completed: true, date: addDays(prevWeekMonday, 5) },
+    // Sunday
+    { id: 'seed-pw-sun-1', priority: 'high', time: '10:00 AM', text: 'Weekly reflection & sanctuary reset', completed: true, date: addDays(prevWeekMonday, 6) },
+    { id: 'seed-pw-sun-2', priority: 'medium', time: '05:00 PM', text: 'Plan upcoming goals and priority schedule', completed: true, date: addDays(prevWeekMonday, 6) },
+  ];
+}
+
 export const DEFAULT_BAZAAR_PERKS = [
   {
     id: 'perk-default-1',
@@ -162,10 +192,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 }) => {
   const isHeaderVisible = useScrollVisibility();
   const TODAY = useMemo(() => todayKey(), []);
-  const currentWeekNumber = useMemo(() => getWeekNumber(TODAY), [TODAY]);
 
-  // Compute Monday of current week for 7-day strip
-  const weekStart = useMemo(() => startOfWeek(TODAY, 1), [TODAY]);
+  // Week offset state (0 = current week, -1 = previous week, +1 = next week)
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const currentWeekStart = useMemo(() => startOfWeek(TODAY, 1), [TODAY]);
+  const weekStart = useMemo(() => addDays(currentWeekStart, weekOffset * 7), [currentWeekStart, weekOffset]);
+  const displayedWeekNumber = useMemo(() => getWeekNumber(weekStart), [weekStart]);
+
+  // Compute 7-day strip date mapping for displayed week
   const dayDateMap = useMemo(() => {
     return {
       MON: addDays(weekStart, 0),
@@ -178,17 +212,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     } as Record<string, string>;
   }, [weekStart]);
 
-  // Determine current day key dynamically (e.g. SAT for Saturday)
+  // Determine current day key if today is in the displayed week
   const todayDayKey = useMemo(() => {
     for (const [k, v] of Object.entries(dayDateMap)) {
       if (v === TODAY) return k;
     }
-    const dayIndex = new Date().getDay();
-    const map = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    return map[dayIndex] || 'SAT';
+    return null;
   }, [dayDateMap, TODAY]);
 
-  // Initialize selectedDay to matching selectedDate or todayDayKey (e.g. SAT)
+  // Initialize selectedDay to matching selectedDate or todayDayKey or fallback
   const [selectedDay, setSelectedDay] = useState<string>(() => {
     if (selectedDate) {
       for (const [k, v] of Object.entries(dayDateMap)) {
@@ -198,7 +230,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     for (const [k, v] of Object.entries(dayDateMap)) {
       if (v === TODAY) return k;
     }
-    return 'SAT';
+    const dayIndex = new Date().getDay();
+    const map = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return map[dayIndex] || 'MON';
   });
 
   const activeDateKey = useMemo(() => {
@@ -219,6 +253,50 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       }
     }
   }, [selectedDate, dayDateMap]);
+
+  // Week navigation actions
+  const handlePrevWeek = () => {
+    playPopSound();
+    const newOffset = weekOffset - 1;
+    setWeekOffset(newOffset);
+    const newWeekStart = addDays(currentWeekStart, newOffset * 7);
+    const dayIndices: Record<string, number> = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
+    const dayIdx = dayIndices[selectedDay] ?? 0;
+    const targetDate = addDays(newWeekStart, dayIdx);
+    if (onSelectDate) onSelectDate(targetDate);
+  };
+
+  const handleNextWeek = () => {
+    playPopSound();
+    const newOffset = weekOffset + 1;
+    setWeekOffset(newOffset);
+    const newWeekStart = addDays(currentWeekStart, newOffset * 7);
+    const dayIndices: Record<string, number> = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
+    const dayIdx = dayIndices[selectedDay] ?? 0;
+    const targetDate = addDays(newWeekStart, dayIdx);
+    if (onSelectDate) onSelectDate(targetDate);
+  };
+
+  const handleResetToCurrentWeek = () => {
+    playPopSound();
+    setWeekOffset(0);
+    const currentMap: Record<string, string> = {
+      MON: addDays(currentWeekStart, 0),
+      TUE: addDays(currentWeekStart, 1),
+      WED: addDays(currentWeekStart, 2),
+      THU: addDays(currentWeekStart, 3),
+      FRI: addDays(currentWeekStart, 4),
+      SAT: addDays(currentWeekStart, 5),
+      SUN: addDays(currentWeekStart, 6),
+    };
+    for (const [k, v] of Object.entries(currentMap)) {
+      if (v === TODAY) {
+        setSelectedDay(k);
+        break;
+      }
+    }
+    if (onSelectDate) onSelectDate(TODAY);
+  };
 
   // Date for modal priority creation
   const [newTaskDate, setNewTaskDate] = useState<string>(activeDateKey);
@@ -363,13 +441,24 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return [];
   });
 
-  // Today's & Advance Priorities stored locally
+  // Today's & Advance Priorities stored locally (seeded with previous week tasks)
   const [prioritiesList, setPrioritiesList] = useState<PriorityTaskDef[]>(() => {
+    const seed = getSeedPriorities(todayKey());
     try {
       const saved = localStorage.getItem('sreesh-priorities-list-v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: PriorityTaskDef[] = JSON.parse(saved);
+        const prevWeekMon = addDays(startOfWeek(todayKey(), 1), -7);
+        const hasPrevWeekTasks = parsed.some(
+          (p) => p.id?.startsWith('seed-pw-') || (p.date && p.date >= prevWeekMon && p.date < startOfWeek(todayKey(), 1))
+        );
+        if (!hasPrevWeekTasks) {
+          return [...seed, ...parsed];
+        }
+        return parsed;
+      }
     } catch {}
-    return [];
+    return seed;
   });
 
   // Long-Term Goal Arcs (zero dummy items)
@@ -434,16 +523,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       { key: 'SUN', short: 'S', full: 'Sunday' },
     ];
 
-    const todayIdx = dayDefs.findIndex((d) => d.key === todayDayKey);
-    const effectiveTodayIdx = todayIdx >= 0 ? todayIdx : 5; // fallback to SAT
-
-    return dayDefs.map((d, idx) => {
-      const isToday = idx === effectiveTodayIdx;
-      const isPast = idx < effectiveTodayIdx;
+    return dayDefs.map((d) => {
+      const dateKey = dayDateMap[d.key];
+      const isToday = dateKey === TODAY;
+      const isPast = isBefore(dateKey, TODAY);
       const label = isToday ? d.key : d.short;
 
       return {
         key: d.key,
+        dateKey,
         label,
         isToday,
         completed: isPast,
@@ -452,11 +540,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         desc: isToday
           ? `${d.full} (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)`
           : isPast
-          ? `${d.full}: Completed routines (100% ★)`
-          : `${d.full}: Weekend rituals & sanctuary planning`,
+          ? `${d.full}: Logged routines (100% ★) · ${formatDisplayDate(dateKey)}`
+          : `${d.full}: Upcoming rituals & planning · ${formatDisplayDate(dateKey)}`,
       };
     });
-  }, [todayDayKey, completedRoutines, totalRoutines, focusPercent]);
+  }, [dayDateMap, TODAY, completedRoutines, totalRoutines, focusPercent]);
 
   // Toggle daily habit (awards +habitPts on completion, -habitPts if undone)
   const handleToggleHabit = (id: string) => {
@@ -1086,10 +1174,51 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
             {/* Section 2: Week at a Glance mini calendar pills */}
             <section className="bg-surface-card rounded-3xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-space-sm px-1">
-                <span className="font-label-md text-label-md text-on-surface-variant">Week {currentWeekNumber} · Habit Journey</span>
+              <div className="flex items-center justify-between mb-space-sm px-1 gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="flex items-center bg-surface-container-low border border-border-subtle rounded-xl p-0.5 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={handlePrevWeek}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-container active:scale-90 text-on-surface transition-all cursor-pointer"
+                      title="Previous week"
+                      aria-label="Previous week"
+                    >
+                      <span className="material-symbols-outlined text-[17px] leading-none">chevron_left</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextWeek}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-container active:scale-90 text-on-surface transition-all cursor-pointer"
+                      title="Next week"
+                      aria-label="Next week"
+                    >
+                      <span className="material-symbols-outlined text-[17px] leading-none">chevron_right</span>
+                    </button>
+                  </div>
+                  <span className="font-label-md text-label-md font-semibold text-on-surface whitespace-nowrap">
+                    Week {displayedWeekNumber} · Habit Journey
+                  </span>
+                  {weekOffset !== 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResetToCurrentWeek}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-all cursor-pointer active:scale-95 flex items-center gap-1 shadow-xs"
+                      title="Return to current week (Today)"
+                    >
+                      <span>↺</span> This Week
+                    </button>
+                  )}
+                </div>
+
                 <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
-                  <span>★</span> {daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu'}
+                  <span>★</span> {
+                    weekOffset < 0 
+                      ? '100% Logged' 
+                      : weekOffset > 0 
+                      ? 'Upcoming Plan' 
+                      : (daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu')
+                  }
                 </span>
               </div>
               <div className="space-y-2">
@@ -1145,14 +1274,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                         return `${activeConfig.fullName} (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`;
                       }
                       if (activeConfig.completed) {
-                        return `${activeConfig.fullName}: Completed routines (100% ★)`;
+                        return `${activeConfig.fullName}: Logged routines (100% ★) · ${formatDisplayDate(activeConfig.dateKey)}`;
                       }
-                      return `${activeConfig.fullName}: Weekend rituals & sanctuary planning`;
+                      return `${activeConfig.fullName}: Planned rituals & sanctuary planning · ${formatDisplayDate(activeConfig.dateKey)}`;
                     })()}
                   </span>
                 </span>
                 <span className="text-primary font-bold text-[10px]">
-                  {selectedDay === todayDayKey ? 'Active' : 'Logged'}
+                  {dayDateMap[selectedDay] === TODAY ? 'Active' : isBefore(dayDateMap[selectedDay], TODAY) ? 'Logged' : 'Upcoming'}
                 </span>
               </div>
             </div>
@@ -1329,6 +1458,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     ? `${remainingPriorities} Remaining` 
                     : isAfter(activeDateKey, TODAY)
                     ? `${remainingPriorities} Scheduled (${formatDisplayDate(activeDateKey)})`
+                    : remainingPriorities === 0 && displayPriorities.length > 0
+                    ? `All Done ✨ (${displayPriorities.length} Tasks)`
                     : `${remainingPriorities} Incomplete`}
                 </span>
               </div>

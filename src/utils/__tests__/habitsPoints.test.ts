@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_BAZAAR_PERKS, DEFAULT_POINT_RATES, PointRatesConfig } from '../../components/habits/HabitsDashboard';
+import { DEFAULT_BAZAAR_PERKS, DEFAULT_POINT_RATES, PointRatesConfig, getSeedPriorities } from '../../components/habits/HabitsDashboard';
+import { addDays, startOfWeek } from '../dates';
 
 describe('Habit Points & Reward System Logic', () => {
   it('has default point reward rates matching specifications', () => {
@@ -108,5 +109,30 @@ describe('Habit Points & Reward System Logic', () => {
 
     // Now coffee can no longer be afforded (10 < 40)
     expect(glowPoints >= coffeePerk.cost).toBe(false);
+  });
+
+  it('getSeedPriorities generates completed logged tasks for all days of the previous week', () => {
+    const today = '2026-11-22';
+    const seeds = getSeedPriorities(today);
+    expect(seeds.length).toBeGreaterThanOrEqual(14);
+
+    const prevWeekMonday = addDays(startOfWeek(today, 1), -7);
+    const expectedDays = [
+      addDays(prevWeekMonday, 0),
+      addDays(prevWeekMonday, 1),
+      addDays(prevWeekMonday, 2),
+      addDays(prevWeekMonday, 3),
+      addDays(prevWeekMonday, 4),
+      addDays(prevWeekMonday, 5),
+      addDays(prevWeekMonday, 6),
+    ];
+
+    // Every day in previous week should have at least one task
+    for (const d of expectedDays) {
+      const dayTasks = seeds.filter(s => s.date === d);
+      expect(dayTasks.length).toBeGreaterThan(0);
+      expect(dayTasks.every(t => t.completed)).toBe(true);
+      expect(dayTasks.every(t => t.text.trim().length > 0)).toBe(true);
+    }
   });
 });
