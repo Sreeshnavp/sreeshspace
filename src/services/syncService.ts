@@ -45,10 +45,12 @@ import {
   loadBazaarPerks,
   saveBazaarPerks,
   loadGlowPoints,
+  loadGlowPointsUpdatedAt,
   saveGlowPoints,
   loadPointRates,
   savePointRates,
   loadLastBonusDate,
+  loadLastBonusDateUpdatedAt,
   saveLastBonusDate,
   loadNotesFolders,
   saveNotesFolders,
@@ -542,16 +544,48 @@ export function mergeVaultData(
     mergedTombstones
   );
 
-  // 20. Glow Points & Vault Points
+  // 20. Glow Points & Vault Points (LWW based on pointsUpdatedAt)
   const localPts = typeof local.settings?.glowPoints === 'number' ? local.settings.glowPoints : 0;
   const remotePts = typeof remote.settings?.glowPoints === 'number' ? remote.settings.glowPoints : 0;
-  const glowPoints = Math.max(localPts, remotePts);
+  const localPtsTime = new Date(local.settings?.glowPointsUpdatedAt || 0).getTime();
+  const remotePtsTime = new Date(remote.settings?.glowPointsUpdatedAt || 0).getTime();
+
+  let glowPoints: number;
+  let glowPointsUpdatedAt: string;
+
+  if (localPtsTime === 0 && remotePtsTime === 0) {
+    glowPoints = Math.max(localPts, remotePts);
+    glowPointsUpdatedAt = new Date().toISOString();
+  } else if (localPtsTime >= remotePtsTime) {
+    glowPoints = localPts;
+    glowPointsUpdatedAt = local.settings?.glowPointsUpdatedAt || (localPtsTime ? new Date(localPtsTime).toISOString() : new Date().toISOString());
+  } else {
+    glowPoints = remotePts;
+    glowPointsUpdatedAt = remote.settings?.glowPointsUpdatedAt || new Date(remotePtsTime).toISOString();
+  }
 
   // 21. Configurable Point Rates
   const pointRates = remote.settings?.pointRates || local.settings?.pointRates || null;
 
-  // 22. Daily Bonus Claim Date
-  const lastBonusDate = (remote.settings?.lastBonusDate) || (local.settings?.lastBonusDate) || '';
+  // 22. Daily Bonus Claim Date (LWW based on lastBonusDateUpdatedAt)
+  const localBonusDate = local.settings?.lastBonusDate ?? '';
+  const remoteBonusDate = remote.settings?.lastBonusDate ?? '';
+  const localBonusTime = new Date(local.settings?.lastBonusDateUpdatedAt || 0).getTime();
+  const remoteBonusTime = new Date(remote.settings?.lastBonusDateUpdatedAt || 0).getTime();
+
+  let lastBonusDate: string;
+  let lastBonusDateUpdatedAt: string;
+
+  if (localBonusTime === 0 && remoteBonusTime === 0) {
+    lastBonusDate = remoteBonusDate || localBonusDate || '';
+    lastBonusDateUpdatedAt = new Date().toISOString();
+  } else if (localBonusTime >= remoteBonusTime) {
+    lastBonusDate = localBonusDate;
+    lastBonusDateUpdatedAt = local.settings?.lastBonusDateUpdatedAt || (localBonusTime ? new Date(localBonusTime).toISOString() : new Date().toISOString());
+  } else {
+    lastBonusDate = remoteBonusDate;
+    lastBonusDateUpdatedAt = remote.settings?.lastBonusDateUpdatedAt || new Date(remoteBonusTime).toISOString();
+  }
 
   // 23. Notes Vault Custom Folders
   const localNotesFolders = (local.settings?.notesFolders as any[]) || [];
@@ -602,8 +636,10 @@ export function mergeVaultData(
     goalArcs,
     bazaarPerks,
     glowPoints,
+    glowPointsUpdatedAt,
     pointRates,
     lastBonusDate,
+    lastBonusDateUpdatedAt,
     notesFolders,
     quickAccessLinks,
     savingsGoals,
@@ -696,8 +732,10 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
     const localGoalArcs = loadGoalArcs();
     const localPerks = loadBazaarPerks();
     const localGlowPoints = loadGlowPoints();
+    const localGlowPointsUpdatedAt = loadGlowPointsUpdatedAt();
     const localPointRates = loadPointRates();
     const localLastBonusDate = loadLastBonusDate();
+    const localLastBonusDateUpdatedAt = loadLastBonusDateUpdatedAt();
     const localNotesFolders = loadNotesFolders();
     const localQuickAccessLinks = loadQuickAccessLinks();
     const localSavingsGoals = loadSavingsGoals();
@@ -733,8 +771,10 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
         goalArcs: localGoalArcs,
         bazaarPerks: localPerks,
         glowPoints: localGlowPoints,
+        glowPointsUpdatedAt: localGlowPointsUpdatedAt,
         pointRates: localPointRates,
         lastBonusDate: localLastBonusDate,
+        lastBonusDateUpdatedAt: localLastBonusDateUpdatedAt,
         notesFolders: localNotesFolders,
         quickAccessLinks: localQuickAccessLinks,
         savingsGoals: localSavingsGoals,
@@ -818,13 +858,13 @@ export async function syncWithCloud(options?: { onMerged?: () => void }): Promis
       saveBazaarPerks(mergedPayload.settings.bazaarPerks);
     }
     if (typeof mergedPayload.settings?.glowPoints === 'number') {
-      saveGlowPoints(mergedPayload.settings.glowPoints);
+      saveGlowPoints(mergedPayload.settings.glowPoints, mergedPayload.settings.glowPointsUpdatedAt);
     }
     if (mergedPayload.settings?.pointRates) {
       savePointRates(mergedPayload.settings.pointRates);
     }
     if (typeof mergedPayload.settings?.lastBonusDate === 'string') {
-      saveLastBonusDate(mergedPayload.settings.lastBonusDate);
+      saveLastBonusDate(mergedPayload.settings.lastBonusDate, mergedPayload.settings.lastBonusDateUpdatedAt);
     }
     if (mergedPayload.settings?.notesFolders) {
       saveNotesFolders(mergedPayload.settings.notesFolders);

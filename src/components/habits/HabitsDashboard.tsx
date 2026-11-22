@@ -24,6 +24,15 @@ import {
 } from '../../utils/dates';
 import { computeStreakState } from '../../utils/streakCalculator';
 import { triggerAutoSync } from '../../services/syncService';
+import {
+  saveGlowPoints,
+  saveLastBonusDate,
+  saveHabitsList,
+  savePrioritiesList,
+  saveGoalArcs,
+  saveBazaarPerks,
+  savePointRates,
+} from '../../services/storage';
 
 export interface HabitsDashboardProps {
   todos: TodoItem[];
@@ -301,12 +310,11 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setGlowPoints((prev) => {
       const next = Math.max(0, prev + delta);
       try {
-        localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, next.toString());
-        localStorage.setItem('orbit-habits-v2-points', next.toString());
+        saveGlowPoints(next);
       } catch {}
-      triggerAutoSync();
       return next;
     });
+    triggerAutoSync();
   };
 
   const [pointsToast, setPointsToast] = useState<{ message: string; pts: number; type: 'earn' | 'redeem' } | null>(null);
@@ -361,10 +369,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       setLastBonusDate('');
       try {
         localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
+        localStorage.removeItem('orbit-habits-v2-bonus-date');
       } catch {}
+      saveLastBonusDate('');
     }
     try {
-      localStorage.setItem('sreesh-habit-point-rates-v1', JSON.stringify(cleanRates));
+      savePointRates(cleanRates);
     } catch {}
     triggerAutoSync();
     setIsEditRatesModalOpen(false);
@@ -491,7 +501,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         }
 
         const ptsSaved = localStorage.getItem('orbit-habits-v2-points') || localStorage.getItem('orbit-habits-points');
-        if (ptsSaved) setGlowPoints(parseInt(ptsSaved, 10) || 0);
+        if (ptsSaved !== null) {
+          const parsedPts = parseInt(ptsSaved, 10);
+          setGlowPoints(Number.isNaN(parsedPts) ? 0 : Math.max(0, parsedPts));
+        }
 
         const ratesSaved = localStorage.getItem('sreesh-habit-point-rates-v1');
         if (ratesSaved) setPointRates(JSON.parse(ratesSaved));
@@ -654,93 +667,84 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Toggle daily habit (awards +habitPts on completion, -habitPts if undone)
   const handleToggleHabit = (id: string) => {
-    setHabitsList((prev) => {
-      const targetHabit = prev.find((h) => h.id === id);
-      const willBeCompleted = !targetHabit?.completed;
-      const pts = pointRates.habitPts;
+    const targetHabit = habitsList.find((h) => h.id === id);
+    if (!targetHabit) return;
+    const willBeCompleted = !targetHabit.completed;
+    const pts = pointRates.habitPts;
 
-      if (willBeCompleted) {
-        triggerCelebration();
-        updateGlowPoints(pts);
-        showPointsFeedback(`🌟 Completed "${targetHabit?.title || 'Habit'}"! +${pts} Glow Points!`, pts, 'earn');
-      } else {
-        playPopSound();
-        updateGlowPoints(-pts);
-        showPointsFeedback(`Marked "${targetHabit?.title || 'Habit'}" pending (-${pts} Glow Points)`, -pts, 'redeem');
+    if (willBeCompleted) {
+      triggerCelebration();
+      updateGlowPoints(pts);
+      showPointsFeedback(`🌟 Completed "${targetHabit.title || 'Habit'}"! +${pts} Glow Points!`, pts, 'earn');
+    } else {
+      playPopSound();
+      updateGlowPoints(-pts);
+      showPointsFeedback(`Marked "${targetHabit.title || 'Habit'}" pending (-${pts} Glow Points)`, -pts, 'redeem');
+    }
+
+    const next = habitsList.map((h) => {
+      if (h.id === id) {
+        return {
+          ...h,
+          completed: willBeCompleted,
+          badge: willBeCompleted ? 'Completed!' : '✨ Pending',
+          badgeBg: willBeCompleted ? h.btnBgDone : 'bg-surface-card text-tertiary',
+          updatedAt: new Date().toISOString(),
+        };
       }
-
-      const next = prev.map((h) => {
-        if (h.id === id) {
-          return {
-            ...h,
-            completed: willBeCompleted,
-            badge: willBeCompleted ? 'Completed!' : '✨ Pending',
-            badgeBg: willBeCompleted ? h.btnBgDone : 'bg-surface-card text-tertiary',
-          };
-        }
-        return h;
-      });
-      try {
-        localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next));
-      } catch {}
-      triggerAutoSync();
-      return next;
+      return h;
     });
+
+    setHabitsList(next);
+    try {
+      saveHabitsList(next);
+    } catch {}
+    triggerAutoSync();
   };
 
   // Toggle priority task (awards +priorityPts on completion, -priorityPts if undone)
   const handleTogglePriority = (id: string, isExternal?: boolean) => {
     const pts = pointRates.priorityPts;
+    const item = displayPriorities.find((p) => p.id === id) || prioritiesList.find((p) => p.id === id);
+    if (!item) return;
+
+    const willBeCompleted = !item.completed;
+
+    if (willBeCompleted) {
+      triggerCelebration();
+      updateGlowPoints(pts);
+      showPointsFeedback(`🎯 Completed priority task! +${pts} Glow Points!`, pts, 'earn');
+    } else {
+      playPopSound();
+      updateGlowPoints(-pts);
+      showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
+    }
+
     if (isExternal) {
       onToggleTodo(id);
-      const item = displayPriorities.find((p) => p.id === id);
-      const willBeCompleted = !item?.completed;
-      if (willBeCompleted) {
-        triggerCelebration();
-        updateGlowPoints(pts);
-        showPointsFeedback(`🎯 Completed priority task! +${pts} Glow Points!`, pts, 'earn');
-      } else {
-        playPopSound();
-        updateGlowPoints(-pts);
-        showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
-      }
       triggerAutoSync();
       return;
     }
 
-    setPrioritiesList((prev) => {
-      const item = prev.find((p) => p.id === id);
-      const willBeCompleted = !item?.completed;
-
-      if (willBeCompleted) {
-        triggerCelebration();
-        updateGlowPoints(pts);
-        showPointsFeedback(`🎯 Completed priority task! +${pts} Glow Points!`, pts, 'earn');
-      } else {
-        playPopSound();
-        updateGlowPoints(-pts);
-        showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
+    const next = prioritiesList.map((p) => {
+      if (p.id === id) {
+        return { ...p, completed: willBeCompleted, updatedAt: new Date().toISOString() };
       }
-
-      const next = prev.map((p) => {
-        if (p.id === id) {
-          return { ...p, completed: willBeCompleted };
-        }
-        return p;
-      });
-      try {
-        localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next));
-      } catch {}
-      triggerAutoSync();
-      return next;
+      return p;
     });
+    setPrioritiesList(next);
+    try {
+      savePrioritiesList(next);
+    } catch {}
 
     const matchingTodo = userDailyTodos.find(
-      (t) => t.id === id || t.text.trim().toLowerCase() === displayPriorities.find((p) => p.id === id)?.text.trim().toLowerCase()
+      (t) => t.id === id || t.text.trim().toLowerCase() === item.text.trim().toLowerCase()
     );
-    if (matchingTodo) {
+    if (matchingTodo && matchingTodo.completed !== willBeCompleted) {
       onToggleTodo(matchingTodo.id);
     }
+
+    triggerAutoSync();
   };
 
   // Delete priority task
@@ -823,48 +827,74 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     triggerAutoSync();
   };
 
+  // Active completed tasks/rituals for today (determines streak bonus eligibility)
+  const activeDoneToday = useMemo(() => {
+    const doneHabits = habitsList.filter((h) => h.completed).length;
+    const donePriorities = displayPriorities.filter((p) => p.completed && (p.date || TODAY) === TODAY).length;
+    return doneHabits + donePriorities;
+  }, [habitsList, displayPriorities, TODAY]);
+
+  // Auto-revoke daily streak bonus if user undid all tasks for today after claiming
+  useEffect(() => {
+    if (hasClaimedTodayBonus && activeDoneToday === 0 && pointRates.dailyBonusPts > 0) {
+      const bonus = pointRates.dailyBonusPts;
+      updateGlowPoints(-bonus);
+      setLastBonusDate('');
+      try {
+        localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
+        localStorage.removeItem('orbit-habits-v2-bonus-date');
+      } catch {}
+      saveLastBonusDate('');
+      triggerAutoSync();
+      showPointsFeedback(`Streak bonus revoked (-${bonus} pts) as rituals are pending`, -bonus, 'redeem');
+    }
+  }, [hasClaimedTodayBonus, activeDoneToday, pointRates.dailyBonusPts]);
+
   // Toggle goal subtask (awards +milestonePts on milestone achieved, -milestonePts if undone)
   const handleToggleGoalSubtask = (goalId: string, subtaskId: string) => {
     const pts = pointRates.milestonePts;
-    setGoalArcs((prev) => {
-      const next = prev.map((g) => {
-        if (g.id === goalId) {
-          const targetSubtask = g.subtasks.find((st) => st.id === subtaskId);
-          const willBeCompleted = !targetSubtask?.completed;
+    const targetGoal = goalArcs.find((g) => g.id === goalId);
+    const targetSubtask = targetGoal?.subtasks?.find((st) => st.id === subtaskId);
+    if (!targetGoal || !targetSubtask) return;
 
-          if (willBeCompleted) {
-            triggerCelebration();
-            updateGlowPoints(pts);
-            showPointsFeedback(`🏆 Goal milestone achieved! +${pts} Glow Points!`, pts, 'earn');
-          } else {
-            playPopSound();
-            updateGlowPoints(-pts);
-            showPointsFeedback(`Milestone marked pending (-${pts} Glow Points)`, -pts, 'redeem');
+    const willBeCompleted = !targetSubtask.completed;
+
+    if (willBeCompleted) {
+      triggerCelebration();
+      updateGlowPoints(pts);
+      showPointsFeedback(`🏆 Goal milestone achieved! +${pts} Glow Points!`, pts, 'earn');
+    } else {
+      playPopSound();
+      updateGlowPoints(-pts);
+      showPointsFeedback(`Milestone marked pending (-${pts} Glow Points)`, -pts, 'redeem');
+    }
+
+    const next = goalArcs.map((g) => {
+      if (g.id === goalId) {
+        const nextSubtasks = g.subtasks.map((st) => {
+          if (st.id === subtaskId) {
+            return { ...st, completed: willBeCompleted };
           }
-
-          const nextSubtasks = g.subtasks.map((st) => {
-            if (st.id === subtaskId) {
-              return { ...st, completed: willBeCompleted };
-            }
-            return st;
-          });
-          const done = nextSubtasks.filter((s) => s.completed).length;
-          const pct = Math.round((done / nextSubtasks.length) * 100);
-          return {
-            ...g,
-            subtasks: nextSubtasks,
-            progressPercent: pct,
-            progressLabel: `${pct}% completed (${done}/${nextSubtasks.length} Milestones)`,
-          };
-        }
-        return g;
-      });
-      try {
-        localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next));
-      } catch {}
-      triggerAutoSync();
-      return next;
+          return st;
+        });
+        const done = nextSubtasks.filter((s) => s.completed).length;
+        const pct = Math.round((done / nextSubtasks.length) * 100);
+        return {
+          ...g,
+          subtasks: nextSubtasks,
+          progressPercent: pct,
+          progressLabel: `${pct}% completed (${done}/${nextSubtasks.length} Milestones)`,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return g;
     });
+
+    setGoalArcs(next);
+    try {
+      saveGoalArcs(next);
+    } catch {}
+    triggerAutoSync();
   };
 
   // Claim or Unclaim daily streak bonus (+dailyBonusPts once per day)
@@ -879,9 +909,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       setLastBonusDate('');
       try {
         localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
+        localStorage.removeItem('orbit-habits-v2-bonus-date');
       } catch {}
+      saveLastBonusDate('');
       triggerAutoSync();
       showPointsFeedback(`Reset Daily Streak Bonus (-${bonus} Glow Points)`, -bonus, 'redeem');
+      return;
+    }
+
+    if (activeDoneToday === 0) {
+      playPopSound();
+      showPointsFeedback('🔒 Complete at least 1 habit or priority task today to unlock Streak Bonus!', 0, 'redeem');
       return;
     }
 
@@ -889,7 +927,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setLastBonusDate(TODAY);
     try {
       localStorage.setItem(`${HABITS_STORAGE_KEY}-bonus-date`, TODAY);
+      localStorage.setItem('orbit-habits-v2-bonus-date', TODAY);
     } catch {}
+    saveLastBonusDate(TODAY);
     triggerAutoSync();
     triggerCelebration();
     showPointsFeedback(`🎉 Claimed +${bonus} Daily Streak Bonus into your Vault!`, bonus, 'earn');
@@ -914,25 +954,23 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     updateGlowPoints(-cost);
 
     // Update perk claim tracking (increment count and record date)
-    setBazaarPerks((prev) => {
-      const next = prev.map((p) => {
-        if (p.id === perkId) {
-          const newCount = (p.redeemedCount || 0) + 1;
-          return {
-            ...p,
-            redeemedCount: newCount,
-            lastRedeemedDate: TODAY,
-            unlocked: true,
-          };
-        }
-        return p;
-      });
-      try {
-        localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next));
-      } catch {}
-      triggerAutoSync();
-      return next;
+    const next = bazaarPerks.map((p) => {
+      if (p.id === perkId) {
+        const newCount = (p.redeemedCount || 0) + 1;
+        return {
+          ...p,
+          redeemedCount: newCount,
+          lastRedeemedDate: TODAY,
+          unlocked: true,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return p;
     });
+    setBazaarPerks(next);
+    try {
+      saveBazaarPerks(next);
+    } catch {}
 
     triggerCelebration();
     triggerAutoSync();
@@ -2194,14 +2232,28 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all cursor-pointer ${
                     hasClaimedTodayBonus 
                       ? 'bg-surface-container-high text-secondary border border-secondary/30 hover:bg-surface-container-highest active:scale-95' 
+                      : activeDoneToday === 0
+                      ? 'bg-surface-card text-on-surface-variant border border-border-subtle opacity-75 hover:bg-surface-container-high'
                       : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md'
                   }`}
-                  title={hasClaimedTodayBonus ? 'Claimed today (Click to unclaim/reset)' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}
+                  title={
+                    hasClaimedTodayBonus 
+                      ? 'Claimed today (Click to unclaim/reset)' 
+                      : activeDoneToday === 0
+                      ? `Complete at least 1 habit or priority task today to claim +${pointRates.dailyBonusPts} Streak Bonus`
+                      : `Claim +${pointRates.dailyBonusPts} Streak Bonus`
+                  }
                 >
                   <span className="material-symbols-outlined text-[16px]">
-                    {hasClaimedTodayBonus ? 'check_circle' : 'stars'}
+                    {hasClaimedTodayBonus ? 'check_circle' : activeDoneToday === 0 ? 'lock' : 'stars'}
                   </span>
-                  <span>{hasClaimedTodayBonus ? '✓ Claimed Today' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}</span>
+                  <span>
+                    {hasClaimedTodayBonus 
+                      ? '✓ Claimed Today' 
+                      : activeDoneToday === 0 
+                      ? `Locked (+${pointRates.dailyBonusPts} Bonus)` 
+                      : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}
+                  </span>
                 </button>
               )}
             </div>

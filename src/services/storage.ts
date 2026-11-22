@@ -1142,9 +1142,11 @@ export const STORAGE_KEY_GOAL_ARCS = 'sreesh-goal-arcs-v2';
 export const STORAGE_KEY_BAZAAR_PERKS = 'sreesh-bazaar-perks-v2';
 export const STORAGE_KEY_GLOW_POINTS = 'orbit-habits-v2-points';
 export const STORAGE_KEY_GLOW_POINTS_ALT = 'orbit-habits-points';
+export const STORAGE_KEY_GLOW_POINTS_UPDATED_AT = 'orbit-habits-points-updated-at';
 export const STORAGE_KEY_POINT_RATES = 'sreesh-habit-point-rates-v1';
 export const STORAGE_KEY_BONUS_DATE = 'orbit-habits-v2-bonus-date';
 export const STORAGE_KEY_BONUS_DATE_ALT = 'orbit-habits-bonus-date';
+export const STORAGE_KEY_BONUS_DATE_UPDATED_AT = 'orbit-habits-bonus-date-updated-at';
 export const STORAGE_KEY_NOTES_FOLDERS = 'sreesh-notes-vault-folders-v2';
 export const STORAGE_KEY_QUICK_ACCESS_LINKS = 'sreesh-quick-access-links-v2';
 export const STORAGE_KEY_SAVINGS_GOALS = 'sreesh-savings-goals-v2';
@@ -1232,11 +1234,20 @@ export function loadGlowPoints(): number {
   return 0;
 }
 
-export function saveGlowPoints(points: number): void {
+export function loadGlowPointsUpdatedAt(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_GLOW_POINTS_UPDATED_AT) || '';
+  } catch {}
+  return '';
+}
+
+export function saveGlowPoints(points: number, updatedAt?: string): void {
   try {
     const val = Math.max(0, Math.floor(points || 0)).toString();
     localStorage.setItem(STORAGE_KEY_GLOW_POINTS, val);
     localStorage.setItem(STORAGE_KEY_GLOW_POINTS_ALT, val);
+    const ts = updatedAt || new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY_GLOW_POINTS_UPDATED_AT, ts);
   } catch {}
 }
 
@@ -1263,7 +1274,14 @@ export function loadLastBonusDate(): string {
   return '';
 }
 
-export function saveLastBonusDate(d: string): void {
+export function loadLastBonusDateUpdatedAt(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_BONUS_DATE_UPDATED_AT) || '';
+  } catch {}
+  return '';
+}
+
+export function saveLastBonusDate(d: string, updatedAt?: string): void {
   try {
     if (d) {
       localStorage.setItem(STORAGE_KEY_BONUS_DATE, d);
@@ -1272,6 +1290,8 @@ export function saveLastBonusDate(d: string): void {
       localStorage.removeItem(STORAGE_KEY_BONUS_DATE);
       localStorage.removeItem(STORAGE_KEY_BONUS_DATE_ALT);
     }
+    const ts = updatedAt || new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY_BONUS_DATE_UPDATED_AT, ts);
   } catch {}
 }
 

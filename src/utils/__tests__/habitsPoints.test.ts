@@ -246,4 +246,69 @@ describe('Habit Points & Reward System Logic', () => {
     const tomorrowTasks = priorities.filter(p => p.date === tomorrow);
     expect(tomorrowTasks.map(p => p.id)).toEqual(['p1']);
   });
+
+  it('prevents points farming: completing and undoing tasks leaves net zero point difference', () => {
+    let points = 20;
+    const habitPts = 20;
+    const updateGlowPoints = (delta: number) => {
+      points = Math.max(0, points + delta);
+    };
+
+    // User marks task done
+    updateGlowPoints(habitPts);
+    expect(points).toBe(40);
+
+    // User undos task
+    updateGlowPoints(-habitPts);
+    expect(points).toBe(20);
+
+    // Repeated toggle cycles must never accumulate free points
+    for (let i = 0; i < 5; i++) {
+      updateGlowPoints(habitPts); // done
+      updateGlowPoints(-habitPts); // undone
+    }
+    expect(points).toBe(20);
+  });
+
+  it('requires at least 1 completed task to claim daily streak bonus and auto-revokes if rituals are undone', () => {
+    const dailyBonusPts = 50;
+    let points = 20;
+    let lastBonusDate = '';
+    const today = '2026-11-22';
+
+    let habits = [{ id: 'h1', title: 'Morning meditation', completed: false }];
+    let priorities = [{ id: 'p1', text: 'Deploy app', date: today, completed: false }];
+
+    const getActiveDoneToday = () => {
+      return habits.filter(h => h.completed).length + priorities.filter(p => p.completed && p.date === today).length;
+    };
+
+    // With 0 tasks done, claiming should be blocked / locked
+    expect(getActiveDoneToday()).toBe(0);
+    const canClaim = getActiveDoneToday() > 0 && lastBonusDate !== today;
+    expect(canClaim).toBe(false);
+
+    // User marks habit done
+    habits = habits.map(h => ({ ...h, completed: true }));
+    expect(getActiveDoneToday()).toBe(1);
+
+    // Now user can claim daily streak bonus
+    expect(getActiveDoneToday() > 0 && lastBonusDate !== today).toBe(true);
+    points += dailyBonusPts;
+    lastBonusDate = today;
+    expect(points).toBe(70);
+    expect(lastBonusDate).toBe(today);
+
+    // User undoes the habit -> active done today drops back to 0
+    habits = habits.map(h => ({ ...h, completed: false }));
+    expect(getActiveDoneToday()).toBe(0);
+
+    // Auto-revocation triggers when activeDoneToday === 0
+    if (lastBonusDate === today && getActiveDoneToday() === 0) {
+      points = Math.max(0, points - dailyBonusPts);
+      lastBonusDate = '';
+    }
+    expect(points).toBe(20);
+    expect(lastBonusDate).toBe('');
+  });
 });

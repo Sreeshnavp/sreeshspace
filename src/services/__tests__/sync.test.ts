@@ -678,4 +678,31 @@ describe('syncService - merge algorithms', () => {
     // Status vibe preserved
     expect(settings.statusVibe).toBe('🔥 Goal Crusher');
   });
+
+  it('honors local point deductions and bonus unclaiming when local has newer timestamp', () => {
+    const local = {
+      settings: {
+        glowPoints: 60,
+        glowPointsUpdatedAt: new Date().toISOString(),
+        lastBonusDate: '', // unclaimed
+        lastBonusDateUpdatedAt: new Date().toISOString(),
+      },
+    };
+    const remote = {
+      settings: {
+        glowPoints: 100,
+        glowPointsUpdatedAt: new Date(Date.now() - 300000).toISOString(),
+        lastBonusDate: '2026-11-22',
+        lastBonusDateUpdatedAt: new Date(Date.now() - 300000).toISOString(),
+      },
+    };
+
+    const merged = mergeVaultData(local as any, remote as any);
+    const settings = merged.settings || {};
+
+    // Deducted 60 points must be preserved (not overridden by 100)
+    expect(settings.glowPoints).toBe(60);
+    // Unclaimed bonus date must be preserved
+    expect(settings.lastBonusDate).toBe('');
+  });
 });
