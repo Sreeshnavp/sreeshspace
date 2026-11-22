@@ -700,7 +700,10 @@ export function App() {
 
   const navigateToView = useCallback((targetView: WorkspaceView, replace: boolean = false) => {
     setWorkspaceView((current) => {
-      if (current === targetView) return current;
+      if (current === targetView) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        return current;
+      }
       const targetHash = '#' + targetView;
       if (replace) {
         window.history.replaceState({ view: targetView }, '', targetHash);
@@ -709,7 +712,23 @@ export function App() {
       }
       return targetView;
     });
+
+    // Reset window & document scroll immediately so the new tab always opens at the top
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainEl = document.querySelector('main');
+    if (mainEl) mainEl.scrollTop = 0;
   }, []);
+
+  // Guarantee scroll-to-top whenever active tab view changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainEl = document.querySelector('main');
+    if (mainEl) mainEl.scrollTop = 0;
+  }, [workspaceView]);
 
   // 📲 Mobile Back Button & History Navigation Support
   useEffect(() => {
@@ -738,6 +757,9 @@ export function App() {
         : (WORKSPACE_SECTIONS.includes(currentHash) ? currentHash : 'home');
 
       setWorkspaceView(targetView);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -824,13 +846,13 @@ export function App() {
       const elapsed = Date.now() - startTime;
 
       // Intentional swipe:
-      // - At least 55px horizontal distance
-      // - Predominantly horizontal swipe (1.5x greater than vertical movement)
-      // - Flick within 650ms
+      // - At least 42px horizontal distance
+      // - Predominantly horizontal swipe (1.2x greater than vertical movement)
+      // - Flick within 750ms
       if (
-        Math.abs(deltaX) >= 55 &&
-        Math.abs(deltaX) > Math.abs(deltaY) * 1.5 &&
-        elapsed <= 650
+        Math.abs(deltaX) >= 42 &&
+        Math.abs(deltaX) > Math.abs(deltaY) * 1.2 &&
+        elapsed <= 750
       ) {
         const effectiveView = workspaceView === 'both' ? 'notebook' : workspaceView;
         const curIdx = WORKSPACE_SECTIONS.indexOf(effectiveView);
@@ -2168,6 +2190,7 @@ export function App() {
       ) : null}
 
       {/* Main Single Screen Canvas */}
+      <div key={workspaceView} className="animate-tab-page w-full flex-1 flex flex-col">
       {workspaceView === 'home' && !searchQuery.trim() ? (
         <HomeDashboard
           onNavigate={(view) => {
@@ -2679,6 +2702,7 @@ export function App() {
 
       </main>
       )}
+      </div>
 
       {/* 📲 Cute Swipe Gesture Section Indicator */}
       {swipePill && (
