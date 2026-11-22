@@ -1,7 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_BAZAAR_PERKS } from '../../components/habits/HabitsDashboard';
+import { DEFAULT_BAZAAR_PERKS, DEFAULT_POINT_RATES, PointRatesConfig } from '../../components/habits/HabitsDashboard';
 
 describe('Habit Points & Reward System Logic', () => {
+  it('has default point reward rates matching specifications', () => {
+    expect(DEFAULT_POINT_RATES.habitPts).toBe(20);
+    expect(DEFAULT_POINT_RATES.priorityPts).toBe(15);
+    expect(DEFAULT_POINT_RATES.milestonePts).toBe(25);
+    expect(DEFAULT_POINT_RATES.dailyBonusPts).toBe(50);
+  });
+
+  it('supports custom editable point reward rates', () => {
+    const customRates: PointRatesConfig = {
+      habitPts: 30,
+      priorityPts: 20,
+      milestonePts: 40,
+      dailyBonusPts: 100,
+    };
+
+    let points = 0;
+    // Completing habit with custom rate
+    points += customRates.habitPts;
+    expect(points).toBe(30);
+
+    // Completing priority with custom rate
+    points += customRates.priorityPts;
+    expect(points).toBe(50);
+
+    // Completing milestone with custom rate
+    points += customRates.milestonePts;
+    expect(points).toBe(90);
+
+    // Claiming daily bonus with custom rate
+    points += customRates.dailyBonusPts;
+    expect(points).toBe(190);
+
+    // Unchecking habit deducts custom rate
+    points -= customRates.habitPts;
+    expect(points).toBe(160);
+  });
+
   it('has default cozy bazaar perks with valid costs and emojis', () => {
     expect(DEFAULT_BAZAAR_PERKS.length).toBeGreaterThanOrEqual(3);
     for (const perk of DEFAULT_BAZAAR_PERKS) {

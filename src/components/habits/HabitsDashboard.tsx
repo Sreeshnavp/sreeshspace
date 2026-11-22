@@ -95,6 +95,20 @@ export interface PriorityTaskDef {
   date?: string;
 }
 
+export interface PointRatesConfig {
+  habitPts: number;
+  priorityPts: number;
+  milestonePts: number;
+  dailyBonusPts: number;
+}
+
+export const DEFAULT_POINT_RATES: PointRatesConfig = {
+  habitPts: 20,
+  priorityPts: 15,
+  milestonePts: 25,
+  dailyBonusPts: 50,
+};
+
 export const DEFAULT_BAZAAR_PERKS = [
   {
     id: 'perk-default-1',
@@ -263,6 +277,47 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   const hasClaimedTodayBonus = lastBonusDate === TODAY;
 
+  // Configurable point reward rates
+  const [pointRates, setPointRates] = useState<PointRatesConfig>(() => {
+    try {
+      const saved = localStorage.getItem('sreesh-habit-point-rates-v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          habitPts: typeof parsed.habitPts === 'number' && parsed.habitPts >= 0 ? parsed.habitPts : 20,
+          priorityPts: typeof parsed.priorityPts === 'number' && parsed.priorityPts >= 0 ? parsed.priorityPts : 15,
+          milestonePts: typeof parsed.milestonePts === 'number' && parsed.milestonePts >= 0 ? parsed.milestonePts : 25,
+          dailyBonusPts: typeof parsed.dailyBonusPts === 'number' && parsed.dailyBonusPts >= 0 ? parsed.dailyBonusPts : 50,
+        };
+      }
+    } catch {}
+    return DEFAULT_POINT_RATES;
+  });
+
+  const [isEditRatesModalOpen, setIsEditRatesModalOpen] = useState(false);
+  const [tempPointRates, setTempPointRates] = useState<PointRatesConfig>(pointRates);
+  const [activeHabitMenuId, setActiveHabitMenuId] = useState<string | null>(null);
+
+  const handleSavePointRates = () => {
+    const cleanRates: PointRatesConfig = {
+      habitPts: Math.max(0, Math.floor(Number(tempPointRates.habitPts) || 0)),
+      priorityPts: Math.max(0, Math.floor(Number(tempPointRates.priorityPts) || 0)),
+      milestonePts: Math.max(0, Math.floor(Number(tempPointRates.milestonePts) || 0)),
+      dailyBonusPts: Math.max(0, Math.floor(Number(tempPointRates.dailyBonusPts) || 0)),
+    };
+    setPointRates(cleanRates);
+    try {
+      localStorage.setItem('sreesh-habit-point-rates-v1', JSON.stringify(cleanRates));
+    } catch {}
+    setIsEditRatesModalOpen(false);
+    triggerCelebration();
+    showPointsFeedback('✨ Reward Point rates updated!', 0, 'earn');
+  };
+
+  const handleResetPointRates = () => {
+    setTempPointRates(DEFAULT_POINT_RATES);
+  };
+
   const [showBonusToast, setShowBonusToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -401,20 +456,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   }, [todayDayKey, completedRoutines, totalRoutines, focusPercent]);
 
-  // Toggle daily habit (awards +20 Glow Points on completion, -20 if undone)
+  // Toggle daily habit (awards +habitPts on completion, -habitPts if undone)
   const handleToggleHabit = (id: string) => {
     setHabitsList((prev) => {
       const targetHabit = prev.find((h) => h.id === id);
       const willBeCompleted = !targetHabit?.completed;
+      const pts = pointRates.habitPts;
 
       if (willBeCompleted) {
         triggerCelebration();
-        updateGlowPoints(20);
-        showPointsFeedback(`🌟 Completed "${targetHabit?.title || 'Habit'}"! +20 Glow Points!`, 20, 'earn');
+        updateGlowPoints(pts);
+        showPointsFeedback(`🌟 Completed "${targetHabit?.title || 'Habit'}"! +${pts} Glow Points!`, pts, 'earn');
       } else {
         playPopSound();
-        updateGlowPoints(-20);
-        showPointsFeedback(`Marked "${targetHabit?.title || 'Habit'}" pending (-20 Glow Points)`, -20, 'redeem');
+        updateGlowPoints(-pts);
+        showPointsFeedback(`Marked "${targetHabit?.title || 'Habit'}" pending (-${pts} Glow Points)`, -pts, 'redeem');
       }
 
       const next = prev.map((h) => {
@@ -435,20 +491,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   };
 
-  // Toggle priority task (awards +15 Glow Points on completion, -15 if undone)
+  // Toggle priority task (awards +priorityPts on completion, -priorityPts if undone)
   const handleTogglePriority = (id: string, isExternal?: boolean) => {
+    const pts = pointRates.priorityPts;
     if (isExternal) {
       onToggleTodo(id);
       const item = displayPriorities.find((p) => p.id === id);
       const willBeCompleted = !item?.completed;
       if (willBeCompleted) {
         triggerCelebration();
-        updateGlowPoints(15);
-        showPointsFeedback(`🎯 Completed priority task! +15 Glow Points!`, 15, 'earn');
+        updateGlowPoints(pts);
+        showPointsFeedback(`🎯 Completed priority task! +${pts} Glow Points!`, pts, 'earn');
       } else {
         playPopSound();
-        updateGlowPoints(-15);
-        showPointsFeedback(`Marked priority pending (-15 Glow Points)`, -15, 'redeem');
+        updateGlowPoints(-pts);
+        showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
       }
       return;
     }
@@ -459,12 +516,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
       if (willBeCompleted) {
         triggerCelebration();
-        updateGlowPoints(15);
-        showPointsFeedback(`🎯 Completed priority task! +15 Glow Points!`, 15, 'earn');
+        updateGlowPoints(pts);
+        showPointsFeedback(`🎯 Completed priority task! +${pts} Glow Points!`, pts, 'earn');
       } else {
         playPopSound();
-        updateGlowPoints(-15);
-        showPointsFeedback(`Marked priority pending (-15 Glow Points)`, -15, 'redeem');
+        updateGlowPoints(-pts);
+        showPointsFeedback(`Marked priority pending (-${pts} Glow Points)`, -pts, 'redeem');
       }
 
       const next = prev.map((p) => {
@@ -519,8 +576,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     triggerCelebration();
   };
 
-  // Toggle goal subtask (awards +25 Glow Points on milestone achieved, -25 if undone)
+  // Toggle goal subtask (awards +milestonePts on milestone achieved, -milestonePts if undone)
   const handleToggleGoalSubtask = (goalId: string, subtaskId: string) => {
+    const pts = pointRates.milestonePts;
     setGoalArcs((prev) => {
       const next = prev.map((g) => {
         if (g.id === goalId) {
@@ -529,12 +587,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
           if (willBeCompleted) {
             triggerCelebration();
-            updateGlowPoints(25);
-            showPointsFeedback(`🏆 Goal milestone achieved! +25 Glow Points!`, 25, 'earn');
+            updateGlowPoints(pts);
+            showPointsFeedback(`🏆 Goal milestone achieved! +${pts} Glow Points!`, pts, 'earn');
           } else {
             playPopSound();
-            updateGlowPoints(-25);
-            showPointsFeedback(`Milestone marked pending (-25 Glow Points)`, -25, 'redeem');
+            updateGlowPoints(-pts);
+            showPointsFeedback(`Milestone marked pending (-${pts} Glow Points)`, -pts, 'redeem');
           }
 
           const nextSubtasks = g.subtasks.map((st) => {
@@ -561,16 +619,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   };
 
-  // Claim daily streak bonus (+50 Glow Points once per day)
+  // Claim daily streak bonus (+dailyBonusPts once per day)
   const handleClaimBonus = () => {
     if (hasClaimedTodayBonus) return;
-    updateGlowPoints(50);
+    const bonus = pointRates.dailyBonusPts;
+    updateGlowPoints(bonus);
     setLastBonusDate(TODAY);
     try {
       localStorage.setItem(`${HABITS_STORAGE_KEY}-bonus-date`, TODAY);
     } catch {}
     triggerCelebration();
-    showPointsFeedback('🎉 Claimed +50 Daily Streak Bonus into your Vault!', 50, 'earn');
+    showPointsFeedback(`🎉 Claimed +${bonus} Daily Streak Bonus into your Vault!`, bonus, 'earn');
   };
 
   // Redeem bazaar perk with point deduction & balance check
@@ -1158,41 +1217,73 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Combined Edit & Delete dropdown trigger (small single button) */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playPopSound();
+                            setActiveHabitMenuId(activeHabitMenuId === habit.id ? null : habit.id);
+                          }}
+                          className="w-7 h-7 rounded-full bg-surface-card/70 hover:bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer shadow-2xs"
+                          title="Habit Options (Edit / Delete)"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                        </button>
+
+                        {activeHabitMenuId === habit.id && (
+                          <>
+                            <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveHabitMenuId(null)} />
+                            <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[130px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  playPopSound();
+                                  setActiveHabitMenuId(null);
+                                  setEditingHabit(habit);
+                                  setAddMode('routine');
+                                  setNewTaskInput(habit.title);
+                                  setNewRoutineDetail(habit.detail);
+                                  setNewRoutineEmoji(habit.emoji);
+                                  setIsAddModalOpen(true);
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-lavender-subtle hover:text-primary flex items-center gap-1.5 cursor-pointer font-medium"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">edit</span>
+                                <span>Edit Habit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  playPopSound();
+                                  setActiveHabitMenuId(null);
+                                  handleDeleteHabit(habit.id);
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-peach-subtle hover:text-tertiary flex items-center gap-1.5 cursor-pointer text-tertiary font-medium"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">delete</span>
+                                <span>Delete Habit</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Tick / Mark complete button at the very END */}
                       <button 
+                        type="button"
                         onClick={() => handleToggleHabit(habit.id)}
                         className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
                           habit.completed 
                             ? habit.btnBgDone 
-                            : 'bg-surface-card text-tertiary border border-border-subtle'
+                            : 'bg-surface-card text-tertiary border border-border-subtle hover:border-primary/50'
                         }`}
                         title={habit.completed ? 'Completed' : 'Mark complete'}
                       >
                         <span className="material-symbols-outlined text-[20px]">
                           {habit.completed ? 'check' : 'radio_button_unchecked'}
                         </span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          playPopSound();
-                          setEditingHabit(habit);
-                          setAddMode('routine');
-                          setNewTaskInput(habit.title);
-                          setNewRoutineDetail(habit.detail);
-                          setNewRoutineEmoji(habit.emoji);
-                          setIsAddModalOpen(true);
-                        }}
-                        className="w-8 h-8 rounded-2xl bg-surface-card/60 hover:bg-lavender-subtle hover:text-primary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer shadow-xs active:scale-95"
-                        title="Edit habit"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteHabit(habit.id)}
-                        className="w-8 h-8 rounded-2xl bg-surface-card/60 hover:bg-peach-subtle hover:text-tertiary flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer shadow-xs active:scale-95"
-                        title="Delete routine"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">delete</span>
                       </button>
                     </div>
                   </div>
@@ -1342,7 +1433,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       <span className="material-symbols-outlined text-[18px]">more_vert</span>
                     </button>
                     {activePriorityMenuId === task.id && (
-                      <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                      <>
+                        <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActivePriorityMenuId(null)} />
+                        <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card rounded-2xl shadow-xl border border-border-subtle p-1.5 min-w-[170px] text-xs space-y-1 animate-in fade-in zoom-in-95">
                         <button
                           onClick={() => {
                             handleTogglePriority(task.id, task.isExternalTodo);
@@ -1388,7 +1481,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                           <span>Delete</span>
                         </button>
                       </div>
-                    )}
+                    </>
+                  )}
                   </div>
                 </div>
               ))}
@@ -1546,9 +1640,24 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     </span>
                     <span className="font-label-sm text-label-sm text-secondary font-semibold">Glow Pts</span>
                   </div>
-                  <p className="font-label-sm text-[11px] text-on-surface-variant mt-0.5">
-                    ✨ +20/habit · +15/priority · +25/milestone · +50 daily bonus
-                  </p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <p className="font-label-sm text-[11px] text-on-surface-variant">
+                      ✨ +{pointRates.habitPts}/habit · +{pointRates.priorityPts}/priority · +{pointRates.milestonePts}/milestone · +{pointRates.dailyBonusPts} daily bonus
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playPopSound();
+                        setTempPointRates(pointRates);
+                        setIsEditRatesModalOpen(true);
+                      }}
+                      className="font-label-sm text-[10px] text-primary font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full transition-colors shadow-2xs"
+                      title="Edit Reward Point Values"
+                    >
+                      <span className="material-symbols-outlined text-[12px]">tune</span>
+                      <span>Edit Rates</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1566,7 +1675,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 <span className="material-symbols-outlined text-[16px]">
                   {hasClaimedTodayBonus ? 'check_circle' : 'stars'}
                 </span>
-                <span>{hasClaimedTodayBonus ? '✓ Claimed +50 Today' : 'Claim +50 Streak Bonus'}</span>
+                <span>{hasClaimedTodayBonus ? '✓ Claimed Today' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}</span>
               </button>
             </div>
 
@@ -1903,6 +2012,128 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               >
                 {editingPerk ? 'Save Perk' : 'Create Perk ✨'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Point Rates Modal */}
+      {isEditRatesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚙️</span>
+                <h3 className="font-headline-sm text-base font-bold text-on-surface font-fraunces">
+                  Customize Point Rewards
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsEditRatesModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              Set how many Glow Points are awarded for each healthy habit, priority, milestone, and streak bonus.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  🌟 Habit Routine Completion
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    value={tempPointRates.habitPts}
+                    onChange={(e) => setTempPointRates(prev => ({ ...prev, habitPts: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    className="w-full px-3.5 py-2 pr-20 rounded-xl bg-surface-container-low border border-border-subtle text-xs font-semibold focus:outline-none focus:border-primary"
+                    placeholder="20"
+                  />
+                  <span className="absolute right-3 text-[11px] text-on-surface-variant font-medium pointer-events-none">pts / habit</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  🎯 Priority Task Completion
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    value={tempPointRates.priorityPts}
+                    onChange={(e) => setTempPointRates(prev => ({ ...prev, priorityPts: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    className="w-full px-3.5 py-2 pr-20 rounded-xl bg-surface-container-low border border-border-subtle text-xs font-semibold focus:outline-none focus:border-primary"
+                    placeholder="15"
+                  />
+                  <span className="absolute right-3 text-[11px] text-on-surface-variant font-medium pointer-events-none">pts / priority</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  🏆 Goal Milestone Completion
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    value={tempPointRates.milestonePts}
+                    onChange={(e) => setTempPointRates(prev => ({ ...prev, milestonePts: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    className="w-full px-3.5 py-2 pr-24 rounded-xl bg-surface-container-low border border-border-subtle text-xs font-semibold focus:outline-none focus:border-primary"
+                    placeholder="25"
+                  />
+                  <span className="absolute right-3 text-[11px] text-on-surface-variant font-medium pointer-events-none">pts / milestone</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  ✨ Daily Streak Bonus
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    value={tempPointRates.dailyBonusPts}
+                    onChange={(e) => setTempPointRates(prev => ({ ...prev, dailyBonusPts: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    className="w-full px-3.5 py-2 pr-20 rounded-xl bg-surface-container-low border border-border-subtle text-xs font-semibold focus:outline-none focus:border-primary"
+                    placeholder="50"
+                  />
+                  <span className="absolute right-3 text-[11px] text-on-surface-variant font-medium pointer-events-none">pts / day</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+              <button
+                type="button"
+                onClick={handleResetPointRates}
+                className="text-xs text-on-surface-variant hover:text-primary font-bold cursor-pointer underline"
+              >
+                Reset Defaults
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditRatesModalOpen(false)}
+                  className="py-2 px-3 rounded-full bg-surface-container text-on-surface-variant font-bold text-xs hover:bg-surface-container-high cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePointRates}
+                  className="py-2 px-4 rounded-full bg-primary text-on-primary font-bold text-xs shadow-sm hover:bg-primary-container active:scale-95 transition-all cursor-pointer"
+                >
+                  Save Rates
+                </button>
+              </div>
             </div>
           </div>
         </div>
