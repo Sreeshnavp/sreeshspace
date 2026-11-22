@@ -141,41 +141,7 @@ export function getSeedPriorities(today: string): PriorityTaskDef[] {
   ];
 }
 
-export const DEFAULT_BAZAAR_PERKS = [
-  {
-    id: 'perk-default-1',
-    title: 'Artisanal Coffee or Boba',
-    detail: 'Treat yourself to your favorite cozy beverage.',
-    cost: 40,
-    emoji: '☕',
-    bgClass: 'bg-lavender-subtle/70',
-    accentColor: 'text-primary',
-    redeemedCount: 0,
-    lastRedeemedDate: null,
-  },
-  {
-    id: 'perk-default-2',
-    title: '1 Hr Guilt-Free Gaming',
-    detail: 'Kick back and immerse yourself in your favorite game.',
-    cost: 60,
-    emoji: '🎮',
-    bgClass: 'bg-mint-subtle/70',
-    accentColor: 'text-secondary',
-    redeemedCount: 0,
-    lastRedeemedDate: null,
-  },
-  {
-    id: 'perk-default-3',
-    title: 'Movie Night & Favorite Snack',
-    detail: 'Pick any film and treat yourself guilt-free.',
-    cost: 100,
-    emoji: '🎬',
-    bgClass: 'bg-peach-subtle/70',
-    accentColor: 'text-tertiary',
-    redeemedCount: 0,
-    lastRedeemedDate: null,
-  },
-];
+export const DEFAULT_BAZAAR_PERKS: any[] = [];
 
 export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
@@ -427,15 +393,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [perkEmoji, setPerkEmoji] = useState('🎁');
   const [perkColor, setPerkColor] = useState<'lavender' | 'mint' | 'peach'>('lavender');
 
+  // Persistent perks list (zero dummy items, user adds manually)
   const [bazaarPerks, setBazaarPerks] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('sreesh-bazaar-perks-v2');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          const userOnly = parsed.filter((p: any) => !p.id?.startsWith('perk-default-'));
+          if (userOnly.length !== parsed.length) {
+            try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(userOnly)); } catch {}
+          }
+          return userOnly;
+        }
       }
     } catch {}
-    return DEFAULT_BAZAAR_PERKS;
+    return [];
   });
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
@@ -473,7 +446,16 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [goalArcs, setGoalArcs] = useState<GoalArcDef[]>(() => {
     try {
       const saved = localStorage.getItem('sreesh-goal-arcs-v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const userOnly = parsed.filter((g: any) => !g.id?.startsWith('seed-') && !g.id?.startsWith('default-'));
+          if (userOnly.length !== parsed.length) {
+            try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(userOnly)); } catch {}
+          }
+          return userOnly;
+        }
+      }
     } catch {}
     return [];
   });

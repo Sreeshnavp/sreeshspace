@@ -40,14 +40,8 @@ describe('Habit Points & Reward System Logic', () => {
     expect(points).toBe(160);
   });
 
-  it('has default cozy bazaar perks with valid costs and emojis', () => {
-    expect(DEFAULT_BAZAAR_PERKS.length).toBeGreaterThanOrEqual(3);
-    for (const perk of DEFAULT_BAZAAR_PERKS) {
-      expect(perk.cost).toBeGreaterThan(0);
-      expect(perk.title).toBeTruthy();
-      expect(perk.emoji).toBeTruthy();
-      expect(perk.redeemedCount).toBe(0);
-    }
+  it('defaults to clean empty cozy bazaar perks with zero sample items', () => {
+    expect(DEFAULT_BAZAAR_PERKS).toEqual([]);
   });
 
   it('correctly calculates points delta on completing/undoing actions', () => {
@@ -84,8 +78,22 @@ describe('Habit Points & Reward System Logic', () => {
 
   it('validates affordability and handles perk redemption', () => {
     let glowPoints = 50;
-    const coffeePerk = DEFAULT_BAZAAR_PERKS[0]; // cost: 40
-    const moviePerk = DEFAULT_BAZAAR_PERKS[2]; // cost: 100
+    const coffeePerk = {
+      id: 'custom-perk-1',
+      title: 'Artisanal Coffee or Boba',
+      cost: 40,
+      emoji: '☕',
+      redeemedCount: 0,
+      lastRedeemedDate: null,
+    };
+    const moviePerk = {
+      id: 'custom-perk-2',
+      title: 'Movie Night & Favorite Snack',
+      cost: 100,
+      emoji: '🎬',
+      redeemedCount: 0,
+      lastRedeemedDate: null,
+    };
 
     // Coffee can be afforded (50 >= 40)
     expect(glowPoints >= coffeePerk.cost).toBe(true);
@@ -109,6 +117,27 @@ describe('Habit Points & Reward System Logic', () => {
 
     // Now coffee can no longer be afforded (10 < 40)
     expect(glowPoints >= coffeePerk.cost).toBe(false);
+  });
+
+  it('filters out legacy default perks and respects empty perk array on deletion', () => {
+    // Legacy stored perks containing default dummy items and a custom item
+    const legacyPerks = [
+      { id: 'perk-default-1', title: 'Artisanal Coffee or Boba', cost: 40 },
+      { id: 'perk-default-2', title: '1 Hr Guilt-Free Gaming', cost: 60 },
+      { id: 'perk-custom-123', title: 'Buy a new mechanical keyboard', cost: 500 },
+    ];
+
+    const filtered = legacyPerks.filter((p) => !p.id?.startsWith('perk-default-'));
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe('Buy a new mechanical keyboard');
+
+    // When the user deletes the custom perk, array is empty
+    const afterDelete = filtered.filter((p) => p.id !== 'perk-custom-123');
+    expect(afterDelete).toEqual([]);
+
+    // Parsing an empty array from storage should stay empty without falling back to defaults
+    const reloaded = JSON.parse(JSON.stringify(afterDelete)).filter((p: any) => !p.id?.startsWith('perk-default-'));
+    expect(reloaded).toEqual([]);
   });
 
   it('getSeedPriorities generates completed logged tasks for all days of the previous week', () => {
