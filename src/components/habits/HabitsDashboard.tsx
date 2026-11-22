@@ -505,17 +505,53 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return [...local, ...external];
   }, [prioritiesList, userDailyTodos, activeDateKey, TODAY]);
 
-  // Combined counts for progress calculation
+  // Combined counts for progress calculation across Habits, Priorities, and Goals
   const totalRoutines = habitsList.length;
   const completedRoutines = habitsList.filter((h) => h.completed).length;
   const remainingRoutines = totalRoutines - completedRoutines;
+  const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 0;
+  const habitsOffset = 175.9 - (175.9 * (focusPercent / 100));
+  const progressOffset = habitsOffset;
 
-  const remainingPriorities = useMemo(() => {
-    return displayPriorities.filter((p) => !p.completed).length;
-  }, [displayPriorities]);
+  // Today's Priorities progress stats
+  const totalPriorities = displayPriorities.length;
+  const completedPriorities = displayPriorities.filter((p) => p.completed).length;
+  const remainingPriorities = totalPriorities - completedPriorities;
+  const prioritiesPercent = totalPriorities > 0 ? Math.round((completedPriorities / totalPriorities) * 100) : 0;
+  const prioritiesOffset = 175.9 - (175.9 * (prioritiesPercent / 100));
 
-  const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 75;
-  const progressOffset = 175.9 - (175.9 * (focusPercent / 100));
+  // Long-Term Goals progress stats
+  const totalMilestones = useMemo(() => {
+    return goalArcs.reduce((acc, g) => acc + (g.subtasks?.length || 0), 0);
+  }, [goalArcs]);
+  const completedMilestones = useMemo(() => {
+    return goalArcs.reduce((acc, g) => acc + (g.subtasks?.filter((s) => s.completed)?.length || 0), 0);
+  }, [goalArcs]);
+  const totalGoals = goalArcs.length;
+  const completedGoals = useMemo(() => {
+    return goalArcs.filter((g) => g.progressPercent === 100 || (g.subtasks?.length > 0 && g.subtasks.every((s) => s.completed))).length;
+  }, [goalArcs]);
+
+  const goalsPercent = useMemo(() => {
+    if (totalMilestones > 0) {
+      return Math.round((completedMilestones / totalMilestones) * 100);
+    }
+    if (totalGoals > 0) {
+      const avg = goalArcs.reduce((acc, g) => acc + (g.progressPercent || 0), 0) / totalGoals;
+      return Math.round(avg);
+    }
+    return 0;
+  }, [totalMilestones, completedMilestones, totalGoals, goalArcs]);
+  const goalsOffset = 175.9 - (175.9 * (goalsPercent / 100));
+
+  const [heroActiveTab, setHeroActiveTab] = useState<'habits' | 'priorities' | 'goals'>('habits');
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // Dynamic 7-day configuration where today gets the active glowing purple pill design with 🌟
   const daysConfig = useMemo(() => {
@@ -1121,17 +1157,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           
           {/* Top Overview: Progress Card + Week at a Glance (2 columns on desktop) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-stretch mt-2">
-            {/* Section 1: Gamified Header / Progress Card */}
-            <section className="relative overflow-hidden bg-surface-card rounded-3xl p-space-lg shadow-sm border border-border-subtle flex flex-col justify-between">
+            {/* Section 1: Gamified Header / Progress Card with Habits, Priorities, and Goals Progress Circles */}
+            <section className="relative overflow-hidden bg-surface-card rounded-3xl p-space-md sm:p-space-lg shadow-sm border border-border-subtle flex flex-col justify-between">
               {/* Subtle Ambient Glow */}
               <div className="absolute -top-12 -right-12 w-36 h-36 bg-mint-subtle/60 rounded-full blur-2xl pointer-events-none"></div>
               <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-lavender-subtle/70 rounded-full blur-2xl pointer-events-none"></div>
               
-              <div className="relative z-10 flex items-center justify-between gap-space-md">
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Left: Streak & Title */}
                 <div className="flex flex-col space-y-1">
                   <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-mint-subtle text-on-secondary-container">
-                    <span className="text-xs">🌱</span>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider font-bold">Growing Daily</span>
+                    <span className="text-xs">
+                      {heroActiveTab === 'priorities' ? '⚡' : heroActiveTab === 'goals' ? '🎯' : '🌱'}
+                    </span>
+                    <span className="font-label-sm text-label-sm uppercase tracking-wider font-bold">
+                      {heroActiveTab === 'priorities' ? "Today's Priorities" : heroActiveTab === 'goals' ? 'Long-Term Goals' : 'Growing Daily'}
+                    </span>
                   </div>
                   <h2 className="font-headline-md text-headline-md text-on-surface font-fraunces">
                     You're glowing!
@@ -1147,46 +1188,179 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Cute Circular Progress Meter */}
-                <div className="relative flex items-center justify-center w-20 h-20 shrink-0">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
-                    <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6.5"></circle>
-                    <circle 
-                      className="text-secondary transition-all duration-700 ease-out" 
-                      cx="36" 
-                      cy="36" 
-                      fill="none" 
-                      r="28" 
-                      stroke="currentColor" 
-                      strokeDasharray="175.9" 
-                      strokeDashoffset={progressOffset} 
-                      strokeLinecap="round" 
-                      strokeWidth="6.5"
-                    ></circle>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="font-headline-sm text-headline-sm text-on-surface leading-none font-fraunces">
-                      {focusPercent}%
+                {/* Right: 3 Progress Circles (Habits, Priorities, Goals) */}
+                <div className="flex items-center justify-around sm:justify-end gap-2 sm:gap-3.5 pt-1">
+                  {/* 1. Daily Habits Circle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setHeroActiveTab('habits');
+                      scrollToSection('daily-habits-section');
+                    }}
+                    className={`flex flex-col items-center p-1.5 sm:p-2 rounded-2xl transition-all cursor-pointer group active:scale-95 ${
+                      heroActiveTab === 'habits' 
+                        ? 'bg-mint-subtle/70 ring-2 ring-secondary/50 shadow-xs' 
+                        : 'hover:bg-surface-container/50'
+                    }`}
+                    title="Daily Habits: Click to view rituals"
+                  >
+                    <div className="relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
+                        <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6"></circle>
+                        <circle 
+                          className="text-secondary transition-all duration-700 ease-out" 
+                          cx="36" 
+                          cy="36" 
+                          fill="none" 
+                          r="28" 
+                          stroke="currentColor" 
+                          strokeDasharray="175.9" 
+                          strokeDashoffset={habitsOffset} 
+                          strokeLinecap="round" 
+                          strokeWidth="6"
+                        ></circle>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+                        <span className="font-headline-sm text-xs sm:text-sm text-on-surface font-bold font-fraunces">
+                          {focusPercent}%
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] text-on-surface-variant mt-0.5 font-medium">
+                          {completedRoutines}/{totalRoutines} Done
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`mt-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                      heroActiveTab === 'habits' ? 'bg-secondary text-on-secondary' : 'text-secondary group-hover:bg-mint-subtle'
+                    }`}>
+                      🌱 Habits
                     </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
-                      {completedRoutines}/{totalRoutines} Done
+                  </button>
+
+                  {/* 2. Today's Priorities Circle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setHeroActiveTab('priorities');
+                      scrollToSection('todays-priorities-section');
+                    }}
+                    className={`flex flex-col items-center p-1.5 sm:p-2 rounded-2xl transition-all cursor-pointer group active:scale-95 ${
+                      heroActiveTab === 'priorities' 
+                        ? 'bg-lavender-subtle/80 ring-2 ring-primary/50 shadow-xs' 
+                        : 'hover:bg-surface-container/50'
+                    }`}
+                    title="Today's Priorities: Click to view tasks"
+                  >
+                    <div className="relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
+                        <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6"></circle>
+                        <circle 
+                          className="text-primary transition-all duration-700 ease-out" 
+                          cx="36" 
+                          cy="36" 
+                          fill="none" 
+                          r="28" 
+                          stroke="currentColor" 
+                          strokeDasharray="175.9" 
+                          strokeDashoffset={prioritiesOffset} 
+                          strokeLinecap="round" 
+                          strokeWidth="6"
+                        ></circle>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+                        <span className="font-headline-sm text-xs sm:text-sm text-on-surface font-bold font-fraunces">
+                          {prioritiesPercent}%
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] text-on-surface-variant mt-0.5 font-medium">
+                          {completedPriorities}/{totalPriorities} Done
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`mt-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                      heroActiveTab === 'priorities' ? 'bg-primary text-on-primary' : 'text-primary group-hover:bg-lavender-subtle'
+                    }`}>
+                      ⚡ Priorities
                     </span>
-                  </div>
+                  </button>
+
+                  {/* 3. Long-Term Goals Circle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPopSound();
+                      setHeroActiveTab('goals');
+                      scrollToSection('long-term-goals-section');
+                    }}
+                    className={`flex flex-col items-center p-1.5 sm:p-2 rounded-2xl transition-all cursor-pointer group active:scale-95 ${
+                      heroActiveTab === 'goals' 
+                        ? 'bg-peach-subtle/80 ring-2 ring-tertiary/50 shadow-xs' 
+                        : 'hover:bg-surface-container/50'
+                    }`}
+                    title="Long-Term Goals: Click to view arcs"
+                  >
+                    <div className="relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
+                        <circle className="text-surface-container" cx="36" cy="36" fill="none" r="28" stroke="currentColor" strokeWidth="6"></circle>
+                        <circle 
+                          className="text-tertiary transition-all duration-700 ease-out" 
+                          cx="36" 
+                          cy="36" 
+                          fill="none" 
+                          r="28" 
+                          stroke="currentColor" 
+                          strokeDasharray="175.9" 
+                          strokeDashoffset={goalsOffset} 
+                          strokeLinecap="round" 
+                          strokeWidth="6"
+                        ></circle>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+                        <span className="font-headline-sm text-xs sm:text-sm text-on-surface font-bold font-fraunces">
+                          {goalsPercent}%
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] text-on-surface-variant mt-0.5 font-medium">
+                          {totalMilestones > 0 ? `${completedMilestones}/${totalMilestones}` : `${completedGoals}/${totalGoals}`} Done
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`mt-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                      heroActiveTab === 'goals' ? 'bg-tertiary text-on-primary' : 'text-tertiary group-hover:bg-peach-subtle'
+                    }`}>
+                      🎯 Goals
+                    </span>
+                  </button>
                 </div>
               </div>
 
-              {/* Motivational Micro-sticker */}
+              {/* Motivational Micro-sticker reflecting active selection */}
               <div className="mt-space-md pt-space-sm flex items-center justify-between bg-surface-container-low px-space-md py-space-sm rounded-2xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">✨</span>
+                  <span className="text-base">
+                    {heroActiveTab === 'priorities' ? '⚡' : heroActiveTab === 'goals' ? '🎯' : '✨'}
+                  </span>
                   <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    {remainingRoutines > 0 
-                      ? 'One tiny ritual left to complete your gold ring!' 
+                    {heroActiveTab === 'priorities'
+                      ? remainingPriorities > 0
+                        ? `${remainingPriorities} priority task${remainingPriorities > 1 ? 's' : ''} left for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)}!`
+                        : 'All priority tasks complete for today! Awesome execution! 🎉'
+                      : heroActiveTab === 'goals'
+                      ? totalGoals > 0
+                        ? `${goalsPercent}% achieved across ${totalGoals} active goal arc${totalGoals > 1 ? 's' : ''} (${completedMilestones}/${totalMilestones} milestones done)`
+                        : 'No long-term goals yet. Tap + New Goal below to define your vision!'
+                      : remainingRoutines > 0
+                      ? 'One tiny ritual left to complete your gold ring!'
                       : 'All rituals complete! You have achieved your gold ring! 🎉'}
                   </p>
                 </div>
-                <span className="font-label-sm text-label-sm text-primary font-bold">
-                  {remainingRoutines > 0 ? `${remainingRoutines} left` : 'Done ✨'}
+                <span className={`font-label-sm text-label-sm font-bold ${
+                  heroActiveTab === 'priorities' ? 'text-primary' : heroActiveTab === 'goals' ? 'text-tertiary' : 'text-primary'
+                }`}>
+                  {heroActiveTab === 'priorities'
+                    ? remainingPriorities > 0 ? `${remainingPriorities} left` : 'All Done ✨'
+                    : heroActiveTab === 'goals'
+                    ? totalMilestones > 0 ? `${totalMilestones - completedMilestones} left` : `${totalGoals} Arcs`
+                    : remainingRoutines > 0 ? `${remainingRoutines} left` : 'Done ✨'}
                 </span>
               </div>
             </section>
@@ -1310,10 +1484,29 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           {/* Main Workspace: Daily Habits + Priorities (2 columns on desktop) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-start">
             {/* Section 3: Habits Checklist Section */}
-            <section className="space-y-space-md">
+            <section id="daily-habits-section" className="space-y-space-md scroll-mt-24">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Daily Habits</span>
+                {/* Mini Habits Progress Circle */}
+                <div className="relative flex items-center justify-center w-7 h-7 shrink-0" title={`Daily Habits: ${focusPercent}% done`}>
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                    <circle className="text-surface-container" cx="18" cy="18" fill="none" r="14" stroke="currentColor" strokeWidth="3.5"></circle>
+                    <circle 
+                      className="text-secondary transition-all duration-500" 
+                      cx="18" 
+                      cy="18" 
+                      fill="none" 
+                      r="14" 
+                      stroke="currentColor" 
+                      strokeDasharray="87.96" 
+                      strokeDashoffset={87.96 - (87.96 * (focusPercent / 100))} 
+                      strokeLinecap="round" 
+                      strokeWidth="3.5"
+                    ></circle>
+                  </svg>
+                  <span className="absolute text-[8px] font-bold text-on-surface font-fraunces leading-none">{focusPercent}%</span>
+                </div>
                 <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
                   {habitsList.length} Routines
                 </span>
@@ -1456,7 +1649,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           </section>
 
           {/* Section 4: Quick Task Priorities Section */}
-          <section className="space-y-space-md">
+          <section id="todays-priorities-section" className="space-y-space-md scroll-mt-24">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">
@@ -1466,6 +1659,25 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     ? "Advance Priorities" 
                     : "Priorities Log"}
                 </span>
+                {/* Mini Priorities Progress Circle */}
+                <div className="relative flex items-center justify-center w-7 h-7 shrink-0" title={`Priorities: ${prioritiesPercent}% done`}>
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                    <circle className="text-surface-container" cx="18" cy="18" fill="none" r="14" stroke="currentColor" strokeWidth="3.5"></circle>
+                    <circle 
+                      className="text-primary transition-all duration-500" 
+                      cx="18" 
+                      cy="18" 
+                      fill="none" 
+                      r="14" 
+                      stroke="currentColor" 
+                      strokeDasharray="87.96" 
+                      strokeDashoffset={87.96 - (87.96 * (prioritiesPercent / 100))} 
+                      strokeLinecap="round" 
+                      strokeWidth="3.5"
+                    ></circle>
+                  </svg>
+                  <span className="absolute text-[8px] font-bold text-on-surface font-fraunces leading-none">{prioritiesPercent}%</span>
+                </div>
                 <span className={`px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-bold ${
                   activeDateKey === TODAY
                     ? 'bg-sunshine-subtle text-sunshine-accent'
@@ -1668,10 +1880,29 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         {/* Long-Term Goals + Cozy Reward Bazaar (2 columns on desktop) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-md lg:gap-space-lg items-start">
           {/* Section 5: Long-Term Goals (3 Active Arcs) */}
-          <section className="space-y-space-md">
+          <section id="long-term-goals-section" className="space-y-space-md scroll-mt-24">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="font-headline-sm text-headline-sm text-on-surface font-fraunces">Long-Term Goals</span>
+                {/* Mini Goals Progress Circle */}
+                <div className="relative flex items-center justify-center w-7 h-7 shrink-0" title={`Goals: ${goalsPercent}% done`}>
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                    <circle className="text-surface-container" cx="18" cy="18" fill="none" r="14" stroke="currentColor" strokeWidth="3.5"></circle>
+                    <circle 
+                      className="text-tertiary transition-all duration-500" 
+                      cx="18" 
+                      cy="18" 
+                      fill="none" 
+                      r="14" 
+                      stroke="currentColor" 
+                      strokeDasharray="87.96" 
+                      strokeDashoffset={87.96 - (87.96 * (goalsPercent / 100))} 
+                      strokeLinecap="round" 
+                      strokeWidth="3.5"
+                    ></circle>
+                  </svg>
+                  <span className="absolute text-[8px] font-bold text-on-surface font-fraunces leading-none">{goalsPercent}%</span>
+                </div>
                 <span className="px-2 py-0.5 rounded-full bg-lavender-subtle text-primary font-label-sm text-label-sm font-bold">
                   {goalArcs.length} Active Arcs
                 </span>

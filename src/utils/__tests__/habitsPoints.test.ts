@@ -153,4 +153,36 @@ describe('Habit Points & Reward System Logic', () => {
     const summaryExtra = zeroBonusRates.dailyBonusPts > 0 ? ` · +${zeroBonusRates.dailyBonusPts} daily bonus` : '';
     expect(summaryExtra).toBe('');
   });
+
+  it('calculates circle progress metrics correctly for Habits, Priorities, and Goals', () => {
+    // 1. Habits (Routines)
+    const totalRoutines = 4;
+    const completedRoutines = 3;
+    const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 0;
+    expect(focusPercent).toBe(75);
+    const habitsOffset = 175.9 - (175.9 * (focusPercent / 100));
+    expect(habitsOffset).toBeCloseTo(43.975, 1);
+
+    // 2. Today's Priorities
+    const totalPriorities = 5;
+    const completedPriorities = 2;
+    const prioritiesPercent = totalPriorities > 0 ? Math.round((completedPriorities / totalPriorities) * 100) : 0;
+    expect(prioritiesPercent).toBe(40);
+    const prioritiesOffset = 175.9 - (175.9 * (prioritiesPercent / 100));
+    expect(prioritiesOffset).toBeCloseTo(105.54, 1);
+
+    // 3. Long-Term Goals
+    const goalArcs = [
+      { id: 'g1', progressPercent: 50, subtasks: [{ id: 's1', completed: true }, { id: 's2', completed: false }] },
+      { id: 'g2', progressPercent: 100, subtasks: [{ id: 's3', completed: true }] },
+    ];
+    const totalMilestones = goalArcs.reduce((acc, g) => acc + g.subtasks.length, 0);
+    const completedMilestones = goalArcs.reduce((acc, g) => acc + g.subtasks.filter(s => s.completed).length, 0);
+    expect(totalMilestones).toBe(3);
+    expect(completedMilestones).toBe(2);
+    const goalsPercent = Math.round((completedMilestones / totalMilestones) * 100);
+    expect(goalsPercent).toBe(67);
+    const goalsOffset = 175.9 - (175.9 * (goalsPercent / 100));
+    expect(goalsOffset).toBeCloseTo(58.047, 1);
+  });
 });
