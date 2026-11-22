@@ -141,7 +141,7 @@ export const WeeklyReviewModal: React.FC<WeeklyReviewModalProps> = ({
               type="text"
               value={winOfTheWeek}
               onChange={(e) => setWinOfTheWeek(e.target.value)}
-              placeholder="e.g. Deployed SreeshSpace PWA and kept a 7-day flow state!"
+              placeholder="e.g. Deployed Orbit PWA and kept a 7-day flow state!"
               className="w-full text-xs p-2.5 rounded-xl bg-surface border border-border-input text-main placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ring font-medium"
             />
           </div>

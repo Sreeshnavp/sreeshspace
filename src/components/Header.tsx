@@ -177,14 +177,14 @@ export const Header: React.FC<HeaderProps> = ({
               <Smartphone size={17} />
             </button>
 
-            {/* 6. Lock Space Button */}
+            {/* 6. Lock Orbit Button */}
             {onLock && (
               <button
                 type="button"
                 onClick={onLock}
-                aria-label="Lock your space"
+                aria-label="Lock Orbit"
                 className="p-1.5 sm:p-2 text-muted hover:text-main rounded-xl hover:bg-sunken transition cursor-pointer active:scale-95"
-                title="Lock Space 🔒"
+                title="Lock Orbit 🔒"
               >
                 <Lock size={17} />
               </button>

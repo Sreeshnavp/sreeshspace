@@ -194,7 +194,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-space-xs">
                 <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">
-                  Sreeshnav's Space
+                  Orbit
                 </span>
               </div>
               <div className="flex items-center gap-space-xs mt-space-xs">
@@ -939,7 +939,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </span>
             </div>
             <div className="flex flex-col gap-0.5">
-              <h3 className="font-headline-sm text-lg font-bold text-on-surface">Sreeshnav's Space</h3>
+              <h3 className="font-headline-sm text-lg font-bold text-on-surface">Orbit</h3>
               <p className="text-xs text-primary font-medium">Personal Sanctuary & Creative Hub</p>
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
