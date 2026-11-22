@@ -75,6 +75,7 @@ import {
 import { normalizeUrl, generateSuggestedTitle, getFaviconUrl, extractDomain, formatRelativeTime } from './utils/urlHelper';
 import { triggerPartyPop, playPopSound } from './utils/delight';
 import { todayKey, addDays, toLocalDateKey } from './utils/dates';
+import { computeStreakState } from './utils/streakCalculator';
 import { ensureRoutinesForDate } from './utils/routines';
 import {
   extractInstagramReelInfo,
@@ -315,20 +316,16 @@ export function App() {
       setReelCategories(loadedReelCats.filter((c) => !isPreinstalledReelCategory(c)));
       setEvents(loadedEvents);
       setDayLogs(loadedDayLogs);
-      const hasValidCompletions = loadedEvents.some((e) =>
-        ['task_completed', 'goal_completed', 'focus_session'].includes(e.type)
-      );
-      if (!hasValidCompletions) {
-        setStreakState({
-          currentStreak: 0,
-          longestStreak: 0,
-          totalActiveDays: 0,
-          freezesRemaining: 1,
-          frozenDates: [],
-        });
-      } else if (loadedStreak) {
-        setStreakState(loadedStreak);
-      }
+      const calculatedStreak = computeStreakState({
+        today: todayKey(),
+        todos: todosWithRoutines,
+        events: loadedEvents,
+        dayLogs: loadedDayLogs,
+        frozenDates: loadedStreak?.frozenDates,
+        freezesRemaining: loadedStreak?.freezesRemaining,
+      });
+      setStreakState(calculatedStreak);
+      await saveStreakState(calculatedStreak);
       setRoutines(loadedRoutines);
       setTransactions(loadedFinances);
       if (loadedFinanceCats && loadedFinanceCats.length > 0) {
@@ -1265,20 +1262,28 @@ export function App() {
       playPopSound();
       showToast(`Completed "${target.text}"! 🎉`);
 
-      // Update streak state
-      const today = todayKey();
-      if (streakState.lastActiveDate !== today) {
-        const nextStreak = streakState.currentStreak + 1;
-        const newStreak: StreakState = {
-          ...streakState,
-          currentStreak: nextStreak,
-          longestStreak: Math.max(streakState.longestStreak, nextStreak),
-          totalActiveDays: streakState.totalActiveDays + 1,
-          lastActiveDate: today,
-        };
-        setStreakState(newStreak);
-        await saveStreakState(newStreak);
-      }
+      // Update streak state properly from today
+      const freshStreak = computeStreakState({
+        today: todayKey(),
+        todos: updated,
+        events: freshEvents,
+        dayLogs,
+        frozenDates: streakState.frozenDates,
+        freezesRemaining: streakState.freezesRemaining,
+      });
+      setStreakState(freshStreak);
+      await saveStreakState(freshStreak);
+    } else {
+      const freshStreak = computeStreakState({
+        today: todayKey(),
+        todos: updated,
+        events: freshEvents,
+        dayLogs,
+        frozenDates: streakState.frozenDates,
+        freezesRemaining: streakState.freezesRemaining,
+      });
+      setStreakState(freshStreak);
+      await saveStreakState(freshStreak);
     }
     triggerAutoSync();
   };
@@ -1684,18 +1689,16 @@ export function App() {
 
     // Update streak day
     const today = todayKey();
-    if (streakState.lastActiveDate !== today) {
-      const nextStreak = streakState.currentStreak + 1;
-      const newStreak: StreakState = {
-        ...streakState,
-        currentStreak: nextStreak,
-        longestStreak: Math.max(streakState.longestStreak, nextStreak),
-        totalActiveDays: streakState.totalActiveDays + 1,
-        lastActiveDate: today,
-      };
-      setStreakState(newStreak);
-      await saveStreakState(newStreak);
-    }
+    const freshStreak = computeStreakState({
+      today,
+      todos,
+      events: freshEvents,
+      dayLogs,
+      frozenDates: streakState.frozenDates,
+      freezesRemaining: streakState.freezesRemaining,
+    });
+    setStreakState(freshStreak);
+    await saveStreakState(freshStreak);
 
     setFocusTask(null);
     triggerPartyPop('grand');

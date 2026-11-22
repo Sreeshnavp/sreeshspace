@@ -22,6 +22,7 @@ import {
   isBefore,
   getWeekNumber,
 } from '../../utils/dates';
+import { computeStreakState } from '../../utils/streakCalculator';
 
 export interface HabitsDashboardProps {
   todos: TodoItem[];
@@ -180,6 +181,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
   routines = [],
   streakState,
+  events = [],
   selectedDate,
   onSelectDate,
   dayLogs = {},
@@ -544,6 +546,36 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return 0;
   }, [totalMilestones, completedMilestones, totalGoals, goalArcs]);
   const goalsOffset = 175.9 - (175.9 * (goalsPercent / 100));
+
+  // Dynamic, proper streak calculation from today backwards
+  const habitsCompletedToday = habitsList.some((h) => h.completed);
+
+  const computedStreak = useMemo(() => {
+    return computeStreakState({
+      today: TODAY,
+      priorities: prioritiesList,
+      habitsCompletedToday,
+      todos,
+      dayLogs,
+      events,
+      frozenDates: streakState?.frozenDates,
+      freezesRemaining: streakState?.freezesRemaining,
+    });
+  }, [TODAY, prioritiesList, habitsCompletedToday, todos, dayLogs, events, streakState]);
+
+  // Persist accurately computed streak state so all app components stay synced
+  useEffect(() => {
+    try {
+      localStorage.setItem('orbit_streak_v1', JSON.stringify({
+        currentStreak: computedStreak.currentStreak,
+        longestStreak: computedStreak.longestStreak,
+        totalActiveDays: computedStreak.totalActiveDays,
+        freezesRemaining: computedStreak.freezesRemaining,
+        frozenDates: computedStreak.frozenDates,
+        lastActiveDate: computedStreak.lastActiveDate,
+      }));
+    } catch {}
+  }, [computedStreak]);
 
   const [heroActiveTab, setHeroActiveTab] = useState<'habits' | 'priorities' | 'goals'>('habits');
 
@@ -1228,10 +1260,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   <div className="inline-flex items-center gap-1 text-sunshine-accent font-label-md text-label-md">
                     <span>🔥</span>
                     <span className="text-on-surface font-semibold">
-                      {(streakState?.currentStreak || 0) > 0 ? `${streakState?.currentStreak} Day Streak` : '0 Day Streak'}
+                      {computedStreak.currentStreak > 0 ? `${computedStreak.currentStreak} Day Streak` : '0 Day Streak'}
                     </span>
                     <span className="text-on-surface-variant font-normal">
-                      {(streakState?.currentStreak || 0) > 0 ? '· Keep it up!' : '· Ready to begin'}
+                      {computedStreak.currentStreak > 0 
+                        ? (computedStreak.isTodayActive ? '· Logged today! 🔥' : '· Complete today to extend!')
+                        : '· Ready to begin'}
                     </span>
                   </div>
                 </div>
@@ -2321,7 +2355,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               <div className="p-3 rounded-2xl bg-mint-subtle/70 flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-secondary">
-                    {(streakState?.currentStreak || 0) > 0 ? `🔥 ${streakState?.currentStreak} Day Streak Active` : '🌱 Ready for Day 1'}
+                    {computedStreak.currentStreak > 0 ? `🔥 ${computedStreak.currentStreak} Day Streak Active` : '🌱 Ready for Day 1'}
                   </span>
                   <span className="text-[10px] text-on-surface-variant">Today</span>
                 </div>
