@@ -151,6 +151,9 @@ export const LinkModal: React.FC<LinkModalProps> = ({
 
   return (
     <div 
+      data-modal="true"
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-inverse-surface/40 backdrop-blur-sm transition-opacity duration-200 p-2 sm:p-4"
       onClick={onClose}
     >

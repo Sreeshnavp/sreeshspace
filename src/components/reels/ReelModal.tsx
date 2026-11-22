@@ -197,7 +197,7 @@ export const ReelModal: React.FC<ReelModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-main/50 backdrop-blur-md animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-main/50 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-surface text-main rounded-3xl border border-subtle shadow-raised p-4 sm:p-6 space-y-4 max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-150">
         
         {/* Header */}

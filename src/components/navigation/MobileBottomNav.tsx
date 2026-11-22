@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkspaceView } from '../../types';
 import { playPopSound } from '../../utils/delight';
 import { useScrollVisibility } from '../../utils/useScrollVisibility';
@@ -25,6 +25,55 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   notesCount,
 }) => {
   const isVisible = useScrollVisibility();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkModals = () => {
+      // 1. Explicit dialog or modal elements
+      const explicitModal = document.querySelector(
+        '[role="dialog"], [aria-modal="true"], dialog[open], [data-modal="true"], .modal-container'
+      );
+      if (explicitModal) {
+        setIsModalOpen(true);
+        return;
+      }
+
+      // 2. Backdrop overlays for modals / popups
+      const overlays = document.querySelectorAll('.fixed.inset-0');
+      for (const el of overlays) {
+        if (el.hasAttribute('data-nav-dock') || el.id === 'toast-container' || el.id === 'root') continue;
+        const className = el.className || '';
+        // If it has children (modal content) and modal styling
+        if (
+          el.children.length > 0 &&
+          (className.includes('z-50') ||
+           className.includes('z-[') ||
+           className.includes('bg-') ||
+           className.includes('backdrop'))
+        ) {
+          setIsModalOpen(true);
+          return;
+        }
+      }
+
+      setIsModalOpen(false);
+    };
+
+    checkModals();
+
+    const observer = new MutationObserver(() => {
+      checkModals();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const tabs: Array<{
     view: WorkspaceView;
@@ -40,12 +89,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { view: 'notes', label: 'Notes', icon: 'edit_note', count: notesCount },
   ];
 
+  const shouldShow = isVisible && !isModalOpen;
+
   return (
     <nav
+      data-nav-dock="true"
       className={`fixed z-50 transition-all duration-300 ease-in-out bottom-0 w-full pb-safe md:bottom-5 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[560px] md:max-w-2xl md:rounded-3xl md:pb-0 bg-surface-card/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(139,92,246,0.08)] md:shadow-[0_8px_32px_rgba(139,92,246,0.18)] border-t md:border border-border-subtle ${
-        isVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+        shouldShow ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-[160%] opacity-0 pointer-events-none'
       }`}
       aria-label="Navigation Dock"
+      style={!shouldShow ? { pointerEvents: 'none' } : undefined}
     >
       <div className="flex items-center justify-around h-20 md:h-18 px-space-xs md:px-4 max-w-xl md:max-w-2xl mx-auto gap-1">
         {tabs.map((tab) => {

@@ -2012,7 +2012,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       {/* 3. NOTIFICATIONS MODAL                                   */}
       {/* ======================================================== */}
       {isNotificationOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2058,7 +2058,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
       {/* Add / Edit Reward Perk Modal */}
       {isPerkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2175,7 +2175,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
       {/* Edit Point Rates Modal */}
       {isEditRatesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2299,7 +2299,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       {/* 4. ADD HABIT OR TASK MODAL                                */}
       {/* ======================================================== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-surface-card rounded-3xl max-w-md w-full p-6 shadow-2xl border border-border-subtle space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
               <div className="flex items-center gap-2">

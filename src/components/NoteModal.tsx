@@ -136,6 +136,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
   return (
     <div 
+      data-modal="true"
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-main/50 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
     >

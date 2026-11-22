@@ -515,3 +515,17 @@
   animation: tabFadeSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }
+
+/* Automatically hide bottom 6 selection navigation dock when ANY popup, modal, or overlay dialog is open in ANY tab */
+body:has([role="dialog"]),
+body:has([aria-modal="true"]),
+body:has([data-modal="true"]),
+body:has(.fixed.inset-0.z-50),
+body:has(.fixed.inset-0[class*="z-["]),
+body:has(.fixed.inset-0[class*="backdrop"]),
+body:has(.fixed.inset-0[class*="bg-black"]) [data-nav-dock] {
+  transform: translateY(160%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}

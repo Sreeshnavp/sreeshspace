@@ -1789,7 +1789,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 8. FULL EXPENSE BREAKDOWN MODAL (WITH CAP)               */}
       {/* ======================================================== */}
       {selectedCategoryForSpendView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
@@ -1938,7 +1938,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 9. MANAGE CATEGORIES MODAL (EXPENSES & INCOME TABS)      */}
       {/* ======================================================== */}
       {isManageCategoriesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2222,7 +2222,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 10. QUICK LOG MODAL / BOTTOM SHEET (WITH KEYPAD)         */}
       {/* ======================================================== */}
       {isQuickLogOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn">
           <div className="w-full max-w-lg bg-surface-card rounded-t-3xl p-space-lg shadow-2xl space-y-space-md border-t border-lavender-subtle animate-in slide-in-from-bottom duration-200">
             <div className="w-12 h-1.5 bg-outline-variant/60 rounded-full mx-auto -mt-1 mb-1"></div>
             
@@ -2535,7 +2535,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 11. DEPOSIT MODAL                                        */}
       {/* ======================================================== */}
       {isDepositModalOpen && activeGoalForDeposit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2596,7 +2596,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 12. NEW GOAL TARGET MODAL (DATE PICKER & TIME REMAINING) */}
       {/* ======================================================== */}
       {isAddGoalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2688,7 +2688,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 13. DELETE LOG CONFIRMATION MODAL                        */}
       {/* ======================================================== */}
       {transactionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-peach-subtle text-tertiary flex items-center justify-center text-2xl flex-shrink-0">
@@ -2736,7 +2736,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 14. FULL STATEMENT MODAL                                 */}
       {/* ======================================================== */}
       {isFullStatementOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-lg rounded-3xl bg-surface-card p-6 shadow-2xl border border-border-subtle flex flex-col gap-4 max-h-[85vh] overflow-hidden">
             <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
               <div className="flex items-center gap-2">
@@ -2830,7 +2830,7 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
       {/* 15. NOTIFICATIONS MODAL                                  */}
       {/* ======================================================== */}
       {isNotificationOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+        <div role="dialog" aria-modal="true" data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-sm rounded-3xl bg-surface-card p-6 shadow-xl border border-border-subtle flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
