@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Film,
@@ -94,8 +94,17 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
   const [folderModalCategory, setFolderModalCategory] = useState<CategoryInfo | null>(null);
   const [editingCategoryTarget, setEditingCategoryTarget] = useState<CategoryInfo | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [hasAutoOpenedFeed, setHasAutoOpenedFeed] = useState(false);
   const [isFeedFullscreen, setIsFeedFullscreen] = useState(false);
   const [feedInitialId, setFeedInitialId] = useState<string | undefined>(undefined);
+
+  // Automatically default to fullscreen reels feed when entering reels if reels exist
+  useEffect(() => {
+    if (!hasAutoOpenedFeed && effectiveReels && effectiveReels.length > 0) {
+      setIsFeedFullscreen(true);
+      setHasAutoOpenedFeed(true);
+    }
+  }, [hasAutoOpenedFeed, effectiveReels]);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const isHeaderVisible = useScrollVisibility();
 
@@ -277,7 +286,7 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="font-bold text-sm tracking-tight text-vault-dark font-sans">
-                  Sreeshnav's Space
+                  Orbit
                 </h1>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100/80 text-amber-800 border border-amber-200/50">
                   ✨ Creative
@@ -361,10 +370,10 @@ export const ReelsArea: React.FC<ReelsAreaProps> = ({
 
             <button 
               onClick={() => handleOpenReelFeed()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-peach-subtle hover:bg-pink-100 text-tertiary border border-pink-200/60 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-primary to-primary-container text-white border border-primary/30 rounded-full text-xs font-bold whitespace-nowrap shadow-sm shadow-primary/25 transition-all active:scale-95 cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[16px]">video_library</span>
-              <span>Reel Feed</span>
+              <span className="material-symbols-outlined text-[16px]">play_circle</span>
+              <span>Watch Fullscreen</span>
             </button>
 
             <button 

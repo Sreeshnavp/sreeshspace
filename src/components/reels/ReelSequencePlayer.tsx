@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, ChevronUp, ChevronDown, Folder, Star, ExternalLink } from 'lucide-react';
 import type { ReelItem } from '../../types/reels';
-import { getInstagramEmbedUrl } from '../../utils/instagramHelper';
+import { getInstagramEmbedUrl, getInstagramDirectUrl } from '../../utils/instagramHelper';
 import { playPopSound } from '../../utils/delight';
 
 interface ReelSequencePlayerProps {
@@ -17,8 +17,10 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
   reels,
   initialReelId,
   onClose,
+  onToggleFavorite,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     if (initialReelId && reels && reels.length > 0) {
@@ -29,13 +31,27 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
     }
   }, [initialReelId, reels]);
 
-  // Keyboard navigation: ArrowUp, ArrowDown, Escape
+  const handleNext = () => {
+    if (currentIndex < reels.length - 1) {
+      playPopSound();
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      playPopSound();
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
+  // Keyboard navigation: ArrowUp, ArrowDown, Escape, PageUp, PageDown, j, k
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' || e.key === 'j') {
+      if (e.key === 'ArrowDown' || e.key === 'j' || e.key === 'PageDown') {
         e.preventDefault();
         handleNext();
-      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+      } else if (e.key === 'ArrowUp' || e.key === 'k' || e.key === 'PageUp') {
         e.preventDefault();
         handlePrev();
       } else if (e.key === 'Escape') {
@@ -47,6 +63,22 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, reels ? reels.length : 0]);
+
+  // Touch swipe support on player container edges
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartY.current = null;
+    if (deltaY < -60) {
+      handleNext();
+    } else if (deltaY > 60) {
+      handlePrev();
+    }
+  };
 
   if (!reels || reels.length === 0) {
     return (
@@ -66,9 +98,9 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
         </p>
         <button
           onClick={onClose}
-          className="mt-4 px-5 py-2 rounded-full bg-primary text-white font-bold text-xs shadow-md active:scale-95 transition"
+          className="mt-4 px-5 py-2 rounded-full bg-primary text-white font-bold text-xs shadow-md active:scale-95 transition cursor-pointer"
         >
-          Return to Reels
+          Return to Reels Vault
         </button>
       </div>
     );
@@ -76,58 +108,114 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
 
   const currentReel = reels[currentIndex] || reels[0];
   const embedUrl = getInstagramEmbedUrl(currentReel.shortcode);
-
-  const handleNext = () => {
-    if (currentIndex < reels.length - 1) {
-      playPopSound();
-      setCurrentIndex((prev) => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      playPopSound();
-      setCurrentIndex((prev) => prev - 1);
-    }
-  };
+  const directInstagramUrl = getInstagramDirectUrl(currentReel.shortcode);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black text-white flex items-center justify-center select-none overflow-hidden animate-in fade-in duration-150">
-      
-      {/* Floating Minimal Close Button */}
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center border border-white/20 backdrop-blur-md cursor-pointer transition active:scale-90 shadow-lg"
-        title="Close (Esc)"
-      >
-        <X size={20} />
-      </button>
+    <div 
+      className="fixed inset-0 z-50 bg-black text-white flex items-center justify-center select-none overflow-hidden animate-in fade-in duration-150"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* ======================================================== */}
+      {/* 1. TOP FLOATING CONTROLS (Folders & Vault, Counter, Close) */}
+      {/* ======================================================== */}
+      <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between pointer-events-none">
+        {/* Left: Folders & Vault Shortcut + Counter */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 backdrop-blur-md text-xs font-bold shadow-lg transition active:scale-95 cursor-pointer"
+            title="Open Folders & Vault"
+          >
+            <Folder size={14} className="text-pink-400 fill-pink-400/20" />
+            <span className="hidden sm:inline">Folders & Vault</span>
+            <span className="sm:hidden">Folders</span>
+          </button>
 
-      {/* Pure Full Screen Reel Viewport (Only the Reel) */}
-      <div className="relative w-full h-full max-w-[480px] sm:max-w-[520px] flex items-center justify-center overflow-hidden bg-black">
+          <span className="px-2.5 py-1 rounded-full bg-black/60 border border-white/15 text-white/80 backdrop-blur-md text-[11px] font-mono font-medium">
+            {currentIndex + 1} / {reels.length}
+          </span>
+        </div>
+
+        {/* Right: Star & Close */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => {
+                playPopSound();
+                onToggleFavorite(currentReel.id);
+              }}
+              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transition active:scale-90 cursor-pointer"
+              title={currentReel.favorite ? 'Unstar Reel' : 'Star Reel'}
+            >
+              <Star size={18} className={currentReel.favorite ? 'fill-amber-400 text-amber-400' : 'text-white/80'} />
+            </button>
+          )}
+
+          <a
+            href={directInstagramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transition active:scale-90 cursor-pointer"
+            title="Open on Instagram"
+          >
+            <ExternalLink size={16} className="text-white/80" />
+          </a>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transition active:scale-90 cursor-pointer"
+            title="Close Fullscreen (Esc)"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. PURE FULL SCREEN REEL VIEWPORT (VIDEO ONLY)            */}
+      {/* Scales & crops iframe: completely hides top header &      */}
+      {/* bottom caption/white area! Only video visible.           */}
+      {/* ======================================================== */}
+      <div 
+        className="relative h-full overflow-hidden bg-black flex items-center justify-center shadow-2xl"
+        style={{
+          width: 'min(100vw, calc((100dvh + 220px) * 9 / 16))',
+          maxHeight: '100dvh',
+        }}
+      >
         <iframe
           key={currentReel.shortcode || currentReel.id}
           src={embedUrl}
           title={currentReel.headline || 'Instagram Reel'}
-          className="w-full border-0 absolute left-0"
+          className="border-0 pointer-events-auto"
           style={{
-            top: '-56px',
-            height: 'calc(100% + 112px)',
+            position: 'absolute',
+            top: '-64px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc((100dvh + 220px) * 9 / 16)',
+            minWidth: '100%',
+            height: 'calc(100dvh + 500px)',
           }}
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
           allowFullScreen
         />
       </div>
 
-      {/* Desktop / Tablet Up & Down Navigation Controls */}
+      {/* ======================================================== */}
+      {/* 3. FLOATING NEXT & PREVIOUS ARROWS (RIGHT SIDE)           */}
+      {/* ======================================================== */}
       {reels.length > 1 && (
-        <div className="hidden sm:flex flex-col gap-3 absolute right-6 top-1/2 -translate-y-1/2 z-40">
+        <div className="flex flex-col gap-3 absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-40">
           <button
             type="button"
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 disabled:opacity-20 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition active:scale-95 cursor-pointer shadow-md disabled:cursor-not-allowed"
+            className="w-11 h-11 rounded-full bg-black/65 hover:bg-black/90 disabled:opacity-20 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition active:scale-90 cursor-pointer shadow-xl disabled:cursor-not-allowed"
             title="Previous Reel (↑)"
           >
             <ChevronUp size={22} />
@@ -136,7 +224,7 @@ export const ReelSequencePlayer: React.FC<ReelSequencePlayerProps> = ({
             type="button"
             onClick={handleNext}
             disabled={currentIndex === reels.length - 1}
-            className="w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 disabled:opacity-20 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition active:scale-95 cursor-pointer shadow-md disabled:cursor-not-allowed"
+            className="w-11 h-11 rounded-full bg-black/65 hover:bg-black/90 disabled:opacity-20 text-white flex items-center justify-center border border-white/20 backdrop-blur-md transition active:scale-90 cursor-pointer shadow-xl disabled:cursor-not-allowed"
             title="Next Reel (↓)"
           >
             <ChevronDown size={22} />
