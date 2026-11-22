@@ -95,6 +95,42 @@ export interface PriorityTaskDef {
   date?: string;
 }
 
+export const DEFAULT_BAZAAR_PERKS = [
+  {
+    id: 'perk-default-1',
+    title: 'Artisanal Coffee or Boba',
+    detail: 'Treat yourself to your favorite cozy beverage.',
+    cost: 40,
+    emoji: '☕',
+    bgClass: 'bg-lavender-subtle/70',
+    accentColor: 'text-primary',
+    redeemedCount: 0,
+    lastRedeemedDate: null,
+  },
+  {
+    id: 'perk-default-2',
+    title: '1 Hr Guilt-Free Gaming',
+    detail: 'Kick back and immerse yourself in your favorite game.',
+    cost: 60,
+    emoji: '🎮',
+    bgClass: 'bg-mint-subtle/70',
+    accentColor: 'text-secondary',
+    redeemedCount: 0,
+    lastRedeemedDate: null,
+  },
+  {
+    id: 'perk-default-3',
+    title: 'Movie Night & Favorite Snack',
+    detail: 'Pick any film and treat yourself guilt-free.',
+    cost: 100,
+    emoji: '🎬',
+    bgClass: 'bg-peach-subtle/70',
+    accentColor: 'text-tertiary',
+    redeemedCount: 0,
+    lastRedeemedDate: null,
+  },
+];
+
 export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   todos = [],
   routines = [],
@@ -198,13 +234,34 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     }
   });
 
-  const [hasClaimedBonus, setHasClaimedBonus] = useState<boolean>(() => {
+  const updateGlowPoints = (delta: number) => {
+    setGlowPoints((prev) => {
+      const next = Math.max(0, prev + delta);
+      try {
+        localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, next.toString());
+      } catch {}
+      return next;
+    });
+  };
+
+  const [pointsToast, setPointsToast] = useState<{ message: string; pts: number; type: 'earn' | 'redeem' } | null>(null);
+
+  const showPointsFeedback = (message: string, pts: number, type: 'earn' | 'redeem') => {
+    setPointsToast({ message, pts, type });
+    setTimeout(() => {
+      setPointsToast((current) => (current?.message === message ? null : current));
+    }, 4000);
+  };
+
+  const [lastBonusDate, setLastBonusDate] = useState<string>(() => {
     try {
-      return localStorage.getItem(`${HABITS_STORAGE_KEY}-bonus-claimed`) === 'true';
+      return localStorage.getItem(`${HABITS_STORAGE_KEY}-bonus-date`) || '';
     } catch {
-      return false;
+      return '';
     }
   });
+
+  const hasClaimedTodayBonus = lastBonusDate === TODAY;
 
   const [showBonusToast, setShowBonusToast] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -230,17 +287,15 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [bazaarPerks, setBazaarPerks] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('sreesh-bazaar-perks-v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
-    return [];
+    return DEFAULT_BAZAAR_PERKS;
   });
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
-
-  // Bazaar perks state
-  const [unlockedPerks, setUnlockedPerks] = useState<Record<string, boolean>>(() => {
-    return {};
-  });
 
   // Daily Habits List (zero dummy items)
   const [habitsList, setHabitsList] = useState<HabitItemDef[]>(() => {
@@ -346,49 +401,87 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   }, [todayDayKey, completedRoutines, totalRoutines, focusPercent]);
 
-  // Toggle daily habit
+  // Toggle daily habit (awards +20 Glow Points on completion, -20 if undone)
   const handleToggleHabit = (id: string) => {
-    setHabitsList((prev) =>
-      prev.map((h) => {
+    setHabitsList((prev) => {
+      const targetHabit = prev.find((h) => h.id === id);
+      const willBeCompleted = !targetHabit?.completed;
+
+      if (willBeCompleted) {
+        triggerCelebration();
+        updateGlowPoints(20);
+        showPointsFeedback(`🌟 Completed "${targetHabit?.title || 'Habit'}"! +20 Glow Points!`, 20, 'earn');
+      } else {
+        playPopSound();
+        updateGlowPoints(-20);
+        showPointsFeedback(`Marked "${targetHabit?.title || 'Habit'}" pending (-20 Glow Points)`, -20, 'redeem');
+      }
+
+      const next = prev.map((h) => {
         if (h.id === id) {
-          const next = !h.completed;
-          if (next) triggerCelebration();
-          else playPopSound();
           return {
             ...h,
-            completed: next,
-            badge: next ? 'Completed!' : '✨ Pending',
-            badgeBg: next ? h.btnBgDone : 'bg-surface-card text-tertiary',
+            completed: willBeCompleted,
+            badge: willBeCompleted ? 'Completed!' : '✨ Pending',
+            badgeBg: willBeCompleted ? h.btnBgDone : 'bg-surface-card text-tertiary',
           };
         }
         return h;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
-  // Toggle priority task
+  // Toggle priority task (awards +15 Glow Points on completion, -15 if undone)
   const handleTogglePriority = (id: string, isExternal?: boolean) => {
     if (isExternal) {
       onToggleTodo(id);
-      const item = displayPriorities.find(p => p.id === id);
-      if (item && !item.completed) triggerCelebration();
-      else playPopSound();
+      const item = displayPriorities.find((p) => p.id === id);
+      const willBeCompleted = !item?.completed;
+      if (willBeCompleted) {
+        triggerCelebration();
+        updateGlowPoints(15);
+        showPointsFeedback(`🎯 Completed priority task! +15 Glow Points!`, 15, 'earn');
+      } else {
+        playPopSound();
+        updateGlowPoints(-15);
+        showPointsFeedback(`Marked priority pending (-15 Glow Points)`, -15, 'redeem');
+      }
       return;
     }
 
-    setPrioritiesList((prev) =>
-      prev.map((p) => {
+    setPrioritiesList((prev) => {
+      const item = prev.find((p) => p.id === id);
+      const willBeCompleted = !item?.completed;
+
+      if (willBeCompleted) {
+        triggerCelebration();
+        updateGlowPoints(15);
+        showPointsFeedback(`🎯 Completed priority task! +15 Glow Points!`, 15, 'earn');
+      } else {
+        playPopSound();
+        updateGlowPoints(-15);
+        showPointsFeedback(`Marked priority pending (-15 Glow Points)`, -15, 'redeem');
+      }
+
+      const next = prev.map((p) => {
         if (p.id === id) {
-          const next = !p.completed;
-          if (next) triggerCelebration();
-          else playPopSound();
-          return { ...p, completed: next };
+          return { ...p, completed: willBeCompleted };
         }
         return p;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
-    const matchingTodo = userDailyTodos.find(t => t.id === id || t.text.trim().toLowerCase() === displayPriorities.find(p => p.id === id)?.text.trim().toLowerCase());
+    const matchingTodo = userDailyTodos.find(
+      (t) => t.id === id || t.text.trim().toLowerCase() === displayPriorities.find((p) => p.id === id)?.text.trim().toLowerCase()
+    );
     if (matchingTodo) {
       onToggleTodo(matchingTodo.id);
     }
@@ -426,17 +519,27 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     triggerCelebration();
   };
 
-  // Toggle goal subtask
+  // Toggle goal subtask (awards +25 Glow Points on milestone achieved, -25 if undone)
   const handleToggleGoalSubtask = (goalId: string, subtaskId: string) => {
-    setGoalArcs((prev) =>
-      prev.map((g) => {
+    setGoalArcs((prev) => {
+      const next = prev.map((g) => {
         if (g.id === goalId) {
+          const targetSubtask = g.subtasks.find((st) => st.id === subtaskId);
+          const willBeCompleted = !targetSubtask?.completed;
+
+          if (willBeCompleted) {
+            triggerCelebration();
+            updateGlowPoints(25);
+            showPointsFeedback(`🏆 Goal milestone achieved! +25 Glow Points!`, 25, 'earn');
+          } else {
+            playPopSound();
+            updateGlowPoints(-25);
+            showPointsFeedback(`Milestone marked pending (-25 Glow Points)`, -25, 'redeem');
+          }
+
           const nextSubtasks = g.subtasks.map((st) => {
             if (st.id === subtaskId) {
-              const next = !st.completed;
-              if (next) triggerCelebration();
-              else playPopSound();
-              return { ...st, completed: next };
+              return { ...st, completed: willBeCompleted };
             }
             return st;
           });
@@ -450,44 +553,66 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           };
         }
         return g;
-      })
-    );
-  };
-
-  // Claim streak bonus
-  const handleClaimBonus = () => {
-    if (hasClaimedBonus) return;
-    const newPoints = glowPoints + 50;
-    setGlowPoints(newPoints);
-    setHasClaimedBonus(true);
-    setShowBonusToast(true);
-    triggerCelebration();
-    try {
-      localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, newPoints.toString());
-      localStorage.setItem(`${HABITS_STORAGE_KEY}-bonus-claimed`, 'true');
-    } catch {}
-    setTimeout(() => setShowBonusToast(false), 4000);
-  };
-
-  // Redeem bazaar perk
-  const handleRedeemPerk = (perkId: string, cost: number) => {
-    const perk = bazaarPerks.find((p) => p.id === perkId);
-    if (!perk || perk.unlocked || perk.claimedToday) return;
-    if (glowPoints < cost) {
-      alert("Not enough Glow Points yet! Complete more habits to earn points ✨");
-      return;
-    }
-    const nextPoints = glowPoints - cost;
-    setGlowPoints(nextPoints);
-    setBazaarPerks((prev) => {
-      const next = prev.map((p) => (p.id === perkId ? { ...p, unlocked: true } : p));
-      try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+      });
+      try {
+        localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next));
+      } catch {}
       return next;
     });
-    triggerCelebration();
+  };
+
+  // Claim daily streak bonus (+50 Glow Points once per day)
+  const handleClaimBonus = () => {
+    if (hasClaimedTodayBonus) return;
+    updateGlowPoints(50);
+    setLastBonusDate(TODAY);
     try {
-      localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, nextPoints.toString());
+      localStorage.setItem(`${HABITS_STORAGE_KEY}-bonus-date`, TODAY);
     } catch {}
+    triggerCelebration();
+    showPointsFeedback('🎉 Claimed +50 Daily Streak Bonus into your Vault!', 50, 'earn');
+  };
+
+  // Redeem bazaar perk with point deduction & balance check
+  const handleRedeemPerk = (perkId: string, cost: number) => {
+    const perk = bazaarPerks.find((p) => p.id === perkId);
+    if (!perk) return;
+
+    if (glowPoints < cost) {
+      playPopSound();
+      showPointsFeedback(
+        `🔒 Need ${cost - glowPoints} more Glow Points for "${perk.title}". Complete habits to earn points!`,
+        cost - glowPoints,
+        'redeem'
+      );
+      return;
+    }
+
+    // Deduct points from vault
+    updateGlowPoints(-cost);
+
+    // Update perk claim tracking (increment count and record date)
+    setBazaarPerks((prev) => {
+      const next = prev.map((p) => {
+        if (p.id === perkId) {
+          const newCount = (p.redeemedCount || 0) + 1;
+          return {
+            ...p,
+            redeemedCount: newCount,
+            lastRedeemedDate: TODAY,
+            unlocked: true,
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    triggerCelebration();
+    showPointsFeedback(`🎉 Redeemed "${perk.title}"! (-${cost} pts) Enjoy your reward! ✨`, cost, 'redeem');
   };
 
   const handleDeletePerk = (id: string) => {
@@ -541,21 +666,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setPerkDesc('');
     setIsPerkModalOpen(false);
     triggerCelebration();
-  };
-
-  const _oldHandleRedeem = (perkId: string, cost: number) => {
-    if (unlockedPerks[perkId]) return;
-    if (glowPoints < cost) {
-      alert("Not enough Glow Points yet! Complete more habits to earn points ✨");
-      return;
-    }
-    const nextPoints = glowPoints - cost;
-    setGlowPoints(nextPoints);
-    setUnlockedPerks((prev) => ({ ...prev, [perkId]: true }));
-    triggerCelebration();
-    try {
-      localStorage.setItem(`${HABITS_STORAGE_KEY}-points`, nextPoints.toString());
-    } catch {}
   };
 
   // Clear completed priorities on active date
@@ -1419,9 +1529,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
           {/* Section 6: Score & Points Claim System & Cozy Reward Bazaar */}
           <section className="bg-surface-card rounded-3xl p-space-lg shadow-sm border border-border-subtle space-y-space-md">
-            <div className="flex items-center justify-between gap-space-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-sunshine-subtle text-sunshine-accent flex items-center justify-center text-2xl shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-sunshine-subtle text-sunshine-accent flex items-center justify-center text-2xl shadow-sm shrink-0">
                   ✨
                 </div>
                 <div>
@@ -1436,6 +1546,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                     </span>
                     <span className="font-label-sm text-label-sm text-secondary font-semibold">Glow Pts</span>
                   </div>
+                  <p className="font-label-sm text-[11px] text-on-surface-variant mt-0.5">
+                    ✨ +20/habit · +15/priority · +25/milestone · +50 daily bonus
+                  </p>
                 </div>
               </div>
 
@@ -1443,39 +1556,49 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
               <button 
                 id="claim-bonus-btn"
                 onClick={handleClaimBonus}
-                disabled={hasClaimedBonus}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-on-primary font-label-sm text-label-sm font-bold shadow-sm transition-all cursor-pointer ${
-                  hasClaimedBonus 
-                    ? 'bg-secondary opacity-90 pointer-events-none' 
-                    : 'bg-primary hover:scale-105 active:scale-95'
+                disabled={hasClaimedTodayBonus}
+                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all cursor-pointer ${
+                  hasClaimedTodayBonus 
+                    ? 'bg-surface-container-high text-secondary border border-secondary/30 pointer-events-none opacity-90' 
+                    : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md'
                 }`}
               >
                 <span className="material-symbols-outlined text-[16px]">
-                  {hasClaimedBonus ? 'check' : 'add'}
+                  {hasClaimedTodayBonus ? 'check_circle' : 'stars'}
                 </span>
-                <span>{hasClaimedBonus ? 'Claimed +50!' : 'Claim +50 Bonus'}</span>
+                <span>{hasClaimedTodayBonus ? '✓ Claimed +50 Today' : 'Claim +50 Streak Bonus'}</span>
               </button>
             </div>
 
-            {/* Claimed Feedback Banner */}
-            {showBonusToast && (
+            {/* Interactive Points Toast Feedback Banner */}
+            {pointsToast && (
               <div 
-                id="claim-feedback-toast" 
-                className="flex items-center justify-between bg-mint-subtle px-3 py-2 rounded-xl text-on-secondary-container font-label-sm text-xs shadow-xs animate-bounce"
+                id="points-feedback-toast" 
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-label-sm text-xs shadow-sm transition-all duration-300 animate-fadeIn ${
+                  pointsToast.type === 'earn'
+                    ? 'bg-mint-subtle text-on-secondary-container border border-secondary/20'
+                    : 'bg-peach-subtle text-on-tertiary-container border border-tertiary/20'
+                }`}
               >
-                <span className="flex items-center gap-1.5">
-                  🎉 <strong>Woohoo!</strong> 50 Glow Points deposited into your Vault!
+                <span className="flex items-center gap-2 font-medium">
+                  <span>{pointsToast.type === 'earn' ? '🎉' : '✨'}</span>
+                  <span>{pointsToast.message}</span>
                 </span>
-                <span className="font-bold">✨ Total: {glowPoints} Pts</span>
+                <span className="font-bold shrink-0 ml-2">Vault: {glowPoints} Pts</span>
               </div>
             )}
 
-            {/* Cozy Reward Bazaar Sub-grid (Add, Edit & Delete Rewards) */}
-            <div className="pt-2 border-t border-border-subtle space-y-2.5">
+            {/* Cozy Reward Bazaar Sub-grid (Add, Edit, Claim & Delete Rewards) */}
+            <div className="pt-2 border-t border-border-subtle space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">
-                  Cozy Reward Bazaar
-                </span>
+                <div>
+                  <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">
+                    Cozy Reward Bazaar
+                  </span>
+                  <p className="font-body-sm text-[11px] text-on-surface-variant hidden sm:block">
+                    Redeem your hard-earned Glow Points for cozy self-care treats.
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -1483,7 +1606,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       playPopSound();
                       setEditingPerk(null);
                       setPerkTitle('');
-                      setPerkCost('300');
+                      setPerkCost('50');
                       setPerkDesc('');
                       setPerkEmoji('🎁');
                       setIsPerkModalOpen(true);
@@ -1497,71 +1620,89 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {bazaarPerks.length === 0 && (
                   <div className="col-span-1 sm:col-span-3 p-4 bg-surface-container-low rounded-2xl border border-dashed border-border-subtle text-center text-xs text-on-surface-variant">
                     No custom perks yet. Click <span className="font-semibold text-primary">+ New Reward</span> to create incentives for your glow points!
                   </div>
                 )}
-                {bazaarPerks.map((perk) => (
-                  <div key={perk.id} className={`p-2.5 rounded-2xl ${perk.bgClass || 'bg-lavender-subtle/70'} flex flex-col justify-between gap-2 border border-border-subtle group hover:border-primary/40 transition-all`}>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-base">{perk.emoji}</span>
-                        <div className="flex items-center gap-1">
-                          <span className={`font-label-sm text-[10px] font-bold ${perk.accentColor || 'text-primary'} bg-surface-card px-1.5 py-0.5 rounded-full`}>
-                            {perk.cost} Pts
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              playPopSound();
-                              setEditingPerk(perk);
-                              setPerkTitle(perk.title);
-                              setPerkCost(String(perk.cost));
-                              setPerkDesc(perk.detail);
-                              setPerkEmoji(perk.emoji);
-                              setIsPerkModalOpen(true);
-                            }}
-                            className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors text-[10px] cursor-pointer"
-                            title="Edit Perk"
-                          >
-                            <span className="material-symbols-outlined text-[12px]">edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePerk(perk.id)}
-                            className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors text-[10px] cursor-pointer"
-                            title="Delete Perk"
-                          >
-                            <span className="material-symbols-outlined text-[12px]">delete</span>
-                          </button>
+                {bazaarPerks.map((perk) => {
+                  const canAfford = glowPoints >= perk.cost;
+                  return (
+                    <div 
+                      key={perk.id} 
+                      className={`p-3 rounded-2xl ${perk.bgClass || 'bg-lavender-subtle/70'} flex flex-col justify-between gap-2.5 border border-border-subtle group hover:border-primary/40 transition-all shadow-xs`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl">{perk.emoji}</span>
+                          <div className="flex items-center gap-1">
+                            <span className={`font-label-sm text-[10px] font-bold ${perk.accentColor || 'text-primary'} bg-surface-card px-2 py-0.5 rounded-full shadow-2xs`}>
+                              {perk.cost} Pts
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playPopSound();
+                                setEditingPerk(perk);
+                                setPerkTitle(perk.title);
+                                setPerkCost(String(perk.cost));
+                                setPerkDesc(perk.detail);
+                                setPerkEmoji(perk.emoji);
+                                setIsPerkModalOpen(true);
+                              }}
+                              className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors text-[10px] cursor-pointer"
+                              title="Edit Perk"
+                            >
+                              <span className="material-symbols-outlined text-[12px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePerk(perk.id)}
+                              className="w-5 h-5 rounded-full bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors text-[10px] cursor-pointer"
+                              title="Delete Perk"
+                            >
+                              <span className="material-symbols-outlined text-[12px]">delete</span>
+                            </button>
+                          </div>
                         </div>
+                        <p className="font-headline-sm text-[13px] text-on-surface mt-1.5 leading-tight font-semibold font-fraunces">
+                          {perk.title}
+                        </p>
+                        <p className="font-body-sm text-[11px] text-on-surface-variant mt-0.5">{perk.detail}</p>
+                        {perk.redeemedCount > 0 && (
+                          <div className="mt-1 text-[10px] font-semibold text-secondary flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[12px]">stars</span>
+                            <span>Claimed {perk.redeemedCount}×</span>
+                          </div>
+                        )}
                       </div>
-                      <p className="font-headline-sm text-[13px] text-on-surface mt-1 leading-tight font-semibold font-fraunces">
-                        {perk.title}
-                      </p>
-                      <p className="font-body-sm text-[11px] text-on-surface-variant">{perk.detail}</p>
-                    </div>
 
-                    {perk.claimedToday ? (
-                      <div className="w-full py-1 text-center rounded-xl bg-surface-card text-secondary font-label-sm text-[11px] font-bold shadow-xs">
-                        ✓ Claimed Today
-                      </div>
-                    ) : (
                       <button 
+                        type="button"
                         onClick={() => handleRedeemPerk(perk.id, perk.cost)}
-                        className={`w-full py-1 text-center rounded-xl font-label-sm text-[11px] font-bold shadow-xs active:scale-95 transition-transform cursor-pointer ${
-                          perk.unlocked 
-                            ? 'bg-surface-card text-secondary pointer-events-none' 
-                            : 'bg-primary text-on-primary hover:bg-primary-container'
+                        className={`w-full py-2 px-3 text-center rounded-xl font-label-sm text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          canAfford
+                            ? 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-md'
+                            : 'bg-surface-card/90 text-on-surface-variant border border-border-subtle hover:bg-surface-container-high'
                         }`}
+                        title={canAfford ? `Claim "${perk.title}" for ${perk.cost} Pts` : `Need ${perk.cost - glowPoints} more Glow Points to claim`}
                       >
-                        {perk.unlocked ? 'Unlocked!' : 'Claim Perk'}
+                        {canAfford ? (
+                          <>
+                            <span>Claim for {perk.cost} Pts</span>
+                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[14px] text-tertiary">lock</span>
+                            <span>Need {perk.cost - glowPoints} more pts</span>
+                          </>
+                        )}
                       </button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
