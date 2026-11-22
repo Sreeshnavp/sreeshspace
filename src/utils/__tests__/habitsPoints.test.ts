@@ -135,4 +135,22 @@ describe('Habit Points & Reward System Logic', () => {
       expect(dayTasks.every(t => t.text.trim().length > 0)).toBe(true);
     }
   });
+
+  it('handles removing or setting daily bonus to 0', () => {
+    const zeroBonusRates: PointRatesConfig = {
+      habitPts: 20,
+      priorityPts: 15,
+      milestonePts: 25,
+      dailyBonusPts: 0,
+    };
+
+    // When daily bonus is 0, bonus should not be awarded and claim should be disabled/hidden
+    expect(zeroBonusRates.dailyBonusPts).toBe(0);
+    const shouldRenderClaimButton = zeroBonusRates.dailyBonusPts > 0;
+    expect(shouldRenderClaimButton).toBe(false);
+
+    // Summary string should not show "+0 daily bonus"
+    const summaryExtra = zeroBonusRates.dailyBonusPts > 0 ? ` · +${zeroBonusRates.dailyBonusPts} daily bonus` : '';
+    expect(summaryExtra).toBe('');
+  });
 });

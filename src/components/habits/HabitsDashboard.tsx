@@ -355,8 +355,6 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     }
   });
 
-  const hasClaimedTodayBonus = lastBonusDate === TODAY;
-
   // Configurable point reward rates
   const [pointRates, setPointRates] = useState<PointRatesConfig>(() => {
     try {
@@ -374,6 +372,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return DEFAULT_POINT_RATES;
   });
 
+  const hasClaimedTodayBonus = pointRates.dailyBonusPts > 0 && lastBonusDate === TODAY;
+
   const [isEditRatesModalOpen, setIsEditRatesModalOpen] = useState(false);
   const [tempPointRates, setTempPointRates] = useState<PointRatesConfig>(pointRates);
   const [activeHabitMenuId, setActiveHabitMenuId] = useState<string | null>(null);
@@ -386,6 +386,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       dailyBonusPts: Math.max(0, Math.floor(Number(tempPointRates.dailyBonusPts) || 0)),
     };
     setPointRates(cleanRates);
+    if (cleanRates.dailyBonusPts === 0) {
+      setLastBonusDate('');
+      try {
+        localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
+      } catch {}
+    }
     try {
       localStorage.setItem('sreesh-habit-point-rates-v1', JSON.stringify(cleanRates));
     } catch {}
@@ -709,10 +715,23 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     });
   };
 
-  // Claim daily streak bonus (+dailyBonusPts once per day)
+  // Claim or Unclaim daily streak bonus (+dailyBonusPts once per day)
   const handleClaimBonus = () => {
-    if (hasClaimedTodayBonus) return;
     const bonus = pointRates.dailyBonusPts;
+    if (bonus <= 0) return;
+
+    if (hasClaimedTodayBonus) {
+      // Allow unclaiming / resetting bonus
+      playPopSound();
+      updateGlowPoints(-bonus);
+      setLastBonusDate('');
+      try {
+        localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
+      } catch {}
+      showPointsFeedback(`Reset Daily Streak Bonus (-${bonus} Glow Points)`, -bonus, 'redeem');
+      return;
+    }
+
     updateGlowPoints(bonus);
     setLastBonusDate(TODAY);
     try {
@@ -1798,7 +1817,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <p className="font-label-sm text-[11px] text-on-surface-variant">
-                      ✨ +{pointRates.habitPts}/habit · +{pointRates.priorityPts}/priority · +{pointRates.milestonePts}/milestone · +{pointRates.dailyBonusPts} daily bonus
+                      ✨ +{pointRates.habitPts}/habit · +{pointRates.priorityPts}/priority · +{pointRates.milestonePts}/milestone{pointRates.dailyBonusPts > 0 ? ` · +${pointRates.dailyBonusPts} daily bonus` : ''}
                     </p>
                     <button
                       type="button"
@@ -1817,22 +1836,24 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Claim Streak Bonus Button */}
-              <button 
-                id="claim-bonus-btn"
-                onClick={handleClaimBonus}
-                disabled={hasClaimedTodayBonus}
-                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all cursor-pointer ${
-                  hasClaimedTodayBonus 
-                    ? 'bg-surface-container-high text-secondary border border-secondary/30 pointer-events-none opacity-90' 
-                    : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">
-                  {hasClaimedTodayBonus ? 'check_circle' : 'stars'}
-                </span>
-                <span>{hasClaimedTodayBonus ? '✓ Claimed Today' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}</span>
-              </button>
+              {/* Claim Streak Bonus Button (Only rendered if daily bonus rate > 0) */}
+              {pointRates.dailyBonusPts > 0 && (
+                <button 
+                  id="claim-bonus-btn"
+                  onClick={handleClaimBonus}
+                  className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all cursor-pointer ${
+                    hasClaimedTodayBonus 
+                      ? 'bg-surface-container-high text-secondary border border-secondary/30 hover:bg-surface-container-highest active:scale-95' 
+                      : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md'
+                  }`}
+                  title={hasClaimedTodayBonus ? 'Claimed today (Click to unclaim/reset)' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {hasClaimedTodayBonus ? 'check_circle' : 'stars'}
+                  </span>
+                  <span>{hasClaimedTodayBonus ? '✓ Claimed Today' : `Claim +${pointRates.dailyBonusPts} Streak Bonus`}</span>
+                </button>
+              )}
             </div>
 
             {/* Interactive Points Toast Feedback Banner */}
