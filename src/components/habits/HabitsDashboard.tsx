@@ -491,7 +491,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
     const external = userDailyTodos
       .filter((t) => (t.date || TODAY) === activeDateKey)
-      .filter((t) => !local.some(l => l.id === t.id || l.text.trim().toLowerCase() === t.text.trim().toLowerCase()))
+      // Must not duplicate any task in prioritiesList (even if postponed to a future date)
+      .filter((t) => !prioritiesList.some(p => p.id === t.id || p.text.trim().toLowerCase() === t.text.trim().toLowerCase()))
       .map((t) => ({
         id: t.id,
         priority: (t.priority === 'low' ? 'gentle' : (t.priority || 'medium')) as 'high' | 'medium' | 'gentle',
@@ -570,20 +571,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const isToday = dateKey === TODAY;
       const isPast = isBefore(dateKey, TODAY);
       const label = isToday ? d.key : d.short;
+      const dayNum = dateKey ? parseLocalDateKey(dateKey).getDate() : '';
 
       return {
         key: d.key,
         dateKey,
         label,
+        dayNum,
         isToday,
         completed: isPast,
         icon: isToday ? '🌟' : isPast ? 'check_circle' : '•',
         fullName: d.full,
         desc: isToday
-          ? `${d.full} (Today): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)`
+          ? `${d.full} (Today, ${dayNum}): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)`
           : isPast
-          ? `${d.full}: Logged routines (100% ★) · ${formatDisplayDate(dateKey)}`
-          : `${d.full}: Upcoming rituals & planning · ${formatDisplayDate(dateKey)}`,
+          ? `${d.full} (${dayNum}): Logged routines (100% ★) · ${formatDisplayDate(dateKey)}`
+          : `${d.full} (${dayNum}): Upcoming rituals & planning · ${formatDisplayDate(dateKey)}`,
       };
     });
   }, [dayDateMap, TODAY, completedRoutines, totalRoutines, focusPercent]);
@@ -696,15 +699,60 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     }
   };
 
-  // Postpone priority task to tomorrow or future date
+  // Postpone priority task to tomorrow (disappears from current date and moves to tomorrow)
   const handlePostponePriority = (id: string, daysAhead = 1) => {
     playPopSound();
     const nextDate = addDays(activeDateKey, daysAhead);
+
+    // Find the task in current displayPriorities
+    const target = displayPriorities.find((p) => p.id === id);
+    const taskText = target?.text.trim() || '';
+    const taskPriority = target?.priority || 'medium';
+
+    // Update prioritiesList: if already present, update date; if external, add to prioritiesList for tomorrow
     setPrioritiesList((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, date: nextDate, time: formatDisplayDate(nextDate) } : p));
-      try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
-      return next;
+      const matchIndex = prev.findIndex(
+        (p) => p.id === id || (taskText && p.text.trim().toLowerCase() === taskText.toLowerCase())
+      );
+      if (matchIndex !== -1) {
+        const next = [...prev];
+        next[matchIndex] = {
+          ...next[matchIndex],
+          date: nextDate,
+          time: formatDisplayDate(nextDate),
+        };
+        try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+        return next;
+      } else {
+        const newP: PriorityTaskDef = {
+          id: id.startsWith('p-') ? id : 'p-' + Date.now(),
+          priority: taskPriority,
+          time: formatDisplayDate(nextDate),
+          text: taskText || 'Priority Task',
+          completed: false,
+          date: nextDate,
+        };
+        const next = [...prev, newP];
+        try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
+        return next;
+      }
     });
+
+    // Clean up any matching external todos from current date and reschedule for tomorrow
+    if (taskText && userDailyTodos) {
+      const matchingTodos = userDailyTodos.filter(
+        (t) => t.id === id || t.text.trim().toLowerCase() === taskText.toLowerCase()
+      );
+      for (const mt of matchingTodos) {
+        if (onDeleteTodo) {
+          onDeleteTodo(mt.id);
+        }
+      }
+      if (onAddTodo) {
+        onAddTodo(taskText, 'daily', taskPriority === 'gentle' ? 'low' : taskPriority, nextDate, ['priority']);
+      }
+    }
+
     triggerCelebration();
   };
 
@@ -1430,7 +1478,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                           onSelectDate(targetDate);
                         }
                       }}
-                      className={`flex flex-col items-center py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
+                      className={`flex flex-col items-center py-1.5 sm:py-2 px-1 rounded-2xl transition-all cursor-pointer active:scale-95 ${
                         d.isToday
                           ? isSelected
                             ? 'bg-primary text-on-primary shadow-md scale-105 ring-2 ring-primary-fixed'
@@ -1443,13 +1491,16 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                       }`}
                       title={d.desc}
                     >
-                      <span className="font-label-sm text-label-sm font-semibold">{d.label}</span>
+                      <span className="font-label-sm text-label-sm font-semibold leading-tight">{d.label}</span>
+                      <span className={`text-[10px] font-medium leading-tight ${d.isToday ? 'text-on-primary/90 font-bold' : 'text-on-surface-variant'}`}>
+                        {d.dayNum}
+                      </span>
                       {d.isToday ? (
-                        <span className="text-[13px] mt-1 font-bold">🌟</span>
+                        <span className="text-[12px] mt-0.5 font-bold">🌟</span>
                       ) : d.completed ? (
-                        <span className="material-symbols-outlined text-[15px] mt-1 font-bold">check_circle</span>
+                        <span className="material-symbols-outlined text-[14px] mt-0.5 font-bold">check_circle</span>
                       ) : (
-                        <span className="font-body-sm text-body-sm mt-1">•</span>
+                        <span className="font-body-sm text-body-sm mt-0.5">•</span>
                       )}
                     </button>
                   );
@@ -1833,30 +1884,16 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                           <span className="material-symbols-outlined text-[15px]">{task.completed ? 'undo' : 'check'}</span>
                           <span>{task.completed ? 'Mark Undone' : 'Mark Done'}</span>
                         </button>
-                        {!task.isExternalTodo && (
-                          <>
-                            <button
-                              onClick={() => {
-                                handlePostponePriority(task.id, 1);
-                                setActivePriorityMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer text-primary font-medium"
-                            >
-                              <span className="material-symbols-outlined text-[15px]">event_repeat</span>
-                              <span>Postpone to Tomorrow</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                handlePostponePriority(task.id, 7);
-                                setActivePriorityMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer text-primary font-medium"
-                            >
-                              <span className="material-symbols-outlined text-[15px]">next_plan</span>
-                              <span>Shift to Next Week (+7d)</span>
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => {
+                            handlePostponePriority(task.id, 1);
+                            setActivePriorityMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-container flex items-center gap-1.5 cursor-pointer text-primary font-medium"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">event_repeat</span>
+                          <span>Postpone to Tomorrow</span>
+                        </button>
                         <button
                           onClick={() => {
                             handleDeletePriority(task.id, task.isExternalTodo);

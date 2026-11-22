@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_BAZAAR_PERKS, DEFAULT_POINT_RATES, PointRatesConfig, getSeedPriorities } from '../../components/habits/HabitsDashboard';
-import { addDays, startOfWeek } from '../dates';
+import { addDays, startOfWeek, parseLocalDateKey } from '../dates';
 
 describe('Habit Points & Reward System Logic', () => {
   it('has default point reward rates matching specifications', () => {
@@ -184,5 +184,37 @@ describe('Habit Points & Reward System Logic', () => {
     expect(goalsPercent).toBe(67);
     const goalsOffset = 175.9 - (175.9 * (goalsPercent / 100));
     expect(goalsOffset).toBeCloseTo(58.047, 1);
+  });
+
+  it('correctly calculates day-of-month number for week calendar pills', () => {
+    const mondayKey = '2026-11-16';
+    const sundayKey = '2026-11-22';
+    expect(parseLocalDateKey(mondayKey).getDate()).toBe(16);
+    expect(parseLocalDateKey(sundayKey).getDate()).toBe(22);
+  });
+
+  it('ensures postponed tasks disappear from today and appear on tomorrow', () => {
+    const today = '2026-11-22';
+    const tomorrow = '2026-11-23';
+
+    let priorities = [
+      { id: 'p1', text: 'Important task', date: today, completed: false, priority: 'high' as const, time: 'Today' },
+      { id: 'p2', text: 'Other task', date: today, completed: false, priority: 'medium' as const, time: 'Today' },
+    ];
+
+    // Check today before postponement
+    const todayBefore = priorities.filter(p => p.date === today);
+    expect(todayBefore.map(p => p.id)).toEqual(['p1', 'p2']);
+
+    // Postpone p1 to tomorrow
+    priorities = priorities.map(p => p.id === 'p1' ? { ...p, date: tomorrow, time: 'Tomorrow' } : p);
+
+    // Today should only have p2 now (p1 must disappear from today)
+    const todayAfter = priorities.filter(p => p.date === today);
+    expect(todayAfter.map(p => p.id)).toEqual(['p2']);
+
+    // Tomorrow should now contain p1
+    const tomorrowTasks = priorities.filter(p => p.date === tomorrow);
+    expect(tomorrowTasks.map(p => p.id)).toEqual(['p1']);
   });
 });
