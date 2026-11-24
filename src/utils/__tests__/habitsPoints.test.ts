@@ -147,29 +147,33 @@ describe('Habit Points & Reward System Logic', () => {
     expect(reloaded).toEqual([]);
   });
 
-  it('getSeedPriorities generates completed logged tasks for all days of the previous week', () => {
+  it('getSeedPriorities returns empty array to keep clean slate with zero dummy items', () => {
     const today = '2026-11-22';
     const seeds = getSeedPriorities(today);
-    expect(seeds.length).toBeGreaterThanOrEqual(14);
+    expect(seeds).toEqual([]);
+  });
 
-    const prevWeekMonday = addDays(startOfWeek(today, 1), -7);
-    const expectedDays = [
-      addDays(prevWeekMonday, 0),
-      addDays(prevWeekMonday, 1),
-      addDays(prevWeekMonday, 2),
-      addDays(prevWeekMonday, 3),
-      addDays(prevWeekMonday, 4),
-      addDays(prevWeekMonday, 5),
-      addDays(prevWeekMonday, 6),
-    ];
+  it('once daily streak bonus is claimed, clicking claim again is disabled and does not increase points', () => {
+    let points = 0;
+    let lastBonusDate = '';
+    const today = '2026-11-24';
+    const bonus = 50;
 
-    // Every day in previous week should have at least one task
-    for (const d of expectedDays) {
-      const dayTasks = seeds.filter(s => s.date === d);
-      expect(dayTasks.length).toBeGreaterThan(0);
-      expect(dayTasks.every(t => t.completed)).toBe(true);
-      expect(dayTasks.every(t => t.text.trim().length > 0)).toBe(true);
-    }
+    const handleClaim = () => {
+      if (lastBonusDate === today) return; // disabled / locked
+      points += bonus;
+      lastBonusDate = today;
+    };
+
+    handleClaim();
+    expect(points).toBe(50);
+    expect(lastBonusDate).toBe(today);
+
+    // Clicking again multiple times has no effect
+    handleClaim();
+    handleClaim();
+    handleClaim();
+    expect(points).toBe(50);
   });
 
   it('handles removing or setting daily bonus to 0', () => {

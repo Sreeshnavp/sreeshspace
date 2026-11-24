@@ -1169,12 +1169,24 @@ export function saveHabitsList(habits: any[]): void {
   } catch {}
 }
 
+export function isDefaultPerk(p: any): boolean {
+  if (!p) return false;
+  if (typeof p.id === 'string' && (p.id.startsWith('perk-default-') || p.id.startsWith('default-perk-'))) return true;
+  const legacyTitles = ['artisanal coffee or boba', '1 hr guilt-free gaming', 'movie night & favorite snack'];
+  if (typeof p.title === 'string' && legacyTitles.includes(p.title.trim().toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
 export function loadPrioritiesList(): any[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PRIORITIES_LIST);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((p: any) => !p.id?.startsWith('seed-'));
+      }
     }
   } catch {}
   return [];
@@ -1182,7 +1194,8 @@ export function loadPrioritiesList(): any[] {
 
 export function savePrioritiesList(priorities: any[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY_PRIORITIES_LIST, JSON.stringify(priorities || []));
+    const clean = (priorities || []).filter((p: any) => !p.id?.startsWith('seed-'));
+    localStorage.setItem(STORAGE_KEY_PRIORITIES_LIST, JSON.stringify(clean));
   } catch {}
 }
 
@@ -1212,7 +1225,7 @@ export function loadBazaarPerks(): any[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter((p: any) => !p.id?.startsWith('perk-default-'));
+        return parsed.filter((p: any) => !isDefaultPerk(p));
       }
     }
   } catch {}
@@ -1221,7 +1234,7 @@ export function loadBazaarPerks(): any[] {
 
 export function saveBazaarPerks(perks: any[]): void {
   try {
-    const clean = (perks || []).filter((p: any) => !p.id?.startsWith('perk-default-'));
+    const clean = (perks || []).filter((p: any) => !isDefaultPerk(p));
     localStorage.setItem(STORAGE_KEY_BAZAAR_PERKS, JSON.stringify(clean));
   } catch {}
 }

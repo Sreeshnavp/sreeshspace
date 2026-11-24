@@ -44,6 +44,7 @@ import {
   saveGoalArcs,
   loadBazaarPerks,
   saveBazaarPerks,
+  isDefaultPerk,
   loadGlowPoints,
   loadGlowPointsUpdatedAt,
   saveGlowPoints,
@@ -514,12 +515,12 @@ export function mergeVaultData(
     mergedTombstones
   );
 
-  // 17. Today's & Advance Priorities List
+  // 17. Today's & Advance Priorities List (filter out legacy dummy/seed items)
   const localPriorities = (local.settings?.prioritiesList as any[]) || [];
   const remotePriorities = (remote.settings?.prioritiesList as any[]) || [];
   const prioritiesList = mergeItemsById(
-    localPriorities,
-    remotePriorities,
+    localPriorities.filter((p) => !p.id?.startsWith('seed-')),
+    remotePriorities.filter((p) => !p.id?.startsWith('seed-')),
     (p) => new Date(p.updatedAt || p.createdAt || 0).getTime(),
     mergedTombstones
   );
@@ -534,12 +535,12 @@ export function mergeVaultData(
     mergedTombstones
   );
 
-  // 19. Cozy Reward Bazaar Perks
+  // 19. Cozy Reward Bazaar Perks (clean zero defaults, user added only)
   const localPerks = (local.settings?.bazaarPerks as any[]) || [];
   const remotePerks = (remote.settings?.bazaarPerks as any[]) || [];
   const bazaarPerks = mergeItemsById(
-    localPerks.filter((p) => !p.id?.startsWith('perk-default-')),
-    remotePerks.filter((p) => !p.id?.startsWith('perk-default-')),
+    localPerks.filter((p) => !isDefaultPerk(p)),
+    remotePerks.filter((p) => !isDefaultPerk(p)),
     (p) => new Date(p.updatedAt || p.createdAt || 0).getTime(),
     mergedTombstones
   );

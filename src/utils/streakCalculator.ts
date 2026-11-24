@@ -33,10 +33,10 @@ export function computeStreakState(options: StreakCalculatorOptions = {}): Compu
   const today = options.today || todayKey();
   const activeDateSet = new Set<string>();
 
-  // 1. Priorities (completed tasks on their scheduled date)
+  // 1. Priorities (completed tasks on their scheduled date, excluding any legacy dummy/seed items)
   if (options.priorities && options.priorities.length > 0) {
-    options.priorities.forEach((p) => {
-      if (p.completed && p.date) {
+    options.priorities.forEach((p: any) => {
+      if (p.completed && p.date && !p.id?.startsWith('seed-')) {
         activeDateSet.add(p.date);
       }
     });

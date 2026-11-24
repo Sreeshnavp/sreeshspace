@@ -32,6 +32,9 @@ import {
   saveGoalArcs,
   saveBazaarPerks,
   savePointRates,
+  recordTombstone,
+  recordTombstones,
+  isDefaultPerk,
 } from '../../services/storage';
 
 export interface HabitsDashboardProps {
@@ -132,34 +135,9 @@ export const DEFAULT_POINT_RATES: PointRatesConfig = {
   dailyBonusPts: 50,
 };
 
-export function getSeedPriorities(today: string): PriorityTaskDef[] {
-  const prevWeekMonday = addDays(startOfWeek(today, 1), -7);
-  return [
-    // Monday
-    { id: 'seed-pw-mon-1', priority: 'high', time: '09:30 AM', text: 'Finish quarterly systems roadmap & architecture spec', completed: true, date: addDays(prevWeekMonday, 0) },
-    { id: 'seed-pw-mon-2', priority: 'medium', time: '02:00 PM', text: 'Review LinkVault vault sync & state integrity', completed: true, date: addDays(prevWeekMonday, 0) },
-    { id: 'seed-pw-mon-3', priority: 'gentle', time: '06:30 PM', text: 'Evening 30-min mindful recharge walk', completed: true, date: addDays(prevWeekMonday, 0) },
-    // Tuesday
-    { id: 'seed-pw-tue-1', priority: 'high', time: '10:00 AM', text: 'Refactor responsive shell navigation and touch feedback', completed: true, date: addDays(prevWeekMonday, 1) },
-    { id: 'seed-pw-tue-2', priority: 'medium', time: '03:15 PM', text: 'Organize design tokens and typography hierarchy', completed: true, date: addDays(prevWeekMonday, 1) },
-    // Wednesday
-    { id: 'seed-pw-wed-1', priority: 'high', time: '09:00 AM', text: 'Weekly finance reconciliation & expense audit', completed: true, date: addDays(prevWeekMonday, 2) },
-    { id: 'seed-pw-wed-2', priority: 'medium', time: '01:30 PM', text: 'Back up workspace bookmarks & clean archived tags', completed: true, date: addDays(prevWeekMonday, 2) },
-    { id: 'seed-pw-wed-3', priority: 'gentle', time: '08:00 PM', text: 'Read 2 chapters of cognitive architecture paper', completed: true, date: addDays(prevWeekMonday, 2) },
-    // Thursday
-    { id: 'seed-pw-thu-1', priority: 'high', time: '10:30 AM', text: 'Optimize media preloader and feed scroll FPS', completed: true, date: addDays(prevWeekMonday, 3) },
-    { id: 'seed-pw-thu-2', priority: 'medium', time: '04:00 PM', text: 'Prepare presentation notes for team sync', completed: true, date: addDays(prevWeekMonday, 3) },
-    // Friday
-    { id: 'seed-pw-fri-1', priority: 'high', time: '11:00 AM', text: 'Complete weekly sprint retro and wrap-up', completed: true, date: addDays(prevWeekMonday, 4) },
-    { id: 'seed-pw-fri-2', priority: 'medium', time: '04:30 PM', text: 'Archive completed priorities and clean habit log', completed: true, date: addDays(prevWeekMonday, 4) },
-    { id: 'seed-pw-fri-3', priority: 'gentle', time: '07:00 PM', text: 'Order weekly pantry essentials & restock', completed: true, date: addDays(prevWeekMonday, 4) },
-    // Saturday
-    { id: 'seed-pw-sat-1', priority: 'high', time: '08:00 AM', text: 'Long weekend trail hike & nature photography', completed: true, date: addDays(prevWeekMonday, 5) },
-    { id: 'seed-pw-sat-2', priority: 'medium', time: '03:00 PM', text: 'Curate inspiration reels & moodboard bookmarks', completed: true, date: addDays(prevWeekMonday, 5) },
-    // Sunday
-    { id: 'seed-pw-sun-1', priority: 'high', time: '10:00 AM', text: 'Weekly reflection & sanctuary reset', completed: true, date: addDays(prevWeekMonday, 6) },
-    { id: 'seed-pw-sun-2', priority: 'medium', time: '05:00 PM', text: 'Plan upcoming goals and priority schedule', completed: true, date: addDays(prevWeekMonday, 6) },
-  ];
+export function getSeedPriorities(_today?: string): PriorityTaskDef[] {
+  // Pure clean slate: zero fake seed items so streak and days are computed purely from real activity
+  return [];
 }
 
 export const DEFAULT_BAZAAR_PERKS: any[] = [];
@@ -310,12 +288,20 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   // Persistent points and rewards
   const [glowPoints, setGlowPoints] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem(`${HABITS_STORAGE_KEY}-points`);
+      if (localStorage.getItem('orbit_points_reset_zero_v13') !== 'true') {
+        saveGlowPoints(0);
+        localStorage.setItem('orbit_points_reset_zero_v13', 'true');
+        return 0;
+      }
+      const saved = localStorage.getItem(`${HABITS_STORAGE_KEY}-points`) || localStorage.getItem('orbit-habits-points');
       return saved ? parseInt(saved, 10) : 0;
     } catch {
       return 0;
     }
   });
+
+  const pendingTogglesRef = React.useRef<Set<string>>(new Set());
+  const isClaimingBonusRef = React.useRef<boolean>(false);
 
   const updateGlowPoints = (delta: number) => {
     setGlowPoints((prev) => {
@@ -425,7 +411,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const userOnly = parsed.filter((p: any) => !p.id?.startsWith('perk-default-'));
+          const userOnly = parsed.filter((p: any) => !isDefaultPerk(p));
           if (userOnly.length !== parsed.length) {
             try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(userOnly)); } catch {}
           }
@@ -457,24 +443,22 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     return [];
   });
 
-  // Today's & Advance Priorities stored locally (seeded with previous week tasks)
+  // Today's & Advance Priorities stored locally (clean zero dummy/seed items)
   const [prioritiesList, setPrioritiesList] = useState<PriorityTaskDef[]>(() => {
-    const seed = getSeedPriorities(todayKey());
     try {
       const saved = localStorage.getItem('sreesh-priorities-list-v2');
       if (saved) {
         const parsed: PriorityTaskDef[] = JSON.parse(saved);
-        const prevWeekMon = addDays(startOfWeek(todayKey(), 1), -7);
-        const hasPrevWeekTasks = parsed.some(
-          (p) => p.id?.startsWith('seed-pw-') || (p.date && p.date >= prevWeekMon && p.date < startOfWeek(todayKey(), 1))
-        );
-        if (!hasPrevWeekTasks) {
-          return [...seed, ...parsed];
+        if (Array.isArray(parsed)) {
+          const userOnly = parsed.filter((p) => !p.id?.startsWith('seed-'));
+          if (userOnly.length !== parsed.length) {
+            try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(userOnly)); } catch {}
+          }
+          return userOnly;
         }
-        return parsed;
       }
     } catch {}
-    return seed;
+    return [];
   });
 
   // Long-Term Goal Arcs (zero dummy items)
@@ -513,7 +497,12 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         }
 
         const pSaved = localStorage.getItem('sreesh-priorities-list-v2');
-        if (pSaved) setPrioritiesList(JSON.parse(pSaved));
+        if (pSaved) {
+          const parsed = JSON.parse(pSaved);
+          if (Array.isArray(parsed)) {
+            setPrioritiesList(parsed.filter((p: any) => !p.id?.startsWith('seed-')));
+          }
+        }
 
         const gSaved = localStorage.getItem('sreesh-goal-arcs-v2');
         if (gSaved) {
@@ -527,7 +516,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
         if (bSaved) {
           const parsed = JSON.parse(bSaved);
           if (Array.isArray(parsed)) {
-            setBazaarPerks(parsed.filter((p: any) => !p.id?.startsWith('perk-default-')));
+            setBazaarPerks(parsed.filter((p: any) => !isDefaultPerk(p)));
           }
         }
 
@@ -690,7 +679,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const isCompleted = isToday 
         ? habitsDone > 0 || prioritiesDone > 0
         : isPast 
-        ? totalDone > 0 || dateKey < startOfWeek(TODAY, 1) // historical logged seed tasks
+        ? totalDone > 0
         : false;
 
       return {
@@ -713,8 +702,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Toggle daily habit for activeDateKey (awards +habitPts on completion, -habitPts if undone)
   const handleToggleHabit = (id: string) => {
+    if (pendingTogglesRef.current.has(id)) return;
+    pendingTogglesRef.current.add(id);
+
     const targetHabit = habitsList.find((h) => h.id === id);
-    if (!targetHabit) return;
+    if (!targetHabit) {
+      pendingTogglesRef.current.delete(id);
+      return;
+    }
 
     const isCurrentlyDone = isHabitCompletedOnDate(targetHabit, activeDateKey);
     const willBeCompleted = !isCurrentlyDone;
@@ -767,13 +762,23 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       saveHabitsList(next);
     } catch {}
     triggerAutoSync();
+
+    setTimeout(() => {
+      pendingTogglesRef.current.delete(id);
+    }, 200);
   };
 
   // Toggle priority task (awards +priorityPts on completion, -priorityPts if undone)
   const handleTogglePriority = (id: string, isExternal?: boolean) => {
+    if (pendingTogglesRef.current.has(id)) return;
+    pendingTogglesRef.current.add(id);
+
     const pts = pointRates.priorityPts;
     const item = displayPriorities.find((p) => p.id === id) || prioritiesList.find((p) => p.id === id);
-    if (!item) return;
+    if (!item) {
+      pendingTogglesRef.current.delete(id);
+      return;
+    }
 
     const willBeCompleted = !item.completed;
 
@@ -790,6 +795,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     if (isExternal) {
       onToggleTodo(id);
       triggerAutoSync();
+      setTimeout(() => {
+        pendingTogglesRef.current.delete(id);
+      }, 200);
       return;
     }
 
@@ -812,6 +820,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     }
 
     triggerAutoSync();
+
+    setTimeout(() => {
+      pendingTogglesRef.current.delete(id);
+    }, 200);
   };
 
   // Delete priority task
@@ -819,14 +831,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     playPopSound();
     if (isExternal) {
       onDeleteTodo(id);
-      triggerAutoSync();
+      recordTombstone(id).then(() => triggerAutoSync());
       return;
     }
 
     setPrioritiesList((prev) => {
       const next = prev.filter((p) => p.id !== id);
       try { localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(next)); } catch {}
-      triggerAutoSync();
+      savePrioritiesList(next);
       return next;
     });
 
@@ -834,6 +846,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     if (matchingTodo) {
       onDeleteTodo(matchingTodo.id);
     }
+    recordTombstone(id).then(() => triggerAutoSync());
   };
 
   // Postpone priority task to tomorrow (disappears from current date and moves to tomorrow)
@@ -964,29 +977,23 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     triggerAutoSync();
   };
 
-  // Claim or Unclaim daily streak bonus (+dailyBonusPts once per day)
+  // Claim daily streak bonus (+dailyBonusPts once per day)
   const handleClaimBonus = () => {
     const bonus = pointRates.dailyBonusPts;
     if (bonus <= 0) return;
 
     if (hasClaimedTodayBonus) {
-      // Allow unclaiming / resetting bonus
-      playPopSound();
-      updateGlowPoints(-bonus);
-      setLastBonusDate('');
-      try {
-        localStorage.removeItem(`${HABITS_STORAGE_KEY}-bonus-date`);
-        localStorage.removeItem('orbit-habits-v2-bonus-date');
-      } catch {}
-      saveLastBonusDate('');
-      triggerAutoSync();
-      showPointsFeedback(`Reset Daily Streak Bonus (-${bonus} Glow Points)`, -bonus, 'redeem');
+      showPointsFeedback('✓ Daily streak bonus already claimed today! Come back tomorrow for more.', 0, 'earn');
       return;
     }
+
+    if (isClaimingBonusRef.current) return;
+    isClaimingBonusRef.current = true;
 
     if (activeDoneToday === 0) {
       playPopSound();
       showPointsFeedback('🔒 Complete at least 1 habit or priority task today to unlock Streak Bonus!', 0, 'redeem');
+      isClaimingBonusRef.current = false;
       return;
     }
 
@@ -1000,6 +1007,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     triggerAutoSync();
     triggerCelebration();
     showPointsFeedback(`🎉 Claimed +${bonus} Daily Streak Bonus into your Vault!`, bonus, 'earn');
+
+    setTimeout(() => {
+      isClaimingBonusRef.current = false;
+    }, 500);
   };
 
   // Redeem bazaar perk with point deduction & balance check
@@ -1049,9 +1060,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setBazaarPerks((prev) => {
       const next = prev.filter((p) => p.id !== id);
       try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
-      triggerAutoSync();
+      saveBazaarPerks(next);
       return next;
     });
+    recordTombstone(id).then(() => triggerAutoSync());
   };
 
   const handleSavePerk = () => {
@@ -1072,6 +1084,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
             : p
         );
         try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        saveBazaarPerks(next);
         triggerAutoSync();
         return next;
       });
@@ -1089,6 +1102,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       setBazaarPerks((prev) => {
         const next = [...prev, newP];
         try { localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(next)); } catch {}
+        saveBazaarPerks(next);
         triggerAutoSync();
         return next;
       });
@@ -1103,10 +1117,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Clear completed priorities on active date
   const handleClearDone = () => {
+    const doneIds = prioritiesList
+      .filter((p) => (p.date || TODAY) === activeDateKey && p.completed)
+      .map((p) => p.id);
+
     setPrioritiesList((prev) => prev.filter((p) => {
       const pDate = p.date || TODAY;
       return !(pDate === activeDateKey && p.completed);
     }));
+    if (doneIds.length > 0) {
+      recordTombstones(doneIds);
+    }
     if (onArchiveCompletedDaily) {
       onArchiveCompletedDaily(activeDateKey);
     }
@@ -1120,9 +1141,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setHabitsList((prev) => {
       const next = prev.filter((h) => h.id !== id);
       try { localStorage.setItem('sreesh-habits-list-v2', JSON.stringify(next)); } catch {}
-      triggerAutoSync();
+      saveHabitsList(next);
       return next;
     });
+    recordTombstone(id).then(() => triggerAutoSync());
   };
 
   // Delete goal arc
@@ -1131,9 +1153,10 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     setGoalArcs((prev) => {
       const next = prev.filter((g) => g.id !== id);
       try { localStorage.setItem('sreesh-goal-arcs-v2', JSON.stringify(next)); } catch {}
-      triggerAutoSync();
+      saveGoalArcs(next);
       return next;
     });
+    recordTombstone(id).then(() => triggerAutoSync());
   };
 
   // Add new habit or task
@@ -1644,10 +1667,16 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 <span className="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-mint-subtle px-2 py-0.5 rounded-full font-bold">
                   <span>★</span> {
                     weekOffset < 0 
-                      ? '100% Logged' 
+                      ? 'Past Week' 
                       : weekOffset > 0 
                       ? 'Upcoming Plan' 
-                      : (daysConfig.findIndex((d) => d.isToday) >= 5 ? '100% on Mon–Fri' : '100% on Mon–Thu')
+                      : (() => {
+                          const pastAndToday = daysConfig.filter((d) => d.isToday || isBefore(d.dateKey, TODAY));
+                          const completedCount = pastAndToday.filter((d) => d.completed).length;
+                          if (completedCount === 0) return 'Habit Journey';
+                          const pct = Math.round((completedCount / pastAndToday.length) * 100);
+                          return `${pct}% Logged this week`;
+                        })()
                   }
                 </span>
               </div>
@@ -1707,9 +1736,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                         return `${activeConfig.fullName} (Today): ${completedRoutines}/${totalRoutines} done (${focusPercent}%) - Keep glowing!`;
                       }
                       if (activeConfig.completed) {
-                        return `${activeConfig.fullName}: Logged routines (100% ★) · ${formatDisplayDate(activeConfig.dateKey)}`;
+                        return `${activeConfig.fullName}: Logged routines · ${formatDisplayDate(activeConfig.dateKey)}`;
                       }
-                      return `${activeConfig.fullName}: Planned rituals & sanctuary planning · ${formatDisplayDate(activeConfig.dateKey)}`;
+                      return `${activeConfig.fullName}: No rituals logged · ${formatDisplayDate(activeConfig.dateKey)}`;
                     })()}
                   </span>
                 </span>
@@ -2302,16 +2331,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                 <button 
                   id="claim-bonus-btn"
                   onClick={handleClaimBonus}
-                  className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all cursor-pointer ${
+                  disabled={hasClaimedTodayBonus}
+                  className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full font-label-sm text-xs font-bold shadow-sm transition-all ${
                     hasClaimedTodayBonus 
-                      ? 'bg-surface-container-high text-secondary border border-secondary/30 hover:bg-surface-container-highest active:scale-95' 
+                      ? 'bg-surface-container-high text-secondary border border-secondary/30 opacity-90 cursor-default' 
                       : activeDoneToday === 0
-                      ? 'bg-surface-card text-on-surface-variant border border-border-subtle opacity-75 hover:bg-surface-container-high'
-                      : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md'
+                      ? 'bg-surface-card text-on-surface-variant border border-border-subtle opacity-75 hover:bg-surface-container-high cursor-pointer'
+                      : 'bg-primary text-on-primary hover:bg-primary-container hover:scale-105 active:scale-95 shadow-md cursor-pointer'
                   }`}
                   title={
                     hasClaimedTodayBonus 
-                      ? 'Claimed today (Click to unclaim/reset)' 
+                      ? 'Daily streak bonus already claimed for today!' 
                       : activeDoneToday === 0
                       ? `Complete at least 1 habit or priority task today to claim +${pointRates.dailyBonusPts} Streak Bonus`
                       : `Claim +${pointRates.dailyBonusPts} Streak Bonus`
@@ -2539,7 +2569,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   <span className="font-bold text-xs text-primary">✨ Glow Points Vault</span>
                   <span className="text-[10px] text-on-surface-variant">Active</span>
                 </div>
-                <p className="text-xs text-on-surface-variant">You have {glowPoints} points in your vault. 3 perks ready in the bazaar!</p>
+                <p className="text-xs text-on-surface-variant">You have {glowPoints} points in your vault. {bazaarPerks.length} {bazaarPerks.length === 1 ? 'perk' : 'perks'} ready in the bazaar!</p>
               </div>
             </div>
             <button 

@@ -62,6 +62,9 @@ import {
   loadCustomBackground,
   saveCustomBackgroundImage,
   saveBackgroundSettings,
+  saveGlowPoints,
+  saveLastBonusDate,
+  isDefaultPerk,
   STORAGE_KEY_CUSTOM_BG,
   STORAGE_KEY_BG_SETTINGS,
   recordTombstone,
@@ -422,7 +425,7 @@ export function App() {
           await saveActivityEvents(validOnly);
           localStorage.setItem('orbit_clean_slate_v10', 'true');
         }
-        if (localStorage.getItem('orbit_streak_pure_habits_v12') !== 'true') {
+        if (localStorage.getItem('orbit_streak_pure_habits_v13') !== 'true') {
           const zeroStreak: StreakState = {
             currentStreak: 0,
             longestStreak: 0,
@@ -432,7 +435,34 @@ export function App() {
             lastActiveDate: undefined,
           };
           await saveStreakState(zeroStreak);
-          localStorage.setItem('orbit_streak_pure_habits_v12', 'true');
+          localStorage.setItem('orbit_streak_pure_habits_v13', 'true');
+        }
+        if (localStorage.getItem('orbit_points_reset_zero_v13') !== 'true') {
+          saveGlowPoints(0);
+          saveLastBonusDate('');
+          try {
+            localStorage.removeItem('orbit-habits-bonus-date');
+            localStorage.removeItem('orbit-habits-v2-bonus-date');
+            localStorage.removeItem('sreesh-habits-bonus-date');
+            const pRaw = localStorage.getItem('sreesh-priorities-list-v2');
+            if (pRaw) {
+              const pParsed = JSON.parse(pRaw);
+              if (Array.isArray(pParsed)) {
+                const clean = pParsed.filter((p: any) => !p.id?.startsWith('seed-'));
+                localStorage.setItem('sreesh-priorities-list-v2', JSON.stringify(clean));
+              }
+            }
+            const bRaw = localStorage.getItem('sreesh-bazaar-perks-v2');
+            if (bRaw) {
+              const bParsed = JSON.parse(bRaw);
+              if (Array.isArray(bParsed)) {
+                const clean = bParsed.filter((p: any) => !isDefaultPerk(p));
+                localStorage.setItem('sreesh-bazaar-perks-v2', JSON.stringify(clean));
+              }
+            }
+            await recordTombstones(['perk-default-1', 'perk-default-2', 'perk-default-3']);
+          } catch {}
+          localStorage.setItem('orbit_points_reset_zero_v13', 'true');
         }
         await runDataMigration();
         const [
