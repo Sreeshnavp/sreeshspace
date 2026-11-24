@@ -3,6 +3,7 @@ import type { StreakState, ActivityEvent, TodoItem, DayLog } from '../types';
 
 export interface StreakCalculatorOptions {
   today?: string;
+  habits?: Array<{ completedDates?: string[]; completed?: boolean }>;
   priorities?: Array<{ date?: string; completed?: boolean; text?: string }>;
   habitsCompletedToday?: boolean;
   todos?: TodoItem[];
@@ -41,7 +42,18 @@ export function computeStreakState(options: StreakCalculatorOptions = {}): Compu
     });
   }
 
-  // 2. Habits (completed today)
+  // 2. Habits (completed on specific dates or today)
+  if (options.habits && options.habits.length > 0) {
+    options.habits.forEach((h) => {
+      if (Array.isArray(h.completedDates)) {
+        h.completedDates.forEach((d) => {
+          if (d) activeDateSet.add(d);
+        });
+      } else if (h.completed) {
+        activeDateSet.add(today);
+      }
+    });
+  }
   if (options.habitsCompletedToday) {
     activeDateSet.add(today);
   }

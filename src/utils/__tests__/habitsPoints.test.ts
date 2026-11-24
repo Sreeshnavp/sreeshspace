@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_BAZAAR_PERKS, DEFAULT_POINT_RATES, PointRatesConfig, getSeedPriorities } from '../../components/habits/HabitsDashboard';
+import { 
+  DEFAULT_BAZAAR_PERKS, 
+  DEFAULT_POINT_RATES, 
+  PointRatesConfig, 
+  getSeedPriorities, 
+  isHabitCompletedOnDate, 
+  HabitItemDef 
+} from '../../components/habits/HabitsDashboard';
 import { addDays, startOfWeek, parseLocalDateKey } from '../dates';
 
 describe('Habit Points & Reward System Logic', () => {
@@ -310,5 +317,68 @@ describe('Habit Points & Reward System Logic', () => {
     }
     expect(points).toBe(20);
     expect(lastBonusDate).toBe('');
+  });
+
+  it('tracks habit completion strictly on a per-day basis (ticking today does not tick other days, next day is pending to complete)', () => {
+    const day1 = '2026-11-24';
+    const day2 = '2026-11-25';
+    const day3 = '2026-11-26';
+
+    let habit: HabitItemDef = {
+      id: 'h-meditation',
+      title: 'Morning Meditation',
+      detail: '20 min calm focus',
+      emoji: '🧘',
+      badge: '✨ Pending',
+      badgeBg: 'bg-surface-card text-tertiary',
+      bgClass: 'bg-mint-subtle',
+      watermark: 'self_improvement',
+      watermarkColor: 'text-secondary/10',
+      iconBg: 'bg-surface-card',
+      iconColor: 'text-secondary',
+      btnBgDone: 'bg-secondary text-on-secondary',
+      completedDates: [],
+    };
+
+    // Initially pending across all days
+    expect(isHabitCompletedOnDate(habit, day1)).toBe(false);
+    expect(isHabitCompletedOnDate(habit, day2)).toBe(false);
+    expect(isHabitCompletedOnDate(habit, day3)).toBe(false);
+
+    // User ticks habit on Day 1 (today)
+    habit = {
+      ...habit,
+      completedDates: [...(habit.completedDates || []), day1],
+    };
+
+    // Day 1 must now be completed!
+    expect(isHabitCompletedOnDate(habit, day1)).toBe(true);
+
+    // Day 2 (tomorrow/next day) must REMAIN PENDING so the user can complete it on Day 2!
+    expect(isHabitCompletedOnDate(habit, day2)).toBe(false);
+
+    // Day 3 (future day) must ALSO REMAIN PENDING!
+    expect(isHabitCompletedOnDate(habit, day3)).toBe(false);
+
+    // Next day arrives (Day 2): user ticks habit for Day 2
+    habit = {
+      ...habit,
+      completedDates: [...(habit.completedDates || []), day2],
+    };
+
+    // Both Day 1 and Day 2 are completed!
+    expect(isHabitCompletedOnDate(habit, day1)).toBe(true);
+    expect(isHabitCompletedOnDate(habit, day2)).toBe(true);
+    // Day 3 remains pending
+    expect(isHabitCompletedOnDate(habit, day3)).toBe(false);
+
+    // If user unticks Day 2, Day 2 becomes pending again while Day 1 remains completed
+    habit = {
+      ...habit,
+      completedDates: (habit.completedDates || []).filter(d => d !== day2),
+    };
+    expect(isHabitCompletedOnDate(habit, day1)).toBe(true);
+    expect(isHabitCompletedOnDate(habit, day2)).toBe(false);
+    expect(isHabitCompletedOnDate(habit, day3)).toBe(false);
   });
 });

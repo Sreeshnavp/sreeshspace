@@ -69,20 +69,31 @@ function formatDisplayDate(dateKey: string): string {
   }
 }
 
-interface HabitItemDef {
+export interface HabitItemDef {
   id: string;
   title: string;
   detail: string;
   emoji: string;
-  badge: string;
-  badgeBg: string;
+  badge?: string;
+  badgeBg?: string;
   bgClass: string;
   watermark: string;
   watermarkColor: string;
   iconBg: string;
   iconColor: string;
   btnBgDone: string;
-  completed: boolean;
+  completed?: boolean;
+  completedDates?: string[];
+  updatedAt?: string;
+}
+
+export function isHabitCompletedOnDate(habit: HabitItemDef, dateKey?: string): boolean {
+  if (!habit) return false;
+  const targetDate = dateKey || todayKey();
+  if (Array.isArray(habit.completedDates)) {
+    return habit.completedDates.includes(targetDate);
+  }
+  return targetDate === todayKey() ? !!habit.completed : false;
 }
 
 interface GoalArcDef {
@@ -427,11 +438,21 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('high');
 
-  // Daily Habits List (zero dummy items)
+  // Daily Habits List (zero dummy items, with per-date completion tracking)
   const [habitsList, setHabitsList] = useState<HabitItemDef[]>(() => {
     try {
       const saved = localStorage.getItem('sreesh-habits-list-v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((h: any) => ({
+            ...h,
+            completedDates: Array.isArray(h.completedDates)
+              ? h.completedDates
+              : (h.completed ? [todayKey()] : []),
+          }));
+        }
+      }
     } catch {}
     return [];
   });
@@ -479,7 +500,17 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
     const handleSync = () => {
       try {
         const hSaved = localStorage.getItem('sreesh-habits-list-v2');
-        if (hSaved) setHabitsList(JSON.parse(hSaved));
+        if (hSaved) {
+          const parsed = JSON.parse(hSaved);
+          if (Array.isArray(parsed)) {
+            setHabitsList(parsed.map((h: any) => ({
+              ...h,
+              completedDates: Array.isArray(h.completedDates)
+                ? h.completedDates
+                : (h.completed ? [todayKey()] : []),
+            })));
+          }
+        }
 
         const pSaved = localStorage.getItem('sreesh-priorities-list-v2');
         if (pSaved) setPrioritiesList(JSON.parse(pSaved));
@@ -552,7 +583,9 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Combined counts for progress calculation across Habits, Priorities, and Goals
   const totalRoutines = habitsList.length;
-  const completedRoutines = habitsList.filter((h) => h.completed).length;
+  const completedRoutines = useMemo(() => {
+    return habitsList.filter((h) => isHabitCompletedOnDate(h, activeDateKey)).length;
+  }, [habitsList, activeDateKey]);
   const remainingRoutines = totalRoutines - completedRoutines;
   const focusPercent = totalRoutines > 0 ? Math.round((completedRoutines / totalRoutines) * 100) : 0;
   const habitsOffset = 175.9 - (175.9 * (focusPercent / 100));
@@ -590,11 +623,14 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
   const goalsOffset = 175.9 - (175.9 * (goalsPercent / 100));
 
   // Dynamic, proper streak calculation from today backwards
-  const habitsCompletedToday = habitsList.some((h) => h.completed);
+  const habitsCompletedToday = useMemo(() => {
+    return habitsList.some((h) => isHabitCompletedOnDate(h, TODAY));
+  }, [habitsList, TODAY]);
 
   const computedStreak = useMemo(() => {
     return computeStreakState({
       today: TODAY,
+      habits: habitsList,
       priorities: prioritiesList,
       habitsCompletedToday,
       todos,
@@ -603,7 +639,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       frozenDates: streakState?.frozenDates,
       freezesRemaining: streakState?.freezesRemaining,
     });
-  }, [TODAY, prioritiesList, habitsCompletedToday, todos, dayLogs, events, streakState]);
+  }, [TODAY, habitsList, prioritiesList, habitsCompletedToday, todos, dayLogs, events, streakState]);
 
   // Persist accurately computed streak state so all app components stay synced
   useEffect(() => {
@@ -647,48 +683,79 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
       const label = isToday ? d.key : d.short;
       const dayNum = dateKey ? parseLocalDateKey(dateKey).getDate() : '';
 
+      const habitsDone = habitsList.filter((h) => isHabitCompletedOnDate(h, dateKey)).length;
+      const prioritiesDone = prioritiesList.filter((p) => p.completed && p.date === dateKey).length +
+        userDailyTodos.filter((t) => t.completed && t.date === dateKey).length;
+      const totalDone = habitsDone + prioritiesDone;
+      const isCompleted = isToday 
+        ? habitsDone > 0 || prioritiesDone > 0
+        : isPast 
+        ? totalDone > 0 || dateKey < startOfWeek(TODAY, 1) // historical logged seed tasks
+        : false;
+
       return {
         key: d.key,
         dateKey,
         label,
         dayNum,
         isToday,
-        completed: isPast,
-        icon: isToday ? '🌟' : isPast ? 'check_circle' : '•',
+        completed: isCompleted,
+        icon: isToday ? '🌟' : isCompleted ? 'check_circle' : '•',
         fullName: d.full,
         desc: isToday
-          ? `${d.full} (Today, ${dayNum}): ${completedRoutines} of ${totalRoutines} completed (${focusPercent}%)`
+          ? `${d.full} (Today, ${dayNum}): ${habitsDone} of ${totalRoutines} completed (${totalRoutines > 0 ? Math.round((habitsDone / totalRoutines) * 100) : 0}%)`
           : isPast
-          ? `${d.full} (${dayNum}): Logged routines (100% ★) · ${formatDisplayDate(dateKey)}`
+          ? `${d.full} (${dayNum}): ${totalDone > 0 ? `${habitsDone} habits, ${prioritiesDone} priorities logged ★` : 'No rituals logged'} · ${formatDisplayDate(dateKey)}`
           : `${d.full} (${dayNum}): Upcoming rituals & planning · ${formatDisplayDate(dateKey)}`,
       };
     });
-  }, [dayDateMap, TODAY, completedRoutines, totalRoutines, focusPercent]);
+  }, [dayDateMap, TODAY, habitsList, prioritiesList, userDailyTodos, totalRoutines]);
 
-  // Toggle daily habit (awards +habitPts on completion, -habitPts if undone)
+  // Toggle daily habit for activeDateKey (awards +habitPts on completion, -habitPts if undone)
   const handleToggleHabit = (id: string) => {
     const targetHabit = habitsList.find((h) => h.id === id);
     if (!targetHabit) return;
-    const willBeCompleted = !targetHabit.completed;
+
+    const isCurrentlyDone = isHabitCompletedOnDate(targetHabit, activeDateKey);
+    const willBeCompleted = !isCurrentlyDone;
     const pts = pointRates.habitPts;
 
     if (willBeCompleted) {
       triggerCelebration();
       updateGlowPoints(pts);
-      showPointsFeedback(`🌟 Completed "${targetHabit.title || 'Habit'}"! +${pts} Glow Points!`, pts, 'earn');
+      showPointsFeedback(
+        `🌟 Completed "${targetHabit.title || 'Habit'}" for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)}! +${pts} Glow Points!`,
+        pts,
+        'earn'
+      );
     } else {
       playPopSound();
       updateGlowPoints(-pts);
-      showPointsFeedback(`Marked "${targetHabit.title || 'Habit'}" pending (-${pts} Glow Points)`, -pts, 'redeem');
+      showPointsFeedback(
+        `Marked "${targetHabit.title || 'Habit'}" pending for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)} (-${pts} Glow Points)`,
+        -pts,
+        'redeem'
+      );
     }
 
     const next = habitsList.map((h) => {
       if (h.id === id) {
+        const currentDates = Array.isArray(h.completedDates)
+          ? [...h.completedDates]
+          : (h.completed ? [TODAY] : []);
+
+        const updatedDates = willBeCompleted
+          ? Array.from(new Set([...currentDates, activeDateKey]))
+          : currentDates.filter((d) => d !== activeDateKey);
+
+        const isDoneToday = updatedDates.includes(TODAY);
+
         return {
           ...h,
-          completed: willBeCompleted,
-          badge: willBeCompleted ? 'Completed!' : '✨ Pending',
-          badgeBg: willBeCompleted ? h.btnBgDone : 'bg-surface-card text-tertiary',
+          completedDates: updatedDates,
+          completed: isDoneToday,
+          badge: isDoneToday ? 'Completed!' : '✨ Pending',
+          badgeBg: isDoneToday ? h.btnBgDone : 'bg-surface-card text-tertiary',
           updatedAt: new Date().toISOString(),
         };
       }
@@ -829,7 +896,7 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
 
   // Active completed tasks/rituals for today (determines streak bonus eligibility)
   const activeDoneToday = useMemo(() => {
-    const doneHabits = habitsList.filter((h) => h.completed).length;
+    const doneHabits = habitsList.filter((h) => isHabitCompletedOnDate(h, TODAY)).length;
     const donePriorities = displayPriorities.filter((p) => p.completed && (p.date || TODAY) === TODAY).length;
     return doneHabits + donePriorities;
   }, [habitsList, displayPriorities, TODAY]);
@@ -1147,6 +1214,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
           iconColor: theme.iconColor,
           btnBgDone: theme.btnBgDone,
           completed: false,
+          completedDates: [],
+          updatedAt: new Date().toISOString(),
         };
 
         setHabitsList((prev) => {
@@ -1517,8 +1586,8 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                         ? `${goalsPercent}% achieved across ${totalGoals} active goal arc${totalGoals > 1 ? 's' : ''} (${completedMilestones}/${totalMilestones} milestones done)`
                         : 'No long-term goals yet. Tap + New Goal below to define your vision!'
                       : remainingRoutines > 0
-                      ? 'One tiny ritual left to complete your gold ring!'
-                      : 'All rituals complete! You have achieved your gold ring! 🎉'}
+                      ? `${remainingRoutines} ritual${remainingRoutines > 1 ? 's' : ''} left for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)} to complete your ring!`
+                      : `All rituals complete for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)}! Gold ring unlocked! 🎉`}
                   </p>
                 </div>
                 <span className={`font-label-sm text-label-sm font-bold ${
@@ -1701,121 +1770,125 @@ export const HabitsDashboard: React.FC<HabitsDashboardProps> = ({
                   <p>Tap + below or Organize to add your first intentional habit!</p>
                 </div>
               )}
-              {habitsList.map((habit) => (
-                <div 
-                  key={habit.id}
-                  onClick={() => handleToggleHabit(habit.id)}
-                  className={`habit-item relative ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle cursor-pointer select-none active:scale-[0.99] hover:shadow-md ${
-                    activeHabitMenuId === habit.id ? 'z-50' : 'z-0'
-                  }`}
-                  title={habit.completed ? 'Click anywhere to mark pending' : 'Click anywhere to mark completed!'}
-                >
-                  {/* Isolated Watermark container with overflow-hidden so the dropdown never gets clipped */}
-                  <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none select-none">
-                    <div className={`absolute -right-3 -bottom-4 ${habit.watermarkColor}`}>
-                      <span className="material-symbols-outlined text-[80px]">{habit.watermark}</span>
-                    </div>
-                  </div>
-                  <div className="relative z-10 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-12 h-12 rounded-2xl ${habit.iconBg} ${habit.iconColor} flex items-center justify-center shrink-0 shadow-sm`}>
-                        <span className="text-xl">{habit.emoji}</span>
+              {habitsList.map((habit) => {
+                const isCompletedForActiveDate = isHabitCompletedOnDate(habit, activeDateKey);
+
+                return (
+                  <div 
+                    key={habit.id}
+                    onClick={() => handleToggleHabit(habit.id)}
+                    className={`habit-item relative ${habit.bgClass} rounded-2xl p-space-md transition-all duration-300 shadow-sm border border-border-subtle cursor-pointer select-none active:scale-[0.99] hover:shadow-md ${
+                      activeHabitMenuId === habit.id ? 'z-50' : 'z-0'
+                    }`}
+                    title={isCompletedForActiveDate ? 'Click anywhere to mark pending' : 'Click anywhere to mark completed!'}
+                  >
+                    {/* Isolated Watermark container with overflow-hidden so the dropdown never gets clipped */}
+                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none select-none">
+                      <div className={`absolute -right-3 -bottom-4 ${habit.watermarkColor}`}>
+                        <span className="material-symbols-outlined text-[80px]">{habit.watermark}</span>
                       </div>
-                      <div className="min-w-0 flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-headline-sm text-headline-sm truncate font-fraunces">
-                            {habit.title}
-                          </span>
-                          <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full font-label-sm text-[10px] font-bold ${
-                            habit.completed ? habit.badgeBg : 'bg-surface-card text-tertiary'
-                          }`}>
-                            {habit.badge}
+                    </div>
+                    <div className="relative z-10 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-12 h-12 rounded-2xl ${habit.iconBg} ${habit.iconColor} flex items-center justify-center shrink-0 shadow-sm`}>
+                          <span className="text-xl">{habit.emoji}</span>
+                        </div>
+                        <div className="min-w-0 flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-headline-sm text-headline-sm truncate font-fraunces">
+                              {habit.title}
+                            </span>
+                            <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full font-label-sm text-[10px] font-bold ${
+                              isCompletedForActiveDate ? habit.btnBgDone : 'bg-surface-card text-tertiary'
+                            }`}>
+                              {isCompletedForActiveDate ? 'Completed!' : '✨ Pending'}
+                            </span>
+                          </div>
+                          <span className="font-body-sm text-body-sm opacity-80 truncate">
+                            {habit.detail}
                           </span>
                         </div>
-                        <span className="font-body-sm text-body-sm opacity-80 truncate">
-                          {habit.detail}
-                        </span>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* Combined Edit & Delete dropdown trigger (small single button) */}
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <button
+                      
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Combined Edit & Delete dropdown trigger (small single button) */}
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playPopSound();
+                              setActiveHabitMenuId(activeHabitMenuId === habit.id ? null : habit.id);
+                            }}
+                            className="w-7 h-7 rounded-full bg-surface-card/70 hover:bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer shadow-2xs"
+                            title="Habit Options (Edit / Delete)"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                          </button>
+
+                          {activeHabitMenuId === habit.id && (
+                            <>
+                              <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActiveHabitMenuId(null)} />
+                              <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[140px] text-xs space-y-1 animate-in fade-in zoom-in-95">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playPopSound();
+                                    setActiveHabitMenuId(null);
+                                    setEditingHabit(habit);
+                                    setAddMode('routine');
+                                    setNewTaskInput(habit.title);
+                                    setNewRoutineDetail(habit.detail);
+                                    setNewRoutineEmoji(habit.emoji);
+                                    setIsAddModalOpen(true);
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-lavender-subtle hover:text-primary flex items-center gap-1.5 cursor-pointer font-medium"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">edit</span>
+                                  <span>Edit Habit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playPopSound();
+                                    setActiveHabitMenuId(null);
+                                    handleDeleteHabit(habit.id);
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-peach-subtle hover:text-tertiary flex items-center gap-1.5 cursor-pointer text-tertiary font-medium"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">delete</span>
+                                  <span>Delete Habit</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Tick / Mark complete button at the very END */}
+                        <button 
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            playPopSound();
-                            setActiveHabitMenuId(activeHabitMenuId === habit.id ? null : habit.id);
+                            handleToggleHabit(habit.id);
                           }}
-                          className="w-7 h-7 rounded-full bg-surface-card/70 hover:bg-surface-card flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer shadow-2xs"
-                          title="Habit Options (Edit / Delete)"
+                          className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
+                            isCompletedForActiveDate 
+                              ? habit.btnBgDone 
+                              : 'bg-surface-card text-tertiary border border-border-subtle hover:border-primary/50'
+                          }`}
+                          title={isCompletedForActiveDate ? `Completed for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)} (Click to uncomplete)` : `Mark complete for ${activeDateKey === TODAY ? 'today' : formatDisplayDate(activeDateKey)}`}
                         >
-                          <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                          <span className="material-symbols-outlined text-[20px]">
+                            {isCompletedForActiveDate ? 'check' : 'radio_button_unchecked'}
+                          </span>
                         </button>
-
-                        {activeHabitMenuId === habit.id && (
-                          <>
-                            <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActiveHabitMenuId(null)} />
-                            <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface-card rounded-2xl shadow-2xl border border-border-subtle p-1.5 min-w-[140px] text-xs space-y-1 animate-in fade-in zoom-in-95">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  playPopSound();
-                                  setActiveHabitMenuId(null);
-                                  setEditingHabit(habit);
-                                  setAddMode('routine');
-                                  setNewTaskInput(habit.title);
-                                  setNewRoutineDetail(habit.detail);
-                                  setNewRoutineEmoji(habit.emoji);
-                                  setIsAddModalOpen(true);
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-lavender-subtle hover:text-primary flex items-center gap-1.5 cursor-pointer font-medium"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">edit</span>
-                                <span>Edit Habit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  playPopSound();
-                                  setActiveHabitMenuId(null);
-                                  handleDeleteHabit(habit.id);
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-peach-subtle hover:text-tertiary flex items-center gap-1.5 cursor-pointer text-tertiary font-medium"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">delete</span>
-                                <span>Delete Habit</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
-
-                      {/* Tick / Mark complete button at the very END */}
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleHabit(habit.id);
-                        }}
-                        className={`habit-toggle w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm active:scale-90 transition-transform cursor-pointer ${
-                          habit.completed 
-                            ? habit.btnBgDone 
-                            : 'bg-surface-card text-tertiary border border-border-subtle hover:border-primary/50'
-                        }`}
-                        title={habit.completed ? 'Completed' : 'Mark complete'}
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          {habit.completed ? 'check' : 'radio_button_unchecked'}
-                        </span>
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
